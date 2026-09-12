@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgRole {
+  CUSTOMER
+  AGENT
+  CARRIER
+  SLOT_PROVIDER
+  DEPOT
+  TERMINAL
+  TRUCKER
+  BROKER
+  VENDOR
+  ANCLINE_BRANCH
+}
+
+enum BookingStatus {
+  DRAFT
+  RATE_REQUESTED
+  RATE_RECEIVED
+  RATE_APPROVED
+  QUOTE_SENT
+  CUSTOMER_ACCEPTED
+  BOOKING_REQUESTED
+  CREDIT_CHECK
+  EQUIPMENT_CHECK
+  SLOT_CHECK
+  AGENT_ACCEPTANCE
+  CARRIER_CONFIRMATION
+  FINAL_APPROVAL
+  CONFIRMED
+  OPERATIONAL
+  COMPLETED
+  FINANCIALLY_CLOSED
+}
+
+enum FinanceType {
+  REVENUE
+  COST
+}
+
+enum FinanceStatus {
+  PLANNED
+  WIP
+  ACCRUED
+  POSTED
+  APPROVAL_PENDING
+  APPROVED
+  PAYABLE
+  PAYMENT_SCHEDULED
+  PART_PAID
+  PAID
+  CLEARED
+  FINAL
+  DISPUTED
+  CANCELLED
+}
+
+model Branch {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  countryCode String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserAccount {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  displayName String
+  role       String
+  branchId   String?
+  agentId    String?
+  customerId String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Organization {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  roles           OrgRole[]
+  countryCode     String?
+  active          Boolean  @default(true)
+  customersOwned  Booking[] @relation("CustomerBookings")
+  agentBookings   Booking[] @relation("AgentBookings")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RateQuote {
+  id           String   @id @default(cuid())
+  quoteNo      String   @unique
+  customerId   String
+  trade        String
+  equipment    String
+  buyRate      Decimal  @db.Decimal(18,2)
+  sellRate     Decimal  @db.Decimal(18,2)
+  currency     String
+  validFrom    DateTime
+  validTo      DateTime
+  status       String
+  source       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Booking {
+  owningBranchId   String?
+  id               String        @id @default(cuid())
+  bookingNo        String        @unique
+  customerId       String
+  producingAgentId String?
+  origin           String
+  destination      String
+  etd              DateTime?
+  eta              DateTime?
+  carrier          String?
+  vesselVoyage     String?
+  equipment        String?
+  currency         String        @default("USD")
+  status           BookingStatus @default(DRAFT)
+  creditStatus     String?
+  slotStatus       String?
+  equipmentStatus  String?
+  specialCargo     String?
+  notes            String?
+  customer         Organization  @relation("CustomerBookings", fields:[customerId], references:[id])
+  producingAgent   Organization? @relation("AgentBookings", fields:[producingAgentId], references:[id])
+  documents        Document[]
+  containers       Container[]
+  financeLines     FinanceLine[]
+  tasks            Task[]
+  approvals        Approval[]
+  auditEvents      AuditEvent[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Document {
+  id             String   @id @default(cuid())
+  documentNo     String   @unique
+  bookingId      String
+  type           String
+  version        Int      @default(1)
+  status         String
+  releaseControl String?
+  fileKey        String?
+  booking        Booking  @relation(fields:[bookingId], references:[id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Container {
+  id          String   @id @default(cuid())
+  containerNo String   @unique
+  bookingId   String?
+  type        String
+  ownership   String
+  status      String
+  location    String?
+  booking     Booking? @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FinanceLine {
+  id         String        @id @default(cuid())
+  bookingId  String
+  type       FinanceType
+  chargeCode String
+  partyId    String?
+  amount     Decimal       @db.Decimal(18,2)
+  currency   String
+  status     FinanceStatus @default(PLANNED)
+  source     String?
+  booking    Booking       @relation(fields:[bookingId], references:[id])
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  bookingId String?
+  title     String
+  ownerId   String?
+  dueAt     DateTime?
+  status    String
+  slaState  String?
+  booking   Booking? @relation(fields:[bookingId], references:[id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Approval {
+  id          String   @id @default(cuid())
+  bookingId   String?
+  type        String
+  requesterId String
+  approverId  String
+  status      String
+  reason      String?
+  booking     Booking? @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  bookingId String?
+  actorId   String
+  action    String
+  objectType String
+  objectId  String
+  detail    Json?
+  booking   Booking? @relation(fields:[bookingId], references:[id])
+  createdAt DateTime @default(now())
+}

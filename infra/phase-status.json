@@ -1,0 +1,15 @@
+{
+  "project": "ANCLINE WORLDWIDE ERP",
+  "phase": 7,
+  "status": "DEPLOYMENT_HANDOFF_READY",
+  "prototype": "FUNCTIONALLY_COMPLETE",
+  "production_code": "STAGING_DEPLOYABLE",
+  "public_staging": "BLOCKED_EXTERNAL_INPUTS",
+  "blockers": [
+    "Confirmed Render workspace for resource creation",
+    "Git repository URL Render can clone",
+    "Managed OIDC provider credentials",
+    "Object storage credentials/configuration",
+    "DNS/TLS configuration"
+  ]
+}

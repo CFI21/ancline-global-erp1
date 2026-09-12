@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: ancline-api-staging
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    healthCheckPath: /api/observability/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: OIDC_ISSUER
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OBJECT_STORAGE_PROVIDER
+        value: s3
+      - key: OBJECT_STORAGE_BUCKET
+        sync: false
+      - key: OBJECT_STORAGE_REGION
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: ancline-web-staging
+    runtime: docker
+    dockerfilePath: ./apps/web/Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+databases:
+  - name: ancline-postgres-staging
+    databaseName: ancline_staging
+    user: ancline

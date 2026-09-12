@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ancline
+      POSTGRES_USER: ancline
+      POSTGRES_PASSWORD: ancline
+    ports:
+      - "5432:5432"
+    volumes:
+      - ancline_pg:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+volumes:
+  ancline_pg:

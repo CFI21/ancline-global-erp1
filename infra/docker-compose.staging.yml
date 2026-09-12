@@ -1,0 +1,55 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    env_file: staging.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports: ["4000:4000"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD","wget","-qO-","http://localhost:4000/api/observability/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    env_file: staging.env
+    depends_on:
+      api:
+        condition: service_healthy
+    ports: ["3000:3000"]
+    restart: unless-stopped
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ancline_staging
+      POSTGRES_USER: ancline
+      POSTGRES_PASSWORD: change-me
+    volumes: [ancline_staging_pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U ancline -d ancline_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["8080:80"]
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_healthy
+volumes:
+  ancline_staging_pg:

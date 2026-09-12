@@ -1,0 +1,1 @@
+export default function Page(){return <main style={{padding:24}}><h1>My Work</h1><p>Production Phase 1 workspace scaffold. API/data wiring is being added module-by-module.</p><a href="/">← Control Tower</a></main>}

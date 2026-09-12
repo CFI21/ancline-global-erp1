@@ -1,0 +1,21 @@
+{
+  "name": "ancline-worldwide-erp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/web\" \"npm run start:dev -w apps/api\"",
+    "build": "npm run build -w apps/web && npm run build -w apps/api",
+    "db:generate": "npm run prisma:generate -w packages/db",
+    "db:migrate": "npm run prisma:migrate -w packages/db",
+    "db:studio": "npm run prisma:studio -w packages/db",
+    "test": "npm run test:ci -w apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "typescript": "^5.6.0"
+  }
+}
