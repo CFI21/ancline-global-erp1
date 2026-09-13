@@ -48,10 +48,13 @@ export class BookingsService {
     if(!existing) throw new BadRequestException('Booking not found');
 
     const allowed=[
-      'bookingNo','customerId','producingAgentId','owningBranchId','bookingType','transportMode','serviceType',
-      'shipper','consignee','notifyParty','origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery',
-      'polAgent','podAgent','etd','eta','carrier','vesselVoyage','equipment','quantity','containerOwner','throughBL','commodity',
-      'cargoDescription','incoterm','currency','specialCargo','notes','creditStatus','slotStatus','equipmentStatus','status'
+      'bookingNo','customerId','producingAgentId','owningBranchId','bookingType','transportMode','serviceType','bookingDate',
+      'customerReference','shipperReference','carrierBookingNo','houseBL','masterBL','shipper','consignee','notifyParty',
+      'origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery','transshipmentPort','terminal',
+      'polAgent','podAgent','etd','eta','atd','ata','cyClosing','siCutoff','vgmCutoff','docCutoff','portCutoff',
+      'carrier','vesselVoyage','equipment','quantity','containerOwner','throughBL','commodity','packageCount','packageType',
+      'grossWeight','netWeight','volumeCbm','marksNumbers','hsCode','cargoDescription','incoterm','freightTerms','currency',
+      'specialCargo','notes','creditStatus','slotStatus','equipmentStatus','status'
     ];
     const data:any={};
     for(const key of allowed){ if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=body[key]; }
@@ -79,7 +82,13 @@ export class BookingsService {
         type:String(body.type),
         ownership:String(body.ownership || 'CARRIER'),
         status:String(body.status || 'PLANNED'),
-        location:body.location ? String(body.location) : null
+        location:body.location ? String(body.location) : null,
+        sealNo:body.sealNo ? String(body.sealNo) : null,
+        vgm:body.vgm !== '' && body.vgm != null ? Number(body.vgm) : null,
+        grossWeight:body.grossWeight !== '' && body.grossWeight != null ? Number(body.grossWeight) : null,
+        pickupDate:body.pickupDate ? new Date(body.pickupDate) : null,
+        emptyDepot:body.emptyDepot ? String(body.emptyDepot) : null,
+        fullReturnTerminal:body.fullReturnTerminal ? String(body.fullReturnTerminal) : null
       }
     });
     await this.audit.log({actorId:user.sub,action:'CONTAINER_ADD',objectType:'Container',objectId:row.id,bookingId:id,detail:{containerNo:row.containerNo,type:row.type}});
@@ -92,8 +101,13 @@ export class BookingsService {
     const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
     if(!current) throw new BadRequestException('Container not found');
     const data:any={};
-    for(const key of ['containerNo','type','ownership','status','location']){
-      if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=key==='containerNo' ? String(body[key]).trim().toUpperCase() : body[key];
+    const allowed=['containerNo','type','ownership','status','location','sealNo','vgm','grossWeight','pickupDate','emptyDepot','fullReturnTerminal'];
+    for(const key of allowed){
+      if(!Object.prototype.hasOwnProperty.call(body,key)) continue;
+      if(key==='containerNo') data[key]=String(body[key]).trim().toUpperCase();
+      else if(key==='vgm'||key==='grossWeight') data[key]=body[key]!==''&&body[key]!=null?Number(body[key]):null;
+      else if(key==='pickupDate') data[key]=body[key]?new Date(body[key]):null;
+      else data[key]=body[key]||null;
     }
     const updated=await this.prisma.container.update({where:{id:containerId},data});
     await this.audit.log({actorId:user.sub,action:'CONTAINER_UPDATE',objectType:'Container',objectId:containerId,bookingId:id,detail:{changedFields:Object.keys(data)}});
