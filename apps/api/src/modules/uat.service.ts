@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
+
 type StepResult = {
   name: string;
   status: 'PASS' | 'FAIL';
