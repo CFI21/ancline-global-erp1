@@ -1,0 +1,51 @@
+{
+  "phase": 6,
+  "status": "STAGING_READY_NOT_DEPLOYED",
+  "mandatory": [
+    {
+      "id": "OIDC",
+      "description": "Managed OIDC configured",
+      "pass": false
+    },
+    {
+      "id": "DB",
+      "description": "Managed PostgreSQL provisioned",
+      "pass": false
+    },
+    {
+      "id": "REDIS",
+      "description": "Managed Redis provisioned",
+      "pass": false
+    },
+    {
+      "id": "STORAGE",
+      "description": "Object storage provisioned",
+      "pass": false
+    },
+    {
+      "id": "DNS_TLS",
+      "description": "Staging DNS/TLS configured",
+      "pass": false
+    },
+    {
+      "id": "MIGRATION",
+      "description": "Staging migrations applied",
+      "pass": false
+    },
+    {
+      "id": "UAT",
+      "description": "UAT matrix passed",
+      "pass": false
+    },
+    {
+      "id": "BACKUP_RESTORE",
+      "description": "Backup/restore drill passed",
+      "pass": false
+    },
+    {
+      "id": "SECURITY",
+      "description": "Security scan passed",
+      "pass": false
+    }
+  ]
+}

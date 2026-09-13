@@ -1,0 +1,47 @@
+{
+  "project": "ANCLINE WORLDWIDE ERP",
+  "phase": 9,
+  "status": "SOURCE_READY_FOR_STAGING_DEPLOYMENT",
+  "prototype": "FUNCTIONALLY_COMPLETE",
+  "production_code": "STAGING_DEPLOYABLE",
+  "public_staging": "BLOCKED_EXTERNAL_INPUTS",
+  "blockers": [
+    "Confirmed Render workspace for resource creation",
+    "Git repository URL Render can clone",
+    "Managed OIDC provider credentials",
+    "Object storage credentials/configuration",
+    "DNS/TLS configuration"
+  ],
+  "name": "Operations, Fleet & Finance Deepening",
+  "productionStatus": "IN PROGRESS",
+  "stagingStatus": "LIVE - bookings workspace upgrade package prepared",
+  "completed": [
+    "Live Render web/API deployment",
+    "Postgres connectivity",
+    "Bookings list workspace",
+    "Booking create workflow",
+    "Booking detail workspace",
+    "Booking controls",
+    "Job P&L view",
+    "Documents/tasks/approvals/audit booking panels"
+  ],
+  "next": [
+    "Deploy Phase 8 source to GitHub",
+    "Run UAT seed if staging is empty",
+    "Connect Redis URL",
+    "Deepen Service/Voyage, Allocation and Container Fleet"
+  ],
+  "public_staging_current": "Phase 7/8 deployment remains live until Phase 9 source is committed",
+  "modules_added": [
+    "Service/Voyage",
+    "Allocation Ledger",
+    "Booking Legs",
+    "Container Event Ledger",
+    "DG/OOG Controls",
+    "BL Lineage",
+    "Manifest",
+    "WIP/Accrual",
+    "CRT"
+  ],
+  "deployment_blocker": "GitHub write connector unavailable in current session; commit/upload required before Render auto-deploy"
+}

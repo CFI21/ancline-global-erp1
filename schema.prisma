@@ -1,0 +1,910 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgRole {
+  CUSTOMER
+  AGENT
+  CARRIER
+  SLOT_PROVIDER
+  DEPOT
+  TERMINAL
+  TRUCKER
+  BROKER
+  VENDOR
+  ANCLINE_BRANCH
+}
+
+enum BookingStatus {
+  DRAFT
+  RATE_REQUESTED
+  RATE_RECEIVED
+  RATE_APPROVED
+  QUOTE_SENT
+  CUSTOMER_ACCEPTED
+  BOOKING_REQUESTED
+  CREDIT_CHECK
+  EQUIPMENT_CHECK
+  SLOT_CHECK
+  AGENT_ACCEPTANCE
+  CARRIER_CONFIRMATION
+  FINAL_APPROVAL
+  CONFIRMED
+  OPERATIONAL
+  COMPLETED
+  FINANCIALLY_CLOSED
+}
+
+enum FinanceType {
+  REVENUE
+  COST
+}
+
+enum FinanceStatus {
+  PLANNED
+  WIP
+  ACCRUED
+  POSTED
+  APPROVAL_PENDING
+  APPROVED
+  PAYABLE
+  PAYMENT_SCHEDULED
+  PART_PAID
+  PAID
+  CLEARED
+  FINAL
+  DISPUTED
+  CANCELLED
+}
+
+model Branch {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  countryCode String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserAccount {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  displayName String
+  role       String
+  branchId   String?
+  agentId    String?
+  customerId String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Organization {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  roles           OrgRole[]
+  countryCode     String?
+  active          Boolean  @default(true)
+  customersOwned  Booking[] @relation("CustomerBookings")
+  agentBookings   Booking[] @relation("AgentBookings")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RateQuote {
+  id           String   @id @default(cuid())
+  quoteNo      String   @unique
+  customerId   String
+  trade        String
+  equipment    String
+  buyRate      Decimal  @db.Decimal(18,2)
+  sellRate     Decimal  @db.Decimal(18,2)
+  currency     String
+  validFrom    DateTime
+  validTo      DateTime
+  status       String
+  source       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Booking {
+  owningBranchId   String?
+  id               String        @id @default(cuid())
+  bookingNo        String        @unique
+  customerId       String
+  producingAgentId String?
+  origin           String
+  destination      String
+  etd              DateTime?
+  eta              DateTime?
+  carrier          String?
+  vesselVoyage     String?
+  equipment        String?
+  currency         String        @default("USD")
+  status           BookingStatus @default(DRAFT)
+  creditStatus     String?
+  slotStatus       String?
+  equipmentStatus  String?
+  specialCargo     String?
+  notes            String?
+  customer         Organization  @relation("CustomerBookings", fields:[customerId], references:[id])
+  producingAgent   Organization? @relation("AgentBookings", fields:[producingAgentId], references:[id])
+  documents        Document[]
+  containers       Container[]
+  financeLines     FinanceLine[]
+  tasks            Task[]
+  approvals        Approval[]
+  auditEvents      AuditEvent[]
+  legs             BookingLeg[]
+  dgDeclarations   DGDeclaration[]
+  oogProfiles      OOGProfile[]
+  billsOfLading    BillOfLading[]
+  manifests        ManifestItem[]
+  equipmentReleases EquipmentReleaseOrder[]
+  agentAssignments PortAgentAssignment[]
+  operationalExceptions OperationalException[]
+  transportOrders   TransportOrder[]
+  customsDeclarations CustomsDeclaration[]
+  warehouseJobs     WarehouseJob[]
+  trackingMilestones TrackingMilestone[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Document {
+  id             String   @id @default(cuid())
+  documentNo     String   @unique
+  bookingId      String
+  type           String
+  version        Int      @default(1)
+  status         String
+  releaseControl String?
+  fileKey        String?
+  booking        Booking  @relation(fields:[bookingId], references:[id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Container {
+  id          String   @id @default(cuid())
+  containerNo String   @unique
+  bookingId   String?
+  type        String
+  ownership   String
+  status      String
+  location    String?
+  booking     Booking? @relation(fields:[bookingId], references:[id])
+  events      ContainerEvent[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FinanceLine {
+  id         String        @id @default(cuid())
+  bookingId  String
+  type       FinanceType
+  chargeCode String
+  partyId    String?
+  amount     Decimal       @db.Decimal(18,2)
+  currency   String
+  status     FinanceStatus @default(PLANNED)
+  source     String?
+  serviceProviderId String?
+  billingPartyId    String?
+  expectedAmount Decimal? @db.Decimal(18,2)
+  finalAmount    Decimal? @db.Decimal(18,2)
+  booking    Booking       @relation(fields:[bookingId], references:[id])
+  crtLines   CostRevenueTransactionLine[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  bookingId String?
+  title     String
+  ownerId   String?
+  dueAt     DateTime?
+  status    String
+  slaState  String?
+  booking   Booking? @relation(fields:[bookingId], references:[id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Approval {
+  id          String   @id @default(cuid())
+  bookingId   String?
+  type        String
+  requesterId String
+  approverId  String
+  status      String
+  reason      String?
+  booking     Booking? @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  bookingId String?
+  actorId   String
+  action    String
+  objectType String
+  objectId  String
+  detail    Json?
+  booking   Booking? @relation(fields:[bookingId], references:[id])
+  createdAt DateTime @default(now())
+}
+
+
+enum AllocationStatus {
+  OPEN
+  PROTECTED
+  FULL
+  CLOSED
+}
+
+enum ContainerEventType {
+  GATE_IN
+  GATE_OUT
+  EMPTY_RELEASE
+  PICKUP
+  LOAD
+  DISCHARGE
+  TRANSSHIP
+  RETURN
+  REPAIR
+  DAMAGE
+  REPOSITION
+  CORRECTION
+}
+
+model CommercialService {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  trade       String
+  frequency   String?
+  active      Boolean  @default(true)
+  voyages     Voyage[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Voyage {
+  id              String   @id @default(cuid())
+  serviceId       String
+  voyageNo        String
+  vesselName      String
+  underlyingCarrier String?
+  vesselOperator  String?
+  pol             String
+  pod             String
+  etd             DateTime?
+  eta             DateTime?
+  status          String   @default("PLANNED")
+  service         CommercialService @relation(fields:[serviceId], references:[id])
+  allocations     Allocation[]
+  bookingLegs     BookingLeg[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@unique([serviceId,voyageNo])
+}
+
+model Allocation {
+  id            String   @id @default(cuid())
+  voyageId      String
+  slotProvider  String
+  purchasedTeu  Decimal  @db.Decimal(12,2)
+  standardUsedTeu Decimal @default(0) @db.Decimal(12,2)
+  oogBaseTeu    Decimal  @default(0) @db.Decimal(12,2)
+  slotKillTeu   Decimal  @default(0) @db.Decimal(12,2)
+  reeferDgTeu   Decimal  @default(0) @db.Decimal(12,2)
+  buyRatePerTeu Decimal? @db.Decimal(18,2)
+  currency      String   @default("USD")
+  status        AllocationStatus @default(OPEN)
+  voyage        Voyage   @relation(fields:[voyageId], references:[id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model BookingLeg {
+  id          String   @id @default(cuid())
+  bookingId   String
+  voyageId    String?
+  sequence    Int
+  fromPort    String
+  toPort      String
+  carrier     String?
+  serviceCode String?
+  vesselVoyage String?
+  terminal    String?
+  agentId     String?
+  eta         DateTime?
+  etd         DateTime?
+  status      String   @default("PLANNED")
+  booking     Booking  @relation(fields:[bookingId], references:[id])
+  voyage      Voyage?  @relation(fields:[voyageId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([bookingId,sequence])
+}
+
+model ContainerEvent {
+  id          String   @id @default(cuid())
+  containerId String
+  eventType   ContainerEventType
+  eventAt     DateTime
+  location    String
+  depot       String?
+  vesselVoyage String?
+  reference   String?
+  isCorrection Boolean @default(false)
+  correctsEventId String?
+  detail      Json?
+  container   Container @relation(fields:[containerId], references:[id])
+  createdAt   DateTime @default(now())
+}
+
+model DGDeclaration {
+  id              String   @id @default(cuid())
+  bookingId       String
+  unNumber        String
+  properShippingName String
+  imoClass        String
+  subclass        String?
+  packingGroup    String?
+  flashPoint      String?
+  marinePollutant Boolean @default(false)
+  ems             String?
+  limitedQuantity Boolean @default(false)
+  msdsFileKey     String?
+  emergencyContact String?
+  dgWeightKg      Decimal? @db.Decimal(18,3)
+  carrierApproval String @default("PENDING")
+  terminalAcceptance String @default("PENDING")
+  booking         Booking @relation(fields:[bookingId], references:[id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model OOGProfile {
+  id          String   @id @default(cuid())
+  bookingId   String
+  equipment   String
+  lengthCm    Decimal? @db.Decimal(12,2)
+  widthCm     Decimal? @db.Decimal(12,2)
+  heightCm    Decimal? @db.Decimal(12,2)
+  weightKg    Decimal? @db.Decimal(18,3)
+  overFrontCm Decimal? @db.Decimal(12,2)
+  overRearCm  Decimal? @db.Decimal(12,2)
+  overLeftCm  Decimal? @db.Decimal(12,2)
+  overRightCm Decimal? @db.Decimal(12,2)
+  overTopCm   Decimal? @db.Decimal(12,2)
+  baseTeu     Decimal  @default(1) @db.Decimal(12,2)
+  slotKillTeu Decimal @default(0) @db.Decimal(12,2)
+  approvalStatus String @default("PENDING")
+  booking     Booking @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BillOfLading {
+  id          String   @id @default(cuid())
+  bookingId   String
+  blNo        String   @unique
+  type        String
+  status      String   @default("DRAFT")
+  parentBlId  String?
+  switchGroup String?
+  immutableFactsHash String?
+  booking     Booking @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ManifestItem {
+  id          String   @id @default(cuid())
+  bookingId   String
+  blNo        String?
+  manifestType String
+  portRole    String
+  port        String
+  status      String @default("DRAFT")
+  booking     Booking @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CostRevenueTransaction {
+  id          String   @id @default(cuid())
+  crtNo       String   @unique
+  bookingId   String
+  reason      String
+  requesterId String
+  approverId  String?
+  status      String   @default("DRAFT")
+  approvedAt  DateTime?
+  lines       CostRevenueTransactionLine[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CostRevenueTransactionLine {
+  id          String @id @default(cuid())
+  crtId       String
+  financeLineId String
+  previousAmount Decimal @db.Decimal(18,2)
+  newAmount      Decimal @db.Decimal(18,2)
+  currency       String
+  crt            CostRevenueTransaction @relation(fields:[crtId], references:[id])
+  financeLine    FinanceLine @relation(fields:[financeLineId], references:[id])
+  createdAt      DateTime @default(now())
+}
+
+
+enum EquipmentReleaseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  RELEASED
+  PICKED_UP
+  CANCELLED
+}
+
+enum ExceptionSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model EquipmentReleaseOrder {
+  id              String   @id @default(cuid())
+  croNo           String   @unique
+  bookingId       String
+  depot           String
+  equipmentType   String
+  quantity        Int
+  validFrom       DateTime?
+  validTo         DateTime?
+  issuer          String?
+  equipmentOwner  String?
+  vesselOperator  String?
+  dgRequired      Boolean  @default(false)
+  dgApproved      Boolean  @default(false)
+  releaseStatus   EquipmentReleaseStatus @default(DRAFT)
+  releasedBy      String?
+  releasedAt      DateTime?
+  notes           String?
+  booking         Booking  @relation(fields:[bookingId], references:[id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model PortAgentAssignment {
+  id          String   @id @default(cuid())
+  bookingId   String
+  role        String
+  port        String
+  agentId     String
+  legSequence Int?
+  status      String   @default("ASSIGNED")
+  instructions String?
+  booking     Booking  @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([bookingId,role,port])
+}
+
+model OperationalException {
+  id          String   @id @default(cuid())
+  bookingId   String
+  code        String
+  category    String
+  severity    ExceptionSeverity @default(MEDIUM)
+  status      String   @default("OPEN")
+  title       String
+  detail      String?
+  ownerId     String?
+  dueAt       DateTime?
+  resolvedAt  DateTime?
+  resolution  String?
+  booking     Booking  @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum TransportOrderStatus {
+  PLANNED
+  REQUESTED
+  ACCEPTED
+  DISPATCHED
+  PICKED_UP
+  AT_TERMINAL
+  COMPLETED
+  CANCELLED
+  EXCEPTION
+}
+
+enum CustomsStatus {
+  NOT_REQUIRED
+  PREPARING
+  SUBMITTED
+  QUERY
+  CLEARED
+  HELD
+  REJECTED
+}
+
+enum WarehouseStatus {
+  PLANNED
+  BOOKED
+  RECEIVING
+  RECEIVED
+  PROCESSING
+  READY
+  RELEASED
+  CLOSED
+  EXCEPTION
+}
+
+model TransportOrder {
+  id            String   @id @default(cuid())
+  bookingId     String
+  orderNo       String   @unique
+  mode          String   @default("TRUCK")
+  providerId    String?
+  pickupParty   String?
+  pickupAddress String?
+  pickupAt      DateTime?
+  deliveryParty String?
+  deliveryAddress String?
+  deliveryAt    DateTime?
+  containerNo   String?
+  driverName    String?
+  vehicleNo     String?
+  status        TransportOrderStatus @default(PLANNED)
+  podReference  String?
+  exceptionNote String?
+  booking       Booking  @relation(fields:[bookingId], references:[id])
+  milestones    TrackingMilestone[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CustomsDeclaration {
+  id              String   @id @default(cuid())
+  bookingId       String
+  declarationNo   String   @unique
+  direction       String
+  brokerId        String?
+  customsOffice   String?
+  mrn             String?
+  status          CustomsStatus @default(PREPARING)
+  submittedAt     DateTime?
+  clearedAt       DateTime?
+  holdReason      String?
+  documentRefs    Json?
+  booking         Booking  @relation(fields:[bookingId], references:[id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WarehouseJob {
+  id              String   @id @default(cuid())
+  bookingId       String
+  jobNo           String   @unique
+  warehouseId     String?
+  activity        String
+  plannedAt       DateTime?
+  completedAt     DateTime?
+  pieces          Int?
+  weightKg        Decimal? @db.Decimal(18,3)
+  volumeCbm       Decimal? @db.Decimal(18,3)
+  status          WarehouseStatus @default(PLANNED)
+  releaseReference String?
+  booking         Booking  @relation(fields:[bookingId], references:[id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TrackingMilestone {
+  id               String   @id @default(cuid())
+  bookingId        String
+  transportOrderId String?
+  code             String
+  description      String
+  location         String?
+  plannedAt        DateTime?
+  actualAt         DateTime?
+  source           String?
+  status           String   @default("PLANNED")
+  booking          Booking  @relation(fields:[bookingId], references:[id])
+  transportOrder   TransportOrder? @relation(fields:[transportOrderId], references:[id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  SUSPENDED
+}
+
+enum SettlementStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVAL_PENDING
+  APPROVED
+  INVOICED
+  PART_PAID
+  PAID
+  DISPUTED
+  CLOSED
+}
+
+enum DnDStatus {
+  OPEN
+  RUNNING
+  STOPPED
+  INVOICED
+  WAIVER_REQUESTED
+  WAIVER_APPROVED
+  SETTLED
+  DISPUTED
+}
+
+model ServiceContract {
+  id              String   @id @default(cuid())
+  contractNo      String   @unique
+  partyId         String
+  partyType       String
+  contractType    String
+  trade           String?
+  currency        String   @default("USD")
+  validFrom       DateTime
+  validTo         DateTime
+  minimumQuantity Decimal? @db.Decimal(18,2)
+  quantityUnit    String?
+  status          ContractStatus @default(DRAFT)
+  notes           String?
+  rates           ContractRateLane[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ContractRateLane {
+  id          String   @id @default(cuid())
+  contractId  String
+  origin      String
+  destination String
+  equipment   String
+  chargeCode  String
+  buyRate     Decimal? @db.Decimal(18,2)
+  sellRate    Decimal? @db.Decimal(18,2)
+  currency    String
+  dgPremium   Decimal? @db.Decimal(18,2)
+  reeferPremium Decimal? @db.Decimal(18,2)
+  oogRule     String?
+  freeTimeOrigin Int?
+  freeTimeDestination Int?
+  contract    ServiceContract @relation(fields:[contractId], references:[id], onDelete:Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AgentSettlement {
+  id              String   @id @default(cuid())
+  settlementNo    String   @unique
+  agentId         String
+  periodFrom      DateTime
+  periodTo        DateTime
+  currency        String
+  dueToAmount     Decimal  @default(0) @db.Decimal(18,2)
+  dueFromAmount   Decimal  @default(0) @db.Decimal(18,2)
+  profitShare     Decimal  @default(0) @db.Decimal(18,2)
+  depositMovement Decimal  @default(0) @db.Decimal(18,2)
+  netAmount       Decimal  @default(0) @db.Decimal(18,2)
+  status          SettlementStatus @default(DRAFT)
+  requesterId     String?
+  approverId      String?
+  approvedAt      DateTime?
+  lines           AgentSettlementLine[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AgentSettlementLine {
+  id           String @id @default(cuid())
+  settlementId String
+  bookingId    String?
+  reference    String?
+  type         String
+  amount       Decimal @db.Decimal(18,2)
+  currency     String
+  note         String?
+  settlement   AgentSettlement @relation(fields:[settlementId], references:[id], onDelete:Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model DemurrageDetentionCase {
+  id             String @id @default(cuid())
+  caseNo         String @unique
+  bookingId      String
+  containerNo    String
+  location       String?
+  chargeType     String
+  freeDays       Int @default(0)
+  freeTimeEndsAt DateTime?
+  chargeFrom     DateTime?
+  chargeTo       DateTime?
+  dailyRate      Decimal? @db.Decimal(18,2)
+  accruedAmount  Decimal @default(0) @db.Decimal(18,2)
+  currency       String @default("USD")
+  status         DnDStatus @default(OPEN)
+  waiverAmount   Decimal? @db.Decimal(18,2)
+  waiverReason   String?
+  ownerId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model CollectionCase {
+  id             String @id @default(cuid())
+  caseNo         String @unique
+  bookingId      String?
+  customerId     String
+  invoiceNo      String?
+  currency       String
+  originalAmount Decimal @db.Decimal(18,2)
+  outstandingAmount Decimal @db.Decimal(18,2)
+  dueAt          DateTime?
+  agingBucket    String?
+  creditHold     Boolean @default(false)
+  status         String @default("OPEN")
+  ownerId        String?
+  lastActionAt   DateTime?
+  nextActionAt   DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AIReview {
+  id             String @id @default(cuid())
+  objectType     String
+  objectId       String
+  reviewType     String
+  confidence     Decimal? @db.Decimal(5,2)
+  status         String @default("DRAFT")
+  findings       Json
+  recommendedActions Json?
+  acceptedBy     String?
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum MasterDataChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+model MasterDataChange {
+  id          String @id @default(cuid())
+  entityType  String
+  entityId    String
+  fieldName   String
+  oldValue    Json?
+  newValue    Json?
+  reason      String?
+  status      MasterDataChangeStatus @default(PENDING)
+  requestedBy String
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserScopeAssignment {
+  id         String @id @default(cuid())
+  userId     String
+  role       String
+  scopeType  String
+  scopeId    String?
+  active     Boolean @default(true)
+  assignedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([userId, active])
+}
+
+model ReportSnapshot {
+  id         String @id @default(cuid())
+  name       String
+  reportType String
+  scopeType  String
+  scopeId    String?
+  payload    Json
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  @@index([reportType, createdAt])
+}
+
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum IntegrationEventStatus {
+  RECEIVED
+  VALIDATED
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRY_PENDING
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  userId    String
+  category  String
+  title     String
+  message   String
+  objectType String?
+  objectId  String?
+  status    NotificationStatus @default(UNREAD)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId,status,createdAt])
+}
+
+model IntegrationEvent {
+  id          String @id @default(cuid())
+  sourceSystem String
+  eventType    String
+  externalId   String?
+  objectType   String?
+  objectId     String?
+  status       IntegrationEventStatus @default(RECEIVED)
+  attemptCount Int @default(0)
+  payload      Json
+  errorMessage String?
+  lastAttemptAt DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([status,createdAt])
+  @@index([sourceSystem,eventType])
+}
+
+model JobCloseoutChecklist {
+  id          String @id @default(cuid())
+  bookingId   String
+  itemCode    String
+  itemLabel   String
+  mandatory   Boolean @default(true)
+  completed   Boolean @default(false)
+  completedBy String?
+  completedAt DateTime?
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([bookingId,itemCode])
+  @@index([bookingId,completed])
+}
