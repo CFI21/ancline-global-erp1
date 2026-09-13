@@ -183,6 +183,7 @@ model Booking {
   tasks                Task[]
   approvals            Approval[]
   auditEvents          AuditEvent[]
+  closeoutChecklist    JobCloseoutChecklist[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 }
@@ -221,18 +222,21 @@ model Container {
 }
 
 model FinanceLine {
-  id         String        @id @default(cuid())
-  bookingId  String
-  type       FinanceType
-  chargeCode String
-  partyId    String?
-  amount     Decimal       @db.Decimal(18,2)
-  currency   String
-  status     FinanceStatus @default(PLANNED)
-  source     String?
-  booking    Booking       @relation(fields:[bookingId], references:[id])
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  bookingId         String
+  type              FinanceType
+  chargeCode        String
+  partyId           String?
+  billingPartyId    String?
+  serviceProviderId String?
+  amount            Decimal       @db.Decimal(18,2)
+  finalAmount       Decimal?      @db.Decimal(18,2)
+  currency          String
+  status            FinanceStatus @default(PLANNED)
+  source            String?
+  booking           Booking       @relation(fields:[bookingId], references:[id])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 model Task {
@@ -271,4 +275,55 @@ model AuditEvent {
   detail     Json?
   booking    Booking? @relation(fields:[bookingId], references:[id])
   createdAt  DateTime @default(now())
+}
+
+model IntegrationEvent {
+  id           String   @id @default(cuid())
+  sourceSystem String
+  eventType    String
+  externalId   String?
+  objectType   String
+  objectId     String
+  status       String
+  payload      Json?
+  attemptCount Int      @default(0)
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([objectType, objectId])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  category   String
+  title      String
+  message    String
+  objectType String?
+  objectId   String?
+  status     String   @default("UNREAD")
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([objectType, objectId])
+}
+
+model JobCloseoutChecklist {
+  id          String   @id @default(cuid())
+  bookingId   String
+  itemCode    String
+  itemLabel   String
+  mandatory   Boolean  @default(true)
+  completed   Boolean  @default(false)
+  completedBy String?
+  completedAt DateTime?
+  note        String?
+  booking     Booking  @relation(fields:[bookingId], references:[id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bookingId, itemCode])
 }
