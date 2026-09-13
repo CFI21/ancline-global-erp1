@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -7,6 +7,7 @@ import { RolesGuard } from './roles.guard';
 import { ScopeService } from './scope.service';
 import { OidcModule } from './oidc/oidc.module';
 
+@Global()
 @Module({
   imports:[OidcModule,JwtModule.register({
     secret: process.env.JWT_SECRET || 'dev-only-change-me',
