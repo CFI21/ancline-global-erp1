@@ -183,9 +183,29 @@ model Booking {
   tasks                Task[]
   approvals            Approval[]
   auditEvents          AuditEvent[]
+  milestones           ShipmentMilestone[]
   closeoutChecklist    JobCloseoutChecklist[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
+}
+
+model ShipmentMilestone {
+  id          String   @id @default(cuid())
+  bookingId   String
+  code        String
+  label       String
+  location    String?
+  plannedAt   DateTime?
+  actualAt    DateTime?
+  status      String   @default("PLANNED")
+  source      String?  @default("MANUAL")
+  remarks     String?
+  booking     Booking  @relation(fields:[bookingId], references:[id], onDelete:Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([bookingId, plannedAt])
+  @@index([status])
 }
 
 model Document {
