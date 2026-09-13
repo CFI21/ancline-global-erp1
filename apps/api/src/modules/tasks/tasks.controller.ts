@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { TasksService } from './tasks.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+@UseGuards(JwtAuthGuard)
 @Controller('tasks')
 export class TasksController {
   constructor(private s:TasksService){}
-  @Get() list(){return this.s.list();}
-  @Post() create(@Body() b:any){return this.s.create(b);}
-  @Post(':id/complete') complete(@Param('id') id:string){return this.s.complete(id);}
+  @Get() list(@Req() req:any){return this.s.list(req.user);}
+  @Post() create(@Body() b:any,@Req() req:any){return this.s.create(b,req.user);}
+  @Post(':id/complete') complete(@Param('id') id:string,@Req() req:any){return this.s.complete(id,req.user);}
 }
