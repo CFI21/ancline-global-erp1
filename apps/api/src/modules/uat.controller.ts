@@ -13,7 +13,7 @@ export class UatController {
   }
 
   @Post('run')
-  run(@Body() body: any, @Req() req: any) {
+  run(@Req() req: any, @Body() body: any = {}) {
     return this.uat.run(req.user, body || {});
   }
 }
