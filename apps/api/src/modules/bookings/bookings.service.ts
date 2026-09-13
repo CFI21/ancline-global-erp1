@@ -65,7 +65,8 @@ export class BookingsService {
       'polAgent','podAgent','etd','eta','atd','ata','cyClosing','siCutoff','vgmCutoff','docCutoff','portCutoff',
       'carrier','vesselVoyage','equipment','quantity','containerOwner','throughBL','commodity','packageCount','packageType',
       'grossWeight','netWeight','volumeCbm','marksNumbers','hsCode','cargoDescription','incoterm','freightTerms','currency',
-      'specialCargo','notes','creditStatus','slotStatus','equipmentStatus','status'
+      'specialCargo','dgUnNo','dgImoClass','dgPackingGroup','dgProperShippingName','reeferTemperatureC','reeferVentilation',
+      'reeferHumidityPct','oogLengthCm','oogWidthCm','oogHeightCm','oogWeightKg','notes','creditStatus','slotStatus','equipmentStatus','status'
     ];
     const data:any={};
     for(const key of allowed){ if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=body[key]; }
