@@ -120,13 +120,31 @@ model Booking {
   bookingNo        String        @unique
   customerId       String
   producingAgentId String?
+  bookingType      String?
+  transportMode    String?
+  serviceType      String?
+  shipper          String?
+  consignee        String?
+  notifyParty      String?
   origin           String
   destination      String
+  placeOfReceipt   String?
+  portOfLoading    String?
+  portOfDischarge  String?
+  placeOfDelivery  String?
+  polAgent         String?
+  podAgent         String?
   etd              DateTime?
   eta              DateTime?
   carrier          String?
   vesselVoyage     String?
   equipment        String?
+  quantity         Int?
+  containerOwner   String?
+  throughBL        String?
+  commodity        String?
+  cargoDescription String?
+  incoterm         String?
   currency         String        @default("USD")
   status           BookingStatus @default(DRAFT)
   creditStatus     String?
