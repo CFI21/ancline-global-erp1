@@ -21,7 +21,7 @@ export class BookingsService {
   list(user:ScopeUser){
     return this.prisma.booking.findMany({
       where:bookingScope(user),
-      include:{customer:true,producingAgent:true},
+      include:{customer:true,producingAgent:true,rateQuote:true},
       orderBy:{createdAt:'desc'}
     });
   }
@@ -33,6 +33,7 @@ export class BookingsService {
       include:{
         customer:true,
         producingAgent:true,
+        rateQuote:true,
         documents:true,
         containers:true,
         financeLines:true,
@@ -45,10 +46,18 @@ export class BookingsService {
     });
   }
 
+  private async validateQuote(rateQuoteId:string|undefined|null,customerId:string){
+    if(!rateQuoteId) return;
+    const quote=await this.prisma.rateQuote.findUnique({where:{id:rateQuoteId}});
+    if(!quote) throw new BadRequestException('Selected rate / quote was not found');
+    if(quote.customerId!==customerId) throw new BadRequestException('Selected rate / quote belongs to a different customer');
+  }
+
   async create(body:any,user:ScopeUser){
     this.scope.assertInternal(user);
+    await this.validateQuote(body?.rateQuoteId,body?.customerId);
     const row=await this.prisma.booking.create({data:body});
-    await this.audit.log({actorId:user.sub,action:'BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{bookingNo:row.bookingNo}});
+    await this.audit.log({actorId:user.sub,action:'BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{bookingNo:row.bookingNo,rateQuoteId:row.rateQuoteId||null}});
     return row;
   }
 
@@ -57,9 +66,10 @@ export class BookingsService {
     this.scope.assertInternal(user);
     const existing=await this.prisma.booking.findUnique({where:{id}});
     if(!existing) throw new BadRequestException('Booking not found');
+    if(existing.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be edited');
 
     const allowed=[
-      'bookingNo','customerId','producingAgentId','owningBranchId','bookingType','transportMode','serviceType','bookingDate',
+      'bookingNo','customerId','producingAgentId','owningBranchId','rateQuoteId','salesOwner','operator','bookingType','transportMode','serviceType','bookingDate',
       'customerReference','shipperReference','carrierBookingNo','houseBL','masterBL','shipper','consignee','notifyParty',
       'origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery','transshipmentPort','terminal',
       'polAgent','podAgent','etd','eta','atd','ata','cyClosing','siCutoff','vgmCutoff','docCutoff','portCutoff',
@@ -70,6 +80,7 @@ export class BookingsService {
     ];
     const data:any={};
     for(const key of allowed){ if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=body[key]; }
+    if(Object.prototype.hasOwnProperty.call(data,'rateQuoteId')) await this.validateQuote(data.rateQuoteId,data.customerId||existing.customerId);
 
     const updated=await this.prisma.booking.update({where:{id},data});
     await this.audit.log({
@@ -83,9 +94,37 @@ export class BookingsService {
     return updated;
   }
 
+  async duplicate(id:string,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,id);
+    this.scope.assertInternal(user);
+    const source=await this.prisma.booking.findUnique({where:{id}});
+    if(!source) throw new BadRequestException('Booking not found');
+    const {id:_id,bookingNo:_bookingNo,status:_status,cancellationReason:_reason,cancelledAt:_cancelledAt,cancelledBy:_cancelledBy,createdAt:_createdAt,updatedAt:_updatedAt,...copy}=source as any;
+    const bookingNo=`${source.bookingNo}-C${Date.now().toString().slice(-5)}`;
+    const row=await this.prisma.booking.create({data:{...copy,bookingNo,status:'DRAFT',carrierBookingNo:null,houseBL:null,masterBL:null,atd:null,ata:null,creditStatus:null,slotStatus:null,equipmentStatus:null,cancellationReason:null,cancelledAt:null,cancelledBy:null}});
+    await this.audit.log({actorId:user.sub,action:'BOOKING_DUPLICATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{sourceBookingId:id,sourceBookingNo:source.bookingNo,newBookingNo:row.bookingNo}});
+    return row;
+  }
+
+  async cancel(id:string,body:any,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,id);
+    this.scope.assertInternal(user);
+    const current=await this.prisma.booking.findUnique({where:{id}});
+    if(!current) throw new BadRequestException('Booking not found');
+    if(current.status==='CANCELLED') return current;
+    if(current.status==='FINANCIALLY_CLOSED') throw new BadRequestException('A financially closed booking cannot be cancelled');
+    const reason=String(body?.reason||'').trim();
+    if(!reason) throw new BadRequestException('Cancellation reason is required');
+    const updated=await this.prisma.booking.update({where:{id},data:{status:'CANCELLED',cancellationReason:reason,cancelledAt:new Date(),cancelledBy:user.sub}});
+    await this.audit.log({actorId:user.sub,action:'BOOKING_CANCEL',objectType:'Booking',objectId:id,bookingId:id,detail:{from:current.status,reason}});
+    return updated;
+  }
+
   async addContainer(id:string,body:any,user:ScopeUser){
     await this.scope.assertBookingAccess(user,id);
     this.scope.assertInternal(user);
+    const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});
+    if(booking?.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be changed');
     if(!body?.containerNo || !body?.type) throw new BadRequestException('Container number and type are required');
     const containerNo=String(body.containerNo).trim().toUpperCase();
     const duplicate=await this.prisma.container.findUnique({where:{containerNo}});
@@ -113,6 +152,8 @@ export class BookingsService {
   async updateContainer(id:string,containerId:string,body:any,user:ScopeUser){
     await this.scope.assertBookingAccess(user,id);
     this.scope.assertInternal(user);
+    const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});
+    if(booking?.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be changed');
     const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
     if(!current) throw new BadRequestException('Container not found');
     const data:any={};
@@ -136,6 +177,8 @@ export class BookingsService {
   async deleteContainer(id:string,containerId:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,id);
     this.scope.assertInternal(user);
+    const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});
+    if(booking?.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be changed');
     const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
     if(!current) throw new BadRequestException('Container not found');
     await this.prisma.container.delete({where:{id:containerId}});
@@ -148,6 +191,7 @@ export class BookingsService {
     this.scope.assertInternal(user);
     const b=await this.prisma.booking.findUnique({where:{id}});
     if(!b) throw new BadRequestException('Booking not found');
+    if(b.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot advance');
     const i=states.indexOf(b.status as any);
     if(i<0 || i===states.length-1) return b;
     const next=states[i+1] as any;
