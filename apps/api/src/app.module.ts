@@ -18,12 +18,13 @@ import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { UatModule } from './modules/uat.module';
 import { OperationsModule } from './modules/operations/operations.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
+import { RoutingModule } from './modules/routing/routing.module';
 
 @Module({
   imports:[
     PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,
     OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,TasksModule,
-    ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule
+    ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule
   ]
 })
 export class AppModule implements NestModule {
