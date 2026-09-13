@@ -8,9 +8,15 @@ import { ScopeService } from './scope.service';
 import { OidcModule } from './oidc/oidc.module';
 
 @Module({
-  imports:[OidcModule,JwtModule.register({
-    secret: process.env.JWT_SECRET || 'dev-only-change-me',
-    signOptions:{expiresIn:'8h'}
+  imports:[OidcModule,JwtModule.registerAsync({
+    useFactory:()=>{
+      const secret=String(process.env.JWT_SECRET||'');
+      if(secret.length<32) throw new Error('JWT_SECRET must be configured with at least 32 characters');
+      return {
+        secret,
+        signOptions:{expiresIn:'1h',issuer:'ancline-api',audience:'ancline-web'}
+      };
+    }
   })],
   controllers:[AuthController],
   providers:[AuthService,JwtAuthGuard,RolesGuard,ScopeService],

@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
@@ -34,6 +34,6 @@ import { UatModule } from './modules/uat/uat.module';
 })
 export class AppModule implements NestModule {
   configure(consumer:MiddlewareConsumer){
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    consumer.apply(RequestLoggingMiddleware).forRoutes({path:'*path',method:RequestMethod.ALL});
   }
 }

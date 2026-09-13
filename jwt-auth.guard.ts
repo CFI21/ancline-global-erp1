@@ -6,14 +6,16 @@ export class JwtAuthGuard implements CanActivate {
   constructor(private jwt:JwtService){}
   canActivate(ctx:ExecutionContext){
     const req=ctx.switchToHttp().getRequest();
-    const h=req.headers.authorization||'';
-    const token=h.startsWith('Bearer ')?h.slice(7):null;
+    const h=String(req.headers.authorization||'');
+    const token=h.startsWith('Bearer ')?h.slice(7).trim():null;
     if(!token) throw new UnauthorizedException('Missing bearer token');
     try{
-      req.user=this.jwt.verify(token);
+      const user=this.jwt.verify(token,{issuer:'ancline-api',audience:'ancline-web'});
+      if(!user?.sub || !user?.email || !user?.role) throw new Error('Incomplete token');
+      req.user=user;
       return true;
     }catch{
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException('Invalid or expired token');
     }
   }
 }
