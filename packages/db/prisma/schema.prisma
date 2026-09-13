@@ -72,96 +72,119 @@ model Branch {
 }
 
 model UserAccount {
-  id         String   @id @default(cuid())
-  email      String   @unique
+  id          String   @id @default(cuid())
+  email       String   @unique
   displayName String
-  role       String
-  branchId   String?
-  agentId    String?
-  customerId String?
-  active     Boolean  @default(true)
+  role        String
+  branchId    String?
+  agentId     String?
+  customerId  String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Organization {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  name           String
+  roles          OrgRole[]
+  countryCode    String?
+  active         Boolean   @default(true)
+  customersOwned Booking[] @relation("CustomerBookings")
+  agentBookings  Booking[] @relation("AgentBookings")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model RateQuote {
+  id         String   @id @default(cuid())
+  quoteNo    String   @unique
+  customerId String
+  trade      String
+  equipment  String
+  buyRate    Decimal  @db.Decimal(18,2)
+  sellRate   Decimal  @db.Decimal(18,2)
+  currency   String
+  validFrom  DateTime
+  validTo    DateTime
+  status     String
+  source     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
 
-model Organization {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  name            String
-  roles           OrgRole[]
-  countryCode     String?
-  active          Boolean  @default(true)
-  customersOwned  Booking[] @relation("CustomerBookings")
-  agentBookings   Booking[] @relation("AgentBookings")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model RateQuote {
-  id           String   @id @default(cuid())
-  quoteNo      String   @unique
-  customerId   String
-  trade        String
-  equipment    String
-  buyRate      Decimal  @db.Decimal(18,2)
-  sellRate     Decimal  @db.Decimal(18,2)
-  currency     String
-  validFrom    DateTime
-  validTo      DateTime
-  status       String
-  source       String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
 model Booking {
-  owningBranchId   String?
-  id               String        @id @default(cuid())
-  bookingNo        String        @unique
-  customerId       String
-  producingAgentId String?
-  bookingType      String?
-  transportMode    String?
-  serviceType      String?
-  shipper          String?
-  consignee        String?
-  notifyParty      String?
-  origin           String
-  destination      String
-  placeOfReceipt   String?
-  portOfLoading    String?
-  portOfDischarge  String?
-  placeOfDelivery  String?
-  polAgent         String?
-  podAgent         String?
-  etd              DateTime?
-  eta              DateTime?
-  carrier          String?
-  vesselVoyage     String?
-  equipment        String?
-  quantity         Int?
-  containerOwner   String?
-  throughBL        String?
-  commodity        String?
-  cargoDescription String?
-  incoterm         String?
-  currency         String        @default("USD")
-  status           BookingStatus @default(DRAFT)
-  creditStatus     String?
-  slotStatus       String?
-  equipmentStatus  String?
-  specialCargo     String?
-  notes            String?
-  customer         Organization  @relation("CustomerBookings", fields:[customerId], references:[id])
-  producingAgent   Organization? @relation("AgentBookings", fields:[producingAgentId], references:[id])
-  documents        Document[]
-  containers       Container[]
-  financeLines     FinanceLine[]
-  tasks            Task[]
-  approvals        Approval[]
-  auditEvents      AuditEvent[]
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  owningBranchId       String?
+  id                   String        @id @default(cuid())
+  bookingNo            String        @unique
+  customerId           String
+  producingAgentId     String?
+  bookingType          String?
+  transportMode        String?
+  serviceType          String?
+  bookingDate          DateTime?
+  customerReference    String?
+  shipperReference     String?
+  carrierBookingNo     String?
+  houseBL              String?
+  masterBL             String?
+  shipper              String?
+  consignee            String?
+  notifyParty          String?
+  origin               String
+  destination          String
+  placeOfReceipt       String?
+  portOfLoading        String?
+  portOfDischarge      String?
+  placeOfDelivery      String?
+  transshipmentPort    String?
+  terminal             String?
+  polAgent             String?
+  podAgent             String?
+  etd                  DateTime?
+  eta                  DateTime?
+  atd                  DateTime?
+  ata                  DateTime?
+  cyClosing            DateTime?
+  siCutoff             DateTime?
+  vgmCutoff            DateTime?
+  docCutoff            DateTime?
+  portCutoff           DateTime?
+  carrier              String?
+  vesselVoyage         String?
+  equipment            String?
+  quantity             Int?
+  containerOwner       String?
+  throughBL            String?
+  commodity            String?
+  packageCount         Int?
+  packageType          String?
+  grossWeight          Float?
+  netWeight            Float?
+  volumeCbm            Float?
+  marksNumbers         String?
+  hsCode               String?
+  cargoDescription     String?
+  incoterm             String?
+  freightTerms         String?
+  currency             String        @default("USD")
+  status               BookingStatus @default(DRAFT)
+  creditStatus         String?
+  slotStatus           String?
+  equipmentStatus      String?
+  specialCargo         String?
+  notes                String?
+  customer             Organization  @relation("CustomerBookings", fields:[customerId], references:[id])
+  producingAgent       Organization? @relation("AgentBookings", fields:[producingAgentId], references:[id])
+  documents            Document[]
+  containers           Container[]
+  financeLines         FinanceLine[]
+  tasks                Task[]
+  approvals            Approval[]
+  auditEvents          AuditEvent[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 }
 
 model Document {
@@ -179,16 +202,22 @@ model Document {
 }
 
 model Container {
-  id          String   @id @default(cuid())
-  containerNo String   @unique
-  bookingId   String?
-  type        String
-  ownership   String
-  status      String
-  location    String?
-  booking     Booking? @relation(fields:[bookingId], references:[id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  containerNo        String    @unique
+  bookingId          String?
+  type               String
+  ownership          String
+  status             String
+  location           String?
+  sealNo             String?
+  vgm                Float?
+  grossWeight        Float?
+  pickupDate         DateTime?
+  emptyDepot         String?
+  fullReturnTerminal String?
+  booking            Booking?  @relation(fields:[bookingId], references:[id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model FinanceLine {
@@ -233,13 +262,13 @@ model Approval {
 }
 
 model AuditEvent {
-  id        String   @id @default(cuid())
-  bookingId String?
-  actorId   String
-  action    String
+  id         String   @id @default(cuid())
+  bookingId  String?
+  actorId    String
+  action     String
   objectType String
-  objectId  String
-  detail    Json?
-  booking   Booking? @relation(fields:[bookingId], references:[id])
-  createdAt DateTime @default(now())
+  objectId   String
+  detail     Json?
+  booking    Booking? @relation(fields:[bookingId], references:[id])
+  createdAt  DateTime @default(now())
 }
