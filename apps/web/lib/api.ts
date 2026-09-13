@@ -1,4 +1,4 @@
-export const API=process.env.NEXT_PUBLIC_API_URL||'http://localhost:4000/api';
+export const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 
 export async function api(path:string,token?:string,init:RequestInit={}){
   const headers=new Headers(init.headers);
@@ -20,6 +20,11 @@ export function requireToken(){
   const token=localStorage.getItem('ancline_token')||'';
   if(!token) window.location.replace('/login');
   return token;
+}
+
+export function currentUser(){
+  if(typeof window==='undefined') return {} as any;
+  try{return JSON.parse(localStorage.getItem('ancline_user')||'{}');}catch{return {} as any;}
 }
 
 export function signOut(){
