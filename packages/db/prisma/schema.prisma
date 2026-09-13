@@ -184,6 +184,7 @@ model Booking {
   approvals            Approval[]
   auditEvents          AuditEvent[]
   milestones           ShipmentMilestone[]
+  routingLegs          BookingLeg[]
   closeoutChecklist    JobCloseoutChecklist[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -206,6 +207,32 @@ model ShipmentMilestone {
 
   @@index([bookingId, plannedAt])
   @@index([status])
+}
+
+model BookingLeg {
+  id          String   @id @default(cuid())
+  bookingId   String
+  sequence    Int
+  legType     String   @default("MAIN")
+  mode        String   @default("SEA")
+  origin      String
+  destination String
+  carrier     String?
+  vessel      String?
+  voyage      String?
+  terminal    String?
+  etd         DateTime?
+  eta         DateTime?
+  atd         DateTime?
+  ata         DateTime?
+  status      String   @default("PLANNED")
+  remarks     String?
+  booking     Booking  @relation(fields:[bookingId], references:[id], onDelete:Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bookingId, sequence])
+  @@index([bookingId, status])
 }
 
 model Document {
