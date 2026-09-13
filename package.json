@@ -2,6 +2,9 @@
   "name": "ancline-worldwide-erp",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": "22.x"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
