@@ -41,6 +41,33 @@ export class BookingsService {
     return row;
   }
 
+  async update(id:string,body:any,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,id);
+    this.scope.assertInternal(user);
+    const existing=await this.prisma.booking.findUnique({where:{id}});
+    if(!existing) throw new BadRequestException('Booking not found');
+
+    const allowed=[
+      'bookingNo','customerId','producingAgentId','owningBranchId','bookingType','transportMode','serviceType',
+      'shipper','consignee','notifyParty','origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery',
+      'polAgent','podAgent','etd','eta','carrier','vesselVoyage','equipment','quantity','containerOwner','throughBL','commodity',
+      'cargoDescription','incoterm','currency','specialCargo','notes','creditStatus','slotStatus','equipmentStatus','status'
+    ];
+    const data:any={};
+    for(const key of allowed){ if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=body[key]; }
+
+    const updated=await this.prisma.booking.update({where:{id},data});
+    await this.audit.log({
+      actorId:user.sub,
+      action:'BOOKING_UPDATE',
+      objectType:'Booking',
+      objectId:id,
+      bookingId:id,
+      detail:{bookingNo:updated.bookingNo,changedFields:Object.keys(data)}
+    });
+    return updated;
+  }
+
   async advance(id:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,id);
     this.scope.assertInternal(user);
