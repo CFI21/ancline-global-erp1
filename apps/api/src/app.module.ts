@@ -15,12 +15,13 @@ import { StorageModule } from './modules/storage/storage.module';
 import { PortalModule } from './modules/portal/portal.module';
 import { RequestLoggingMiddleware } from './request-logging.middleware';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
+import { UatModule } from './modules/uat.module';
 
 @Module({
   imports:[
     PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,
     OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,TasksModule,
-    ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule
+    ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule
   ]
 })
 export class AppModule implements NestModule {
