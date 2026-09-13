@@ -37,6 +37,7 @@ enum BookingStatus {
   OPERATIONAL
   COMPLETED
   FINANCIALLY_CLOSED
+  CANCELLED
 }
 
 enum FinanceType {
@@ -98,20 +99,21 @@ model Organization {
 }
 
 model RateQuote {
-  id         String   @id @default(cuid())
-  quoteNo    String   @unique
+  id         String    @id @default(cuid())
+  quoteNo    String    @unique
   customerId String
   trade      String
   equipment  String
-  buyRate    Decimal  @db.Decimal(18,2)
-  sellRate   Decimal  @db.Decimal(18,2)
+  buyRate    Decimal   @db.Decimal(18,2)
+  sellRate   Decimal   @db.Decimal(18,2)
   currency   String
   validFrom  DateTime
   validTo    DateTime
   status     String
   source     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  bookings   Booking[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Booking {
@@ -120,6 +122,9 @@ model Booking {
   bookingNo            String        @unique
   customerId           String
   producingAgentId     String?
+  rateQuoteId          String?
+  salesOwner           String?
+  operator             String?
   bookingType          String?
   transportMode        String?
   serviceType          String?
@@ -185,9 +190,13 @@ model Booking {
   oogWidthCm           Float?
   oogHeightCm          Float?
   oogWeightKg          Float?
+  cancellationReason   String?
+  cancelledAt          DateTime?
+  cancelledBy          String?
   notes                String?
   customer             Organization  @relation("CustomerBookings", fields:[customerId], references:[id])
   producingAgent       Organization? @relation("AgentBookings", fields:[producingAgentId], references:[id])
+  rateQuote            RateQuote?    @relation(fields:[rateQuoteId], references:[id], onDelete:SetNull)
   documents            Document[]
   containers           Container[]
   financeLines         FinanceLine[]
@@ -199,6 +208,10 @@ model Booking {
   closeoutChecklist    JobCloseoutChecklist[]
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
+
+  @@index([rateQuoteId])
+  @@index([salesOwner])
+  @@index([operator])
 }
 
 model ShipmentMilestone {
