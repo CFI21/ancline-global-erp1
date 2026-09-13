@@ -30,7 +30,18 @@ export class BookingsService {
     await this.scope.assertBookingAccess(user,id);
     return this.prisma.booking.findUnique({
       where:{id},
-      include:{customer:true,producingAgent:true,documents:true,containers:true,financeLines:true,tasks:true,approvals:true,auditEvents:true}
+      include:{
+        customer:true,
+        producingAgent:true,
+        documents:true,
+        containers:true,
+        financeLines:true,
+        tasks:true,
+        approvals:true,
+        auditEvents:true,
+        milestones:{orderBy:[{plannedAt:'asc'},{createdAt:'asc'}]},
+        routingLegs:{orderBy:{sequence:'asc'}}
+      }
     });
   }
 
@@ -75,9 +86,12 @@ export class BookingsService {
     await this.scope.assertBookingAccess(user,id);
     this.scope.assertInternal(user);
     if(!body?.containerNo || !body?.type) throw new BadRequestException('Container number and type are required');
+    const containerNo=String(body.containerNo).trim().toUpperCase();
+    const duplicate=await this.prisma.container.findUnique({where:{containerNo}});
+    if(duplicate) throw new BadRequestException(`Container ${containerNo} already exists`);
     const row=await this.prisma.container.create({
       data:{
-        containerNo:String(body.containerNo).trim().toUpperCase(),
+        containerNo,
         bookingId:id,
         type:String(body.type),
         ownership:String(body.ownership || 'CARRIER'),
@@ -108,6 +122,10 @@ export class BookingsService {
       else if(key==='vgm'||key==='grossWeight') data[key]=body[key]!==''&&body[key]!=null?Number(body[key]):null;
       else if(key==='pickupDate') data[key]=body[key]?new Date(body[key]):null;
       else data[key]=body[key]||null;
+    }
+    if(data.containerNo && data.containerNo!==current.containerNo){
+      const duplicate=await this.prisma.container.findUnique({where:{containerNo:data.containerNo}});
+      if(duplicate) throw new BadRequestException(`Container ${data.containerNo} already exists`);
     }
     const updated=await this.prisma.container.update({where:{id:containerId},data});
     await this.audit.log({actorId:user.sub,action:'CONTAINER_UPDATE',objectType:'Container',objectId:containerId,bookingId:id,detail:{changedFields:Object.keys(data)}});
