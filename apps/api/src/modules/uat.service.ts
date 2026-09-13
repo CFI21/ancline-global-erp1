@@ -52,7 +52,11 @@ export class UatService {
     const steps: StepResult[] = [];
     const ids: Record<string, string> = {};
 
-    const step = async <T>(name: string, fn: () => Promise<T>, detail?: (value: T) => any): Promise<T> => {
+    const step = async (
+      name: string,
+      fn: () => Promise<any>,
+      detail?: (value: any) => any
+    ): Promise<any> => {
       const t0 = Date.now();
       try {
         const value = await fn();
@@ -227,7 +231,7 @@ export class UatService {
           this.p.financeLine.count({ where: { bookingId: booking.id, status: { notIn: ['FINAL', 'CLEARED', 'CANCELLED'] } } }),
           this.p.jobCloseoutChecklist.findMany({ where: { bookingId: booking.id } })
         ]);
-        const ready = openTasks === 0 && pendingApprovals === 0 && openFinance === 0 && checklist.every(x => !x.mandatory || x.completed);
+        const ready = openTasks === 0 && pendingApprovals === 0 && openFinance === 0 && checklist.every((x: any) => !x.mandatory || x.completed);
         if (!ready) throw new Error('Closeout should be ready');
         await this.p.booking.update({ where: { id: booking.id }, data: { status: 'FINANCIALLY_CLOSED' } });
         return { ready, checklist: checklist.length, openTasks, pendingApprovals, openFinance };
@@ -257,12 +261,22 @@ export class UatService {
         finishedAt,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
         summary: { passed: steps.filter(x => x.status === 'PASS').length, failed: 0, total: steps.length },
-        steps
+        steps,
       };
-    } catch (error: any) {
+    } catch (e: any) {
       if (cleanup) {
-        try { await cleanupData(); } catch { /* preserve original UAT failure */ }
+        try {
+          await cleanupData();
+        } catch (cleanupError: any) {
+          steps.push({
+            name: '99 Emergency cleanup after failure',
+            status: 'FAIL',
+            durationMs: 0,
+            error: cleanupError?.message || String(cleanupError),
+          });
+        }
       }
+
       const finishedAt = new Date();
       return {
         runId,
@@ -271,9 +285,13 @@ export class UatService {
         startedAt,
         finishedAt,
         durationMs: finishedAt.getTime() - startedAt.getTime(),
-        summary: { passed: steps.filter(x => x.status === 'PASS').length, failed: steps.filter(x => x.status === 'FAIL').length || 1, total: steps.length },
-        error: error?.message || String(error),
-        steps
+        summary: {
+          passed: steps.filter((x: StepResult) => x.status === 'PASS').length,
+          failed: steps.filter((x: StepResult) => x.status === 'FAIL').length,
+          total: steps.length,
+        },
+        error: e?.message || String(e),
+        steps,
       };
     }
   }
