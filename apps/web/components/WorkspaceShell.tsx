@@ -12,6 +12,9 @@ const links=[
   ['/finance','Finance'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
+  ['/closeout','Job Closeout'],
+  ['/notifications','Notifications'],
+  ['/administration','Administration'],
 ] as const;
 
 export default function WorkspaceShell({title,subtitle,active,children,actions}:{title:string;subtitle:string;active:string;children:ReactNode;actions?:ReactNode}){
