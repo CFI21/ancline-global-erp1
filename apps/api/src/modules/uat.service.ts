@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { PrismaService } from './prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 type StepResult = {
   name: string;
@@ -84,7 +84,10 @@ export class UatService {
       }
       if (ids.rateId) await this.p.rateQuote.deleteMany({ where: { id: ids.rateId } });
       if (ids.customerId || ids.agentId) {
-        await this.p.organization.deleteMany({ where: { id: { in: [ids.customerId, ids.agentId].filter(Boolean) } } });
+        const orgIds = [ids.customerId, ids.agentId].filter((v): v is string => Boolean(v));
+        if (orgIds.length) {
+          await this.p.organization.deleteMany({ where: { id: { in: orgIds } } });
+        }
       }
     };
 
