@@ -68,6 +68,48 @@ export class BookingsService {
     return updated;
   }
 
+  async addContainer(id:string,body:any,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,id);
+    this.scope.assertInternal(user);
+    if(!body?.containerNo || !body?.type) throw new BadRequestException('Container number and type are required');
+    const row=await this.prisma.container.create({
+      data:{
+        containerNo:String(body.containerNo).trim().toUpperCase(),
+        bookingId:id,
+        type:String(body.type),
+        ownership:String(body.ownership || 'CARRIER'),
+        status:String(body.status || 'PLANNED'),
+        location:body.location ? String(body.location) : null
+      }
+    });
+    await this.audit.log({actorId:user.sub,action:'CONTAINER_ADD',objectType:'Container',objectId:row.id,bookingId:id,detail:{containerNo:row.containerNo,type:row.type}});
+    return row;
+  }
+
+  async updateContainer(id:string,containerId:string,body:any,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,id);
+    this.scope.assertInternal(user);
+    const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
+    if(!current) throw new BadRequestException('Container not found');
+    const data:any={};
+    for(const key of ['containerNo','type','ownership','status','location']){
+      if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=key==='containerNo' ? String(body[key]).trim().toUpperCase() : body[key];
+    }
+    const updated=await this.prisma.container.update({where:{id:containerId},data});
+    await this.audit.log({actorId:user.sub,action:'CONTAINER_UPDATE',objectType:'Container',objectId:containerId,bookingId:id,detail:{changedFields:Object.keys(data)}});
+    return updated;
+  }
+
+  async deleteContainer(id:string,containerId:string,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,id);
+    this.scope.assertInternal(user);
+    const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
+    if(!current) throw new BadRequestException('Container not found');
+    await this.prisma.container.delete({where:{id:containerId}});
+    await this.audit.log({actorId:user.sub,action:'CONTAINER_DELETE',objectType:'Container',objectId:containerId,bookingId:id,detail:{containerNo:current.containerNo}});
+    return {ok:true};
+  }
+
   async advance(id:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,id);
     this.scope.assertInternal(user);
