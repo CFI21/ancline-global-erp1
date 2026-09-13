@@ -16,12 +16,13 @@ import { PortalModule } from './modules/portal/portal.module';
 import { RequestLoggingMiddleware } from './request-logging.middleware';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { UatModule } from './modules/uat.module';
+import { OperationsModule } from './modules/operations/operations.module';
 
 @Module({
   imports:[
     PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,
     OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,TasksModule,
-    ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule
+    ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule
   ]
 })
 export class AppModule implements NestModule {
