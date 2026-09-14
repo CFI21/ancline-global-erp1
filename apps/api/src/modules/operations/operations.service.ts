@@ -13,6 +13,7 @@ const closeoutTemplate=[
   ['COSTS_FINAL','Costs finalized / accrued'],
   ['APPROVALS_CLEAR','Outstanding approvals cleared']
 ] as const;
+const USER_ROLES=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'] as const;
 
 @Injectable()
 export class OperationsService {
@@ -21,20 +22,78 @@ export class OperationsService {
   private assertAdmin(user:ScopeUser){if(user.role!=='GLOBAL_ADMIN') throw new ForbiddenException('Global administrator access required');}
   private assertInternal(user:ScopeUser){this.scope.assertInternal(user);}
 
+  private async normalizedUser(body:any,current?:any){
+    const role=String(body?.role??current?.role??'').trim().toUpperCase();
+    if(!USER_ROLES.includes(role as any)) throw new BadRequestException('Unsupported user role');
+    const email=String(body?.email??current?.email??'').trim().toLowerCase();
+    const displayName=String(body?.displayName??current?.displayName??'').trim();
+    if(!email||!displayName) throw new BadRequestException('Email and display name are required');
+
+    let branchId=body?.branchId!==undefined?(body.branchId||null):(current?.branchId||null);
+    let agentId=body?.agentId!==undefined?(body.agentId||null):(current?.agentId||null);
+    let customerId=body?.customerId!==undefined?(body.customerId||null):(current?.customerId||null);
+
+    if(role==='BRANCH_OPS'){
+      if(!branchId) throw new BadRequestException('Branch Operations users must be assigned to a branch');
+      const branch=await this.prisma.branch.findUnique({where:{id:String(branchId)}});
+      if(!branch||!branch.active) throw new BadRequestException('Selected branch is invalid or inactive');
+      agentId=null;customerId=null;
+    }else if(role==='AGENT'){
+      if(!agentId) throw new BadRequestException('Agent users must be assigned to an agent organization');
+      const org=await this.prisma.organization.findUnique({where:{id:String(agentId)}});
+      if(!org||!org.active||!org.roles.includes('AGENT')) throw new BadRequestException('Selected organization is not an active agent');
+      branchId=null;customerId=null;
+    }else if(role==='CUSTOMER'){
+      if(!customerId) throw new BadRequestException('Customer users must be assigned to a customer organization');
+      const org=await this.prisma.organization.findUnique({where:{id:String(customerId)}});
+      if(!org||!org.active||!org.roles.includes('CUSTOMER')) throw new BadRequestException('Selected organization is not an active customer');
+      branchId=null;agentId=null;
+    }else{
+      agentId=null;customerId=null;
+      if(role!=='FINANCE') branchId=null;
+      if(branchId){
+        const branch=await this.prisma.branch.findUnique({where:{id:String(branchId)}});
+        if(!branch||!branch.active) throw new BadRequestException('Selected branch is invalid or inactive');
+      }
+    }
+
+    return {email,displayName,role,branchId,agentId,customerId,active:body?.active!==undefined?Boolean(body.active):(current?.active??true)};
+  }
+
   async listBranches(user:ScopeUser){this.assertInternal(user);return this.prisma.branch.findMany({orderBy:{code:'asc'}});}
   async createBranch(body:any,user:ScopeUser){
     this.assertAdmin(user);
     if(!body?.code||!body?.name||!body?.countryCode) throw new BadRequestException('Code, name and country code are required');
-    return this.prisma.branch.create({data:{code:String(body.code).trim().toUpperCase(),name:String(body.name).trim(),countryCode:String(body.countryCode).trim().toUpperCase(),active:body.active!==false}});
+    const row=await this.prisma.branch.create({data:{code:String(body.code).trim().toUpperCase(),name:String(body.name).trim(),countryCode:String(body.countryCode).trim().toUpperCase(),active:body.active!==false}});
+    await this.audit.log({actorId:user.sub,action:'BRANCH_CREATE',objectType:'Branch',objectId:row.id,detail:{code:row.code,name:row.name}});
+    return row;
   }
 
   async listUsers(user:ScopeUser){this.assertAdmin(user);return this.prisma.userAccount.findMany({orderBy:{email:'asc'}});}
   async createUser(body:any,user:ScopeUser){
     this.assertAdmin(user);
-    if(!body?.email||!body?.displayName||!body?.role) throw new BadRequestException('Email, display name and role are required');
-    return this.prisma.userAccount.create({data:{email:String(body.email).trim().toLowerCase(),displayName:String(body.displayName).trim(),role:String(body.role),branchId:body.branchId||null,agentId:body.agentId||null,customerId:body.customerId||null,active:body.active!==false}});
+    const data=await this.normalizedUser(body);
+    const row=await this.prisma.userAccount.create({data});
+    await this.audit.log({actorId:user.sub,action:'USER_CREATE',objectType:'UserAccount',objectId:row.id,detail:{email:row.email,role:row.role,branchId:row.branchId,agentId:row.agentId,customerId:row.customerId}});
+    return row;
   }
-  async toggleUser(id:string,user:ScopeUser){this.assertAdmin(user);const current=await this.prisma.userAccount.findUnique({where:{id}});if(!current)throw new BadRequestException('User not found');return this.prisma.userAccount.update({where:{id},data:{active:!current.active}});}
+  async updateUser(id:string,body:any,user:ScopeUser){
+    this.assertAdmin(user);
+    const current=await this.prisma.userAccount.findUnique({where:{id}});
+    if(!current) throw new BadRequestException('User not found');
+    const data=await this.normalizedUser(body,current);
+    const row=await this.prisma.userAccount.update({where:{id},data});
+    await this.audit.log({actorId:user.sub,action:'USER_UPDATE',objectType:'UserAccount',objectId:id,detail:{email:row.email,role:row.role,branchId:row.branchId,agentId:row.agentId,customerId:row.customerId,active:row.active}});
+    return row;
+  }
+  async toggleUser(id:string,user:ScopeUser){
+    this.assertAdmin(user);
+    const current=await this.prisma.userAccount.findUnique({where:{id}});if(!current)throw new BadRequestException('User not found');
+    if(current.id===user.sub&&current.active) throw new BadRequestException('You cannot deactivate your own active administrator account');
+    const row=await this.prisma.userAccount.update({where:{id},data:{active:!current.active}});
+    await this.audit.log({actorId:user.sub,action:row.active?'USER_ACTIVATE':'USER_DEACTIVATE',objectType:'UserAccount',objectId:id,detail:{email:row.email,role:row.role}});
+    return row;
+  }
 
   async integrations(user:ScopeUser){this.assertInternal(user);return this.prisma.integrationEvent.findMany({orderBy:{createdAt:'desc'},take:100});}
 
