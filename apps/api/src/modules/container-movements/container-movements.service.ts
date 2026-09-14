@@ -8,6 +8,29 @@ import { AuditService } from '../audit/audit.service';
 export class ContainerMovementsService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
 
+  private exposure(container:any){
+    const now=new Date();
+    const daysAfter=(freeUntil:any,end:any)=>{
+      if(!freeUntil) return 0;
+      const a=new Date(freeUntil).getTime();
+      const b=new Date(end||now).getTime();
+      if(Number.isNaN(a)||Number.isNaN(b)||b<=a) return 0;
+      return Math.ceil((b-a)/86400000);
+    };
+    const demurrageDays=daysAfter(container.demurrageFreeUntil,container.deliveryAt);
+    const detentionDays=daysAfter(container.detentionFreeUntil,container.emptyReturnedAt);
+    return {
+      demurrageDays,
+      detentionDays,
+      demurrageExposure:demurrageDays*Number(container.demurrageRatePerDay||0),
+      detentionExposure:detentionDays*Number(container.detentionRatePerDay||0),
+      totalExposure:demurrageDays*Number(container.demurrageRatePerDay||0)+detentionDays*Number(container.detentionRatePerDay||0),
+      currency:container.freeTimeCurrency||'USD',
+      demurrageAtRisk:Boolean(container.demurrageFreeUntil&&demurrageDays>0&&!container.deliveryAt),
+      detentionAtRisk:Boolean(container.detentionFreeUntil&&detentionDays>0&&!container.emptyReturnedAt)
+    };
+  }
+
   async listForBooking(bookingId:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,bookingId);
     return this.prisma.containerMovement.findMany({
@@ -15,6 +38,36 @@ export class ContainerMovementsService {
       include:{container:{select:{id:true,containerNo:true,type:true,status:true,location:true}}},
       orderBy:{occurredAt:'desc'}
     });
+  }
+
+  async controlForBooking(bookingId:string,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,bookingId);
+    const containers=await this.prisma.container.findMany({where:{bookingId},orderBy:{containerNo:'asc'}});
+    return containers.map(c=>({...c,exposure:this.exposure(c)}));
+  }
+
+  async updateControl(containerId:string,body:any,user:ScopeUser){
+    this.scope.assertInternal(user);
+    const existing=await this.prisma.container.findUnique({where:{id:containerId}});
+    if(!existing||!existing.bookingId) throw new BadRequestException('Container not found on a booking');
+    await this.scope.assertBookingAccess(user,existing.bookingId);
+    const textFields=['equipmentProvider','allocationRef','allocationStatus','emptyReleaseOrderNo','emptyDepot','fullReturnTerminal','freeTimeCurrency'];
+    const dateFields=['emptyReleaseValidUntil','pickupDate','fullGateInAt','dischargeAt','deliveryAt','detentionFreeUntil','demurrageFreeUntil','emptyReturnDue','emptyReturnedAt'];
+    const numberFields=['detentionFreeDays','demurrageFreeDays','detentionRatePerDay','demurrageRatePerDay'];
+    const data:any={};
+    for(const k of textFields) if(body?.[k]!==undefined) data[k]=body[k]===null||body[k]===''?null:String(body[k]);
+    for(const k of dateFields) if(body?.[k]!==undefined){
+      if(body[k]===null||body[k]==='') data[k]=null;
+      else {const d=new Date(body[k]);if(Number.isNaN(d.getTime())) throw new BadRequestException(`Invalid date for ${k}`);data[k]=d;}
+    }
+    for(const k of numberFields) if(body?.[k]!==undefined){
+      if(body[k]===null||body[k]==='') data[k]=null;
+      else {const n=Number(body[k]);if(!Number.isFinite(n)||n<0) throw new BadRequestException(`Invalid number for ${k}`);data[k]=n;}
+    }
+    if(!Object.keys(data).length) throw new BadRequestException('No equipment control fields supplied');
+    const updated=await this.prisma.container.update({where:{id:containerId},data});
+    await this.audit.log({actorId:user.sub,action:'CONTAINER_CONTROL_UPDATE',objectType:'Container',objectId:containerId,bookingId:existing.bookingId,detail:{containerNo:existing.containerNo,fields:Object.keys(data)}});
+    return {...updated,exposure:this.exposure(updated)};
   }
 
   async create(body:any,user:ScopeUser){
@@ -47,6 +100,13 @@ export class ContainerMovementsService {
       const update:any={};
       if(body?.status) update.status=String(body.status);
       if(body?.location!==undefined) update.location=body.location?String(body.location):null;
+      if(eventCode==='EMPTY_RELEASED') update.allocationStatus='RELEASED';
+      if(eventCode==='PICKED_UP') update.pickupDate=occurredAt;
+      if(eventCode==='GATED_IN') update.fullGateInAt=occurredAt;
+      if(eventCode==='LOADED') update.allocationStatus='UTILIZED';
+      if(eventCode==='DISCHARGED') update.dischargeAt=occurredAt;
+      if(eventCode==='DELIVERED') update.deliveryAt=occurredAt;
+      if(eventCode==='EMPTY_RETURNED') update.emptyReturnedAt=occurredAt;
       if(Object.keys(update).length) await tx.container.update({where:{id:containerId},data:update});
       return movement;
     });
