@@ -13,6 +13,8 @@ export class OperationsController {
   @Post('users/:id/toggle') toggleUser(@Param('id') id:string,@Req() req:any){return this.s.toggleUser(id,req.user);}
   @Get('integrations') integrations(@Req() req:any){return this.s.integrations(req.user);}
   @Get('notifications') notifications(@Req() req:any){return this.s.notifications(req.user);}
+  @Get('notifications/summary') notificationSummary(@Req() req:any){return this.s.notificationSummary(req.user);}
+  @Post('notifications/scan') scanNotifications(@Req() req:any){return this.s.scanNotifications(req.user);}
   @Post('notifications/read-all') readAll(@Req() req:any){return this.s.markAllRead(req.user);}
   @Post('notifications/:id/read') readNotification(@Param('id') id:string,@Req() req:any){return this.s.markNotificationRead(id,req.user);}
   @Get('closeout/:bookingId') closeout(@Param('bookingId') bookingId:string,@Req() req:any){return this.s.closeout(bookingId,req.user);}
