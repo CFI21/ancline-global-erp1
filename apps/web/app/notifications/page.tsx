@@ -82,7 +82,7 @@ export default function NotificationsPage(){
       <div style={{display:'grid',gap:8}}>
         {visible.map(n=>{
           const sev=severity(n);const bid=bookingId(n);const resolvedState=n.status==='RESOLVED';
-          return <div key={n.id} style={{border:'1px solid #e1e7ed',borderRadius:8,padding:12,background:resolvedState?'#fafafa':n.status==='UNREAD'?'#f8fbfe':'#fff',opacity:resolvedState?.68:1}}>
+          return <div key={n.id} style={{border:'1px solid #e1e7ed',borderRadius:8,padding:12,background:resolvedState?'#fafafa':n.status==='UNREAD'?'#f8fbfe':'#fff',opacity:resolvedState?0.68:1}}>
             <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',flexWrap:'wrap'}}>
               <div style={{minWidth:240,flex:1}}>
                 <div className="sub">{n.category} · updated {fmtDate(n.updatedAt||n.createdAt)}</div>
