@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { api } from '../../lib/api';
 
-const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 type Org={id:string;code:string;name:string;roles:string[]};
 type Booking={id:string;bookingNo:string;carrierBookingNo?:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;equipment?:string;etd?:string;eta?:string;specialCargo?:string;customer?:{name:string}};
 
@@ -58,9 +58,7 @@ export default function BookingsPage(){
   useEffect(()=>{const t=localStorage.getItem('ancline_token')||'';if(!t){location.href='/login';return;}setToken(t);void load(t);},[]);
 
   async function request(path:string,init:RequestInit={},auth=true,t=token){
-    const headers=new Headers(init.headers);headers.set('content-type','application/json');if(auth&&t)headers.set('authorization',`Bearer ${t}`);
-    const r=await fetch(`${API}${path}`,{...init,headers,cache:'no-store'});const text=await r.text();let data:any={};
-    try{data=text?JSON.parse(text):{};}catch{data={message:text};}if(!r.ok)throw new Error(Array.isArray(data?.message)?data.message.join(', '):data?.message||`${r.status} ${r.statusText}`);return data;
+    return api(path,auth?t:undefined,init);
   }
   async function load(t:string){
     try{const [b,o]=await Promise.all([request('/bookings',{},true,t),request('/organizations',{},true,t).catch(()=>[])]);setBookings(Array.isArray(b)?b:[]);setOrgs(Array.isArray(o)?o:[]);}catch(e:any){setMessage(e?.message||'Unable to load booking data');}
