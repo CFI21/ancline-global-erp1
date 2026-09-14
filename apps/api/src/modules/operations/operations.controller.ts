@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { OperationsService } from './operations.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -10,6 +10,7 @@ export class OperationsController {
   @Post('branches') createBranch(@Body() body:any,@Req() req:any){return this.s.createBranch(body,req.user);}
   @Get('users') users(@Req() req:any){return this.s.listUsers(req.user);}
   @Post('users') createUser(@Body() body:any,@Req() req:any){return this.s.createUser(body,req.user);}
+  @Patch('users/:id') updateUser(@Param('id') id:string,@Body() body:any,@Req() req:any){return this.s.updateUser(id,body,req.user);}
   @Post('users/:id/toggle') toggleUser(@Param('id') id:string,@Req() req:any){return this.s.toggleUser(id,req.user);}
   @Get('integrations') integrations(@Req() req:any){return this.s.integrations(req.user);}
   @Get('notifications') notifications(@Req() req:any){return this.s.notifications(req.user);}
