@@ -334,17 +334,31 @@ model FinanceLine {
   bookingId         String
   type              FinanceType
   chargeCode        String
+  description       String?
   partyId           String?
   billingPartyId    String?
   serviceProviderId String?
+  quantity          Decimal?      @db.Decimal(18,3)
+  unitRate          Decimal?      @db.Decimal(18,2)
   amount            Decimal       @db.Decimal(18,2)
   finalAmount       Decimal?      @db.Decimal(18,2)
   currency          String
   status            FinanceStatus @default(PLANNED)
   source            String?
+  reference         String?
+  taxRate           Decimal?      @db.Decimal(8,4)
+  invoiceReady      Boolean       @default(false)
+  invoiceNo         String?
+  invoiceIssuedAt   DateTime?
+  accruedAt         DateTime?
+  postedAt          DateTime?
   booking           Booking       @relation(fields:[bookingId], references:[id])
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  @@index([bookingId, type])
+  @@index([bookingId, status])
+  @@index([reference])
 }
 
 model Task {
