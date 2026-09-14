@@ -4,6 +4,7 @@ import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
 
+const MAX_ATTEMPTS=5;
 const movementLabels:Record<string,string>={
   EMPTY_RELEASED:'Empty Released',PICKED_UP:'Empty Picked Up',GATED_IN:'Gate In',VGM_SUBMITTED:'VGM Submitted',
   LOADED:'Loaded on Vessel',DEPARTED:'Departed',TRANSSHIPMENT:'Transshipment',DISCHARGED:'Discharged',
@@ -23,11 +24,29 @@ export class IntegrationsService {
     return this.prisma.integrationEvent.findMany({orderBy:{createdAt:'desc'},take:250});
   }
 
+  async get(id:string,user:ScopeUser){
+    this.assertInternal(user);
+    const row=await this.prisma.integrationEvent.findUnique({where:{id}});
+    if(!row) throw new BadRequestException('Integration event not found');
+    return row;
+  }
+
   async summary(user:ScopeUser){
     this.assertInternal(user);
     const rows=await this.prisma.integrationEvent.findMany({select:{status:true,sourceSystem:true,attemptCount:true}});
     const statuses=(s:string)=>rows.filter(r=>r.status===s).length;
-    return {total:rows.length,received:statuses('RECEIVED'),processing:statuses('PROCESSING'),completed:statuses('COMPLETED'),failed:statuses('FAILED'),retries:rows.reduce((n,r)=>n+Math.max(0,r.attemptCount-1),0),sources:new Set(rows.map(r=>r.sourceSystem)).size};
+    return {
+      total:rows.length,
+      received:statuses('RECEIVED'),
+      processing:statuses('PROCESSING'),
+      completed:statuses('COMPLETED'),
+      failed:statuses('FAILED'),
+      deadLetter:statuses('DEAD_LETTER'),
+      retryEligible:rows.filter(r=>r.status==='FAILED'&&r.attemptCount<MAX_ATTEMPTS).length,
+      retries:rows.reduce((n,r)=>n+Math.max(0,r.attemptCount-1),0),
+      sources:new Set(rows.map(r=>r.sourceSystem)).size,
+      maxAttempts:MAX_ATTEMPTS
+    };
   }
 
   private async findBooking(payload:any){
@@ -125,7 +144,7 @@ export class IntegrationsService {
     const remarks=this.text(payload?.remarks)||null;
     const row=await this.prisma.$transaction(tx=>this.syncMilestone(tx,booking.id,code,label,actualAt,location,source,remarks));
     const update:any={};
-    if(code==='DEPARTED'){update.atd=actualAt;update.status='OPERATIONAL';}
+    if(code==='DEPARTED'){update.atd=actualAt;if(!['COMPLETED','FINANCIALLY_CLOSED','CANCELLED'].includes(String(booking.status)))update.status='OPERATIONAL';}
     if(code==='ARRIVED'||code==='DISCHARGED')update.ata=actualAt;
     if(Object.keys(update).length)await this.prisma.booking.update({where:{id:booking.id},data:update});
     return {objectType:'ShipmentMilestone',objectId:row.id,bookingId:booking.id,bookingNo:booking.bookingNo,code};
@@ -167,22 +186,35 @@ export class IntegrationsService {
     this.assertInternal(user);
     const row=await this.prisma.integrationEvent.findUnique({where:{id}});
     if(!row)throw new BadRequestException('Integration event not found');
+    if(row.status==='PROCESSING')throw new BadRequestException('Integration event is already processing');
     if(row.status==='COMPLETED'&&!force)return {...row,duplicate:true};
+    if(row.status==='DEAD_LETTER'&&!force)throw new BadRequestException('Event is in dead-letter state. Use Reprocess to run it again.');
+    if(!force&&row.attemptCount>=MAX_ATTEMPTS){
+      const original:any=row.payload&&typeof row.payload==='object'?row.payload:{};
+      const clean={...original};delete clean._processing;
+      const payload={...clean,_processing:{...(original?._processing||{}),lastError:original?._processing?.lastError||'Maximum retry attempts reached',deadLetteredAt:new Date().toISOString(),maxAttempts:MAX_ATTEMPTS}};
+      await this.prisma.integrationEvent.update({where:{id},data:{status:'DEAD_LETTER',payload}});
+      throw new BadRequestException('Maximum retry attempts reached. Event moved to dead-letter state.');
+    }
+
     const original:any=row.payload&&typeof row.payload==='object'?row.payload:{};
     const clean={...original};delete clean._processing;
-    await this.prisma.integrationEvent.update({where:{id},data:{status:'PROCESSING',attemptCount:{increment:1},completedAt:null}});
+    const attempt=row.attemptCount+1;
+    await this.prisma.integrationEvent.update({where:{id},data:{status:'PROCESSING',attemptCount:{increment:1},completedAt:null,payload:{...clean,_processing:{processingStartedAt:new Date().toISOString(),attempt,maxAttempts:MAX_ATTEMPTS}}}});
     try{
       const result=await this.execute(row.eventType,clean);
-      const payload:any={...clean,_processing:{result,processedAt:new Date().toISOString(),lastError:null}};
+      const payload:any={...clean,_processing:{result,processedAt:new Date().toISOString(),attempt,maxAttempts:MAX_ATTEMPTS,lastError:null}};
       const updated=await this.prisma.integrationEvent.update({where:{id},data:{status:'COMPLETED',objectType:result.objectType,objectId:result.objectId,payload,completedAt:new Date()}});
-      await this.audit.log({actorId:user.sub,action:'INTEGRATION_EVENT_COMPLETE',objectType:'IntegrationEvent',objectId:id,bookingId:result.bookingId||undefined,detail:{sourceSystem:row.sourceSystem,eventType:row.eventType,externalId:row.externalId,result}});
+      await this.audit.log({actorId:user.sub,action:'INTEGRATION_EVENT_COMPLETE',objectType:'IntegrationEvent',objectId:id,bookingId:result.bookingId||undefined,detail:{sourceSystem:row.sourceSystem,eventType:row.eventType,externalId:row.externalId,attempt,result}});
       return updated;
     }catch(e:any){
       const message=e?.message||'Integration processing failed';
-      const payload:any={...clean,_processing:{lastError:message,failedAt:new Date().toISOString()}};
-      await this.prisma.integrationEvent.update({where:{id},data:{status:'FAILED',payload}});
-      await this.audit.log({actorId:user.sub,action:'INTEGRATION_EVENT_FAILED',objectType:'IntegrationEvent',objectId:id,detail:{sourceSystem:row.sourceSystem,eventType:row.eventType,externalId:row.externalId,error:message}});
-      throw new BadRequestException(message);
+      const deadLetter=attempt>=MAX_ATTEMPTS;
+      const nextRetryAt=deadLetter?null:new Date(Date.now()+Math.min(30,Math.pow(2,Math.max(0,attempt-1)))*60000).toISOString();
+      const payload:any={...clean,_processing:{lastError:message,failedAt:new Date().toISOString(),attempt,maxAttempts:MAX_ATTEMPTS,nextRetryAt,deadLetteredAt:deadLetter?new Date().toISOString():null}};
+      await this.prisma.integrationEvent.update({where:{id},data:{status:deadLetter?'DEAD_LETTER':'FAILED',payload}});
+      await this.audit.log({actorId:user.sub,action:deadLetter?'INTEGRATION_EVENT_DEAD_LETTER':'INTEGRATION_EVENT_FAILED',objectType:'IntegrationEvent',objectId:id,detail:{sourceSystem:row.sourceSystem,eventType:row.eventType,externalId:row.externalId,attempt,error:message}});
+      throw new BadRequestException(deadLetter?`${message} Event moved to dead-letter state after ${attempt} attempts.`:message);
     }
   }
 
@@ -202,6 +234,25 @@ export class IntegrationsService {
     return this.processEvent(row.id,user,false);
   }
 
-  async retry(id:string,user:ScopeUser){return this.processEvent(id,user,false);}
+  async retry(id:string,user:ScopeUser){
+    const row=await this.get(id,user);
+    if(!['FAILED','RECEIVED'].includes(row.status)) throw new BadRequestException(`Only FAILED or RECEIVED events can be retried. Current status: ${row.status}`);
+    return this.processEvent(id,user,false);
+  }
+
   async reprocess(id:string,user:ScopeUser){return this.processEvent(id,user,true);}
+
+  async retryFailed(user:ScopeUser){
+    this.assertInternal(user);
+    const rows=await this.prisma.integrationEvent.findMany({where:{status:'FAILED',attemptCount:{lt:MAX_ATTEMPTS}},orderBy:{createdAt:'asc'},take:50});
+    let completed=0,failed=0;
+    const errors:any[]=[];
+    for(const row of rows){
+      try{await this.processEvent(row.id,user,false);completed++;}
+      catch(e:any){failed++;errors.push({id:row.id,sourceSystem:row.sourceSystem,eventType:row.eventType,error:e?.message||'Retry failed'});}
+    }
+    const result={selected:rows.length,completed,failed,errors:errors.slice(0,10)};
+    await this.audit.log({actorId:user.sub,action:'INTEGRATION_BULK_RETRY',objectType:'IntegrationEvent',objectId:'FAILED_QUEUE',detail:result});
+    return result;
+  }
 }
