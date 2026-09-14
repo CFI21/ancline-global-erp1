@@ -1,18 +1,34 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
+import {api} from '../../lib/api';
 
-const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 type Org={id:string;code:string;name:string;roles:string[]};
+type OidcConfig={configured:boolean;devLoginAllowed:boolean;clientId?:string;redirectUri?:string;authorizationEndpoint?:string|null};
+
+function randomToken(bytes=32){
+  const a=new Uint8Array(bytes);crypto.getRandomValues(a);
+  return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('');
+}
+function b64url(buf:ArrayBuffer){
+  const bytes=new Uint8Array(buf);let s='';for(const b of bytes)s+=String.fromCharCode(b);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
 
 export default function Login(){
   const [email,setEmail]=useState('admin@ancline.net');
   const [role,setRole]=useState('GLOBAL_ADMIN');
   const [orgs,setOrgs]=useState<Org[]>([]);
   const [scopeId,setScopeId]=useState('');
+  const [oidc,setOidc]=useState<OidcConfig>({configured:false,devLoginAllowed:true});
   const [msg,setMsg]=useState('');
   const [busy,setBusy]=useState(false);
 
-  useEffect(()=>{fetch(`${API}/organizations`,{cache:'no-store'}).then(r=>r.ok?r.json():[]).then(x=>setOrgs(Array.isArray(x)?x:[])).catch(()=>setOrgs([]));},[]);
+  useEffect(()=>{
+    void Promise.all([
+      api('/organizations').catch(()=>[]),
+      api('/auth/oidc/configuration').catch(()=>({configured:false,devLoginAllowed:true}))
+    ]).then(([o,c])=>{setOrgs(Array.isArray(o)?o:[]);setOidc(c||{configured:false,devLoginAllowed:true});});
+  },[]);
   const scopedOrgs=useMemo(()=>role==='CUSTOMER'?orgs.filter(o=>o.roles?.includes('CUSTOMER')):role==='AGENT'?orgs.filter(o=>o.roles?.includes('AGENT')):[],[role,orgs]);
   useEffect(()=>{setScopeId(scopedOrgs[0]?.id||'');},[role,scopedOrgs.length]);
 
@@ -23,24 +39,45 @@ export default function Login(){
       const payload:any={email,role};
       if(role==='CUSTOMER')payload.customerId=scopeId;
       if(role==='AGENT')payload.agentId=scopeId;
-      const r=await fetch(`${API}/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
-      const j=await r.json();
-      if(!r.ok||!j.accessToken)throw new Error(j?.message||'Login failed');
+      const j=await api('/auth/login',undefined,{method:'POST',body:JSON.stringify(payload)});
+      if(!j?.accessToken)throw new Error('Login failed');
       localStorage.setItem('ancline_token',j.accessToken);
       localStorage.setItem('ancline_user',JSON.stringify(j.user));
-      location.href=role==='CUSTOMER'?'/customer-portal':role==='AGENT'?'/agent-portal':'/';
+      const r=j.user?.role;
+      location.href=r==='CUSTOMER'?'/customer-portal':r==='AGENT'?'/agent-portal':'/';
     }catch(e:any){setMsg(e?.message||'Login failed');}finally{setBusy(false);}
   }
 
-  return <main style={{padding:30,maxWidth:500,margin:'40px auto'}}>
+  async function sso(){
+    if(!oidc.configured||!oidc.authorizationEndpoint||!oidc.clientId||!oidc.redirectUri){setMsg('Company SSO is not fully configured yet.');return;}
+    setBusy(true);setMsg('');
+    try{
+      const state=randomToken(24);const verifier=randomToken(48);
+      const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier));
+      const challenge=b64url(digest);
+      sessionStorage.setItem('ancline_oidc_state',state);
+      sessionStorage.setItem('ancline_oidc_verifier',verifier);
+      const u=new URL(oidc.authorizationEndpoint);
+      u.searchParams.set('response_type','code');u.searchParams.set('client_id',oidc.clientId);
+      u.searchParams.set('redirect_uri',oidc.redirectUri);u.searchParams.set('scope','openid email profile');
+      u.searchParams.set('state',state);u.searchParams.set('code_challenge',challenge);u.searchParams.set('code_challenge_method','S256');
+      location.href=u.toString();
+    }catch(e:any){setBusy(false);setMsg(e?.message||'Unable to start company sign-in');}
+  }
+
+  return <main style={{padding:30,maxWidth:520,margin:'40px auto'}}>
     <h1 style={{marginBottom:4}}>ANCLINE WORLDWIDE</h1><p className="sub">Secure role-based ERP access</p>
     <div className="card">
-      <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
-      <label>Role<select value={role} onChange={e=>setRole(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}>
-        {['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'].map(x=><option key={x}>{x}</option>)}
-      </select></label>
-      {(role==='CUSTOMER'||role==='AGENT')&&<label>{role==='CUSTOMER'?'Customer Organization':'Agent Organization'}<select value={scopeId} onChange={e=>setScopeId(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}><option value="">Select organization</option>{scopedOrgs.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>}
-      <button className="btn" onClick={login} disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
+      {oidc.configured&&<><button className="btn" onClick={sso} disabled={busy} style={{width:'100%',marginBottom:14}}>{busy?'Starting sign-in…':'Sign in with Company SSO'}</button>{oidc.devLoginAllowed&&<div className="sub" style={{textAlign:'center',margin:'0 0 14px'}}>or use transitional ANCLINE access</div>}</>}
+      {oidc.devLoginAllowed&&<>
+        <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
+        <label>Role<select value={role} onChange={e=>setRole(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}>
+          {['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'].map(x=><option key={x}>{x}</option>)}
+        </select></label>
+        {(role==='CUSTOMER'||role==='AGENT')&&<label>{role==='CUSTOMER'?'Customer Organization':'Agent Organization'}<select value={scopeId} onChange={e=>setScopeId(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}><option value="">Select organization</option>{scopedOrgs.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>}
+        <button className="btn" onClick={login} disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
+      </>}
+      {!oidc.devLoginAllowed&&!oidc.configured&&<div>ANCLINE sign-in is not configured. Contact your administrator.</div>}
       {msg&&<div style={{marginTop:10}}>{msg}</div>}
     </div>
   </main>;
