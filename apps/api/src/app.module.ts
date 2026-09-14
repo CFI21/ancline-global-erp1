@@ -21,6 +21,7 @@ import { TrackingModule } from './modules/tracking/tracking.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { ContainerMovementsModule } from './modules/container-movements/container-movements.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 
 @Module({
   imports:[
@@ -45,6 +46,7 @@ import { SchedulesModule } from './modules/schedules/schedules.module';
     RoutingModule,
     ContainerMovementsModule,
     SchedulesModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule implements NestModule {
