@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
+import { AlertEngineService } from './alert-engine.service';
 
 const closeoutTemplate=[
   ['OPS_COMPLETE','Operational file complete'],
@@ -15,7 +16,7 @@ const closeoutTemplate=[
 
 @Injectable()
 export class OperationsService {
-  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
+  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService,private alerts:AlertEngineService){}
 
   private assertAdmin(user:ScopeUser){if(user.role!=='GLOBAL_ADMIN') throw new ForbiddenException('Global administrator access required');}
   private assertInternal(user:ScopeUser){this.scope.assertInternal(user);}
@@ -37,8 +38,29 @@ export class OperationsService {
 
   async integrations(user:ScopeUser){this.assertInternal(user);return this.prisma.integrationEvent.findMany({orderBy:{createdAt:'desc'},take:100});}
 
-  async notifications(user:ScopeUser){return this.prisma.notification.findMany({where:{userId:user.sub},orderBy:{createdAt:'desc'},take:100});}
-  async markNotificationRead(id:string,user:ScopeUser){const row=await this.prisma.notification.findFirst({where:{id,userId:user.sub}});if(!row)throw new BadRequestException('Notification not found');return this.prisma.notification.update({where:{id},data:{status:'READ',readAt:new Date()}});}
+  async scanNotifications(user:ScopeUser){
+    this.assertInternal(user);
+    const result=await this.alerts.scan(user);
+    await this.audit.log({actorId:user.sub,action:'OPERATIONAL_ALERT_SCAN',objectType:'Notification',objectId:user.sub,detail:result});
+    return result;
+  }
+  async notifications(user:ScopeUser){
+    this.assertInternal(user);
+    await this.alerts.scan(user);
+    return this.prisma.notification.findMany({where:{userId:user.sub},orderBy:{updatedAt:'desc'},take:200});
+  }
+  async notificationSummary(user:ScopeUser){
+    this.assertInternal(user);
+    const rows=await this.prisma.notification.findMany({where:{userId:user.sub,status:{not:'RESOLVED'}},select:{status:true,category:true}});
+    return {
+      active:rows.length,
+      unread:rows.filter(x=>x.status==='UNREAD').length,
+      critical:rows.filter(x=>String(x.category).startsWith('CRITICAL')).length,
+      warning:rows.filter(x=>String(x.category).startsWith('WARNING')).length,
+      info:rows.filter(x=>String(x.category).startsWith('INFO')).length
+    };
+  }
+  async markNotificationRead(id:string,user:ScopeUser){const row=await this.prisma.notification.findFirst({where:{id,userId:user.sub}});if(!row)throw new BadRequestException('Notification not found');if(row.status==='RESOLVED')return row;return this.prisma.notification.update({where:{id},data:{status:'READ',readAt:new Date()}});}
   async markAllRead(user:ScopeUser){return this.prisma.notification.updateMany({where:{userId:user.sub,status:'UNREAD'},data:{status:'READ',readAt:new Date()}});}
 
   async closeout(bookingId:string,user:ScopeUser){
