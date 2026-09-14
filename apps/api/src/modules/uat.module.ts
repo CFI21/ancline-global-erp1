@@ -4,9 +4,11 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { UatController } from './uat.controller';
 import { UatService } from './uat.service';
 
+const UAT_ENABLED = process.env.UAT_RUNNER_ENABLED === 'true';
+
 @Module({
-  imports: [AuthModule, PrismaModule],
-  controllers: [UatController],
-  providers: [UatService],
+  imports: UAT_ENABLED ? [AuthModule, PrismaModule] : [],
+  controllers: UAT_ENABLED ? [UatController] : [],
+  providers: UAT_ENABLED ? [UatService] : [],
 })
 export class UatModule {}
