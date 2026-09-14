@@ -274,8 +274,8 @@ model Document {
 }
 
 model Container {
-  id                 String    @id @default(cuid())
-  containerNo        String    @unique
+  id                 String              @id @default(cuid())
+  containerNo        String              @unique
   bookingId          String?
   type               String
   ownership          String
@@ -287,9 +287,29 @@ model Container {
   pickupDate         DateTime?
   emptyDepot         String?
   fullReturnTerminal String?
-  booking            Booking?  @relation(fields:[bookingId], references:[id])
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  booking            Booking?            @relation(fields:[bookingId], references:[id])
+  movements          ContainerMovement[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model ContainerMovement {
+  id          String    @id @default(cuid())
+  containerId String
+  eventCode   String
+  eventLabel  String
+  status      String?
+  location    String?
+  occurredAt  DateTime
+  source      String    @default("MANUAL")
+  reference   String?
+  remarks     String?
+  actorId     String?
+  container   Container @relation(fields:[containerId], references:[id], onDelete:Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([containerId, occurredAt])
+  @@index([eventCode])
 }
 
 model FinanceLine {
