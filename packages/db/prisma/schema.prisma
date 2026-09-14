@@ -274,23 +274,40 @@ model Document {
 }
 
 model Container {
-  id                 String              @id @default(cuid())
-  containerNo        String              @unique
-  bookingId          String?
-  type               String
-  ownership          String
-  status             String
-  location           String?
-  sealNo             String?
-  vgm                Float?
-  grossWeight        Float?
-  pickupDate         DateTime?
-  emptyDepot         String?
-  fullReturnTerminal String?
-  booking            Booking?            @relation(fields:[bookingId], references:[id])
-  movements          ContainerMovement[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                    String              @id @default(cuid())
+  containerNo           String              @unique
+  bookingId             String?
+  type                  String
+  ownership             String
+  status                String
+  location              String?
+  sealNo                String?
+  vgm                   Float?
+  grossWeight           Float?
+  pickupDate            DateTime?
+  emptyDepot            String?
+  fullReturnTerminal    String?
+  equipmentProvider     String?
+  allocationRef         String?
+  allocationStatus      String?             @default("UNALLOCATED")
+  emptyReleaseOrderNo   String?
+  emptyReleaseValidUntil DateTime?
+  fullGateInAt          DateTime?
+  dischargeAt           DateTime?
+  deliveryAt            DateTime?
+  detentionFreeDays     Int?
+  demurrageFreeDays     Int?
+  detentionFreeUntil    DateTime?
+  demurrageFreeUntil    DateTime?
+  emptyReturnDue        DateTime?
+  emptyReturnedAt       DateTime?
+  detentionRatePerDay   Float?
+  demurrageRatePerDay   Float?
+  freeTimeCurrency      String?             @default("USD")
+  booking               Booking?            @relation(fields:[bookingId], references:[id])
+  movements             ContainerMovement[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 }
 
 model ContainerMovement {
