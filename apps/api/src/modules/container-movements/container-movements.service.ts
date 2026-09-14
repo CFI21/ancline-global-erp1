@@ -4,6 +4,20 @@ import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
 
+const milestoneMap:Record<string,{code:string;label:string}>={
+  EMPTY_RELEASED:{code:'EMPTY_RELEASED',label:'Empty Released'},
+  PICKED_UP:{code:'PICKED_UP',label:'Empty Picked Up'},
+  GATED_IN:{code:'GATED_IN',label:'Gate In'},
+  VGM_SUBMITTED:{code:'VGM_SUBMITTED',label:'VGM Submitted'},
+  LOADED:{code:'LOADED',label:'Loaded on Vessel'},
+  DEPARTED:{code:'DEPARTED',label:'Vessel Departed'},
+  TRANSSHIPMENT:{code:'TRANSSHIPMENT',label:'Transshipment'},
+  DISCHARGED:{code:'DISCHARGED',label:'Discharged'},
+  GATED_OUT:{code:'GATED_OUT',label:'Gate Out'},
+  DELIVERED:{code:'DELIVERED',label:'Delivered'},
+  EMPTY_RETURNED:{code:'EMPTY_RETURNED',label:'Empty Returned'}
+};
+
 @Injectable()
 export class ContainerMovementsService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
@@ -108,10 +122,22 @@ export class ContainerMovementsService {
       if(eventCode==='DELIVERED') update.deliveryAt=occurredAt;
       if(eventCode==='EMPTY_RETURNED') update.emptyReturnedAt=occurredAt;
       if(Object.keys(update).length) await tx.container.update({where:{id:containerId},data:update});
+
+      const mapped=milestoneMap[eventCode];
+      if(mapped){
+        const existingMilestone=await tx.shipmentMilestone.findFirst({where:{bookingId,code:mapped.code},orderBy:{createdAt:'asc'}});
+        if(existingMilestone){
+          await tx.shipmentMilestone.update({where:{id:existingMilestone.id},data:{label:mapped.label,status:'COMPLETED',actualAt:occurredAt,location:body?.location?String(body.location):existingMilestone.location,source:String(body?.source||'CONTAINER'),remarks:body?.remarks?String(body.remarks):existingMilestone.remarks}});
+        }else{
+          await tx.shipmentMilestone.create({data:{bookingId,code:mapped.code,label:mapped.label,status:'COMPLETED',actualAt:occurredAt,location:body?.location?String(body.location):null,source:String(body?.source||'CONTAINER'),remarks:body?.remarks?String(body.remarks):null}});
+        }
+      }
+      if(eventCode==='DEPARTED') await tx.booking.update({where:{id:bookingId},data:{atd:occurredAt,status:'OPERATIONAL'}});
+      if(eventCode==='DISCHARGED') await tx.booking.update({where:{id:bookingId},data:{ata:occurredAt}});
       return movement;
     });
 
-    await this.audit.log({actorId:user.sub,action:'CONTAINER_MOVEMENT_ADD',objectType:'ContainerMovement',objectId:result.id,bookingId,detail:{containerNo:container.containerNo,eventCode,eventLabel,status:body?.status||null,location:body?.location||null}});
+    await this.audit.log({actorId:user.sub,action:'CONTAINER_MOVEMENT_ADD',objectType:'ContainerMovement',objectId:result.id,bookingId,detail:{containerNo:container.containerNo,eventCode,eventLabel,status:body?.status||null,location:body?.location||null,milestoneSynced:Boolean(milestoneMap[eventCode])}});
     return result;
   }
 }
