@@ -15,20 +15,15 @@ import { StorageModule } from './modules/storage/storage.module';
 import { PortalModule } from './modules/portal/portal.module';
 import { RequestLoggingMiddleware } from './request-logging.middleware';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
+import { UatModule } from './modules/uat.module';
 import { OperationsModule } from './modules/operations/operations.module';
-import { FleetModule } from './modules/fleet/fleet.module';
-import { SpecialCargoModule } from './modules/special-cargo/special-cargo.module';
-import { DocumentOpsModule } from './modules/document-ops/document-ops.module';
-import { LandsideModule } from './modules/landside/landside.module';
-import { CommercialModule } from './modules/commercial/commercial.module';
-import { GovernanceModule } from './modules/governance/governance.module';
-import { AutomationModule } from './modules/automation/automation.module';
-import { UatModule } from './modules/uat/uat.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { RoutingModule } from './modules/routing/routing.module';
+import { ContainerMovementsModule } from './modules/container-movements/container-movements.module';
+import { SchedulesModule } from './modules/schedules/schedules.module';
 
 @Module({
-  imports: [
+  imports:[
     PrismaModule,
     AuditModule,
     ObservabilityModule,
@@ -44,23 +39,16 @@ import { RoutingModule } from './modules/routing/routing.module';
     StorageModule,
     PortalModule,
     DiagnosticsModule,
-    OperationsModule,
-    FleetModule,
-    SpecialCargoModule,
-    DocumentOpsModule,
-    LandsideModule,
-    CommercialModule,
-    GovernanceModule,
-    AutomationModule,
     UatModule,
+    OperationsModule,
     TrackingModule,
     RoutingModule,
+    ContainerMovementsModule,
+    SchedulesModule,
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RequestLoggingMiddleware)
-      .forRoutes({ path: '{*path}', method: RequestMethod.ALL });
+  configure(consumer:MiddlewareConsumer){
+    consumer.apply(RequestLoggingMiddleware).forRoutes({path:'{*path}',method:RequestMethod.ALL});
   }
 }
