@@ -418,3 +418,36 @@ model JobCloseoutChecklist {
 
   @@unique([bookingId, itemCode])
 }
+
+model VesselVoyageSchedule {
+  id              String   @id @default(cuid())
+  scheduleNo      String   @unique
+  carrier         String
+  serviceName     String?
+  vessel          String
+  imoNo           String?
+  voyage          String
+  direction       String?
+  portOfLoading   String
+  portOfDischarge String
+  terminal        String?
+  etd             DateTime
+  eta             DateTime
+  atd             DateTime?
+  ata             DateTime?
+  cyClosing       DateTime?
+  siCutoff        DateTime?
+  vgmCutoff       DateTime?
+  docCutoff       DateTime?
+  capacityTeu     Int?
+  status          String   @default("PLANNED")
+  source          String   @default("MANUAL")
+  remarks         String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([carrier, vessel, voyage])
+  @@index([portOfLoading, portOfDischarge, etd])
+  @@index([status])
+}
