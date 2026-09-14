@@ -12,6 +12,7 @@ const links=[
   ['/exceptions','Exceptions / Action Board'],
   ['/routing','Routing / Voyage Plan'],
   ['/tracking','Shipment Tracking'],
+  ['/integrations','Integration Control'],
   ['/organizations','Organizations'],
   ['/rates','Rates / Quotes'],
   ['/documents','Documents'],
