@@ -74,11 +74,29 @@ export class SchedulesService {
     await this.scope.assertBookingAccess(user,bookingId);
     const schedule=await this.prisma.vesselVoyageSchedule.findUnique({where:{id}});
     if(!schedule) throw new BadRequestException('Schedule not found');
+
     const booking=await this.prisma.booking.update({where:{id:bookingId},data:{
       carrier:schedule.carrier,vesselVoyage:`${schedule.vessel} / ${schedule.voyage}`,portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,terminal:schedule.terminal,
       etd:schedule.etd,eta:schedule.eta,atd:schedule.atd,ata:schedule.ata,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff
     }});
-    await this.audit.log({actorId:user.sub,action:'VESSEL_SCHEDULE_APPLY',objectType:'VesselVoyageSchedule',objectId:id,bookingId,detail:{scheduleNo:schedule.scheduleNo,vessel:schedule.vessel,voyage:schedule.voyage}});
+
+    const mainLeg=await this.prisma.bookingLeg.findFirst({where:{bookingId,legType:'MAIN'},orderBy:{sequence:'asc'}});
+    if(mainLeg){
+      await this.prisma.bookingLeg.update({where:{id:mainLeg.id},data:{
+        mode:'SEA',origin:schedule.portOfLoading,destination:schedule.portOfDischarge,carrier:schedule.carrier,
+        vessel:schedule.vessel,voyage:schedule.voyage,terminal:schedule.terminal,etd:schedule.etd,eta:schedule.eta,
+        atd:schedule.atd,ata:schedule.ata,status:schedule.status,remarks:`Schedule ${schedule.scheduleNo}`
+      }});
+    }else{
+      const last=await this.prisma.bookingLeg.findFirst({where:{bookingId},orderBy:{sequence:'desc'},select:{sequence:true}});
+      await this.prisma.bookingLeg.create({data:{
+        bookingId,sequence:(last?.sequence||0)+1,legType:'MAIN',mode:'SEA',origin:schedule.portOfLoading,destination:schedule.portOfDischarge,
+        carrier:schedule.carrier,vessel:schedule.vessel,voyage:schedule.voyage,terminal:schedule.terminal,etd:schedule.etd,eta:schedule.eta,
+        atd:schedule.atd,ata:schedule.ata,status:schedule.status,remarks:`Schedule ${schedule.scheduleNo}`
+      }});
+    }
+
+    await this.audit.log({actorId:user.sub,action:'VESSEL_SCHEDULE_APPLY',objectType:'VesselVoyageSchedule',objectId:id,bookingId,detail:{scheduleNo:schedule.scheduleNo,vessel:schedule.vessel,voyage:schedule.voyage,routingSynced:true}});
     return booking;
   }
 }
