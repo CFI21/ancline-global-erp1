@@ -9,6 +9,7 @@ const links=[
   ['/booking-control','Booking Control'],
   ['/schedules','Vessel / Voyage Schedules'],
   ['/container-control','Container Control'],
+  ['/transport','Land Transport / Delivery'],
   ['/exceptions','Exceptions / Action Board'],
   ['/routing','Routing / Voyage Plan'],
   ['/tracking','Shipment Tracking'],
