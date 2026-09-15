@@ -16,7 +16,7 @@ const links=[
   ['/tracking','Shipment Tracking'],
   ['/integrations','Integration Control'],
   ['/organizations','Organizations'],
-  ['/rates','Rates / Quotes'],
+  ['/rates','Commercial / Quotes'],
   ['/documents','Documents'],
   ['/finance','Finance'],
   ['/approvals','Approvals'],
