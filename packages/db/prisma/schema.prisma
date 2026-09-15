@@ -120,6 +120,9 @@ model Booking {
   owningBranchId       String?
   id                   String        @id @default(cuid())
   bookingNo            String        @unique
+  shipmentNo           String?       @unique
+  shipmentStatus       String?       @default("BOOKED")
+  consolId             String?
   customerId           String
   producingAgentId     String?
   rateQuoteId          String?
@@ -197,6 +200,7 @@ model Booking {
   customer             Organization  @relation("CustomerBookings", fields:[customerId], references:[id])
   producingAgent       Organization? @relation("AgentBookings", fields:[producingAgentId], references:[id])
   rateQuote            RateQuote?    @relation(fields:[rateQuoteId], references:[id], onDelete:SetNull)
+  consol               Consol?       @relation(fields:[consolId], references:[id], onDelete:SetNull)
   documents            Document[]
   containers           Container[]
   financeLines         FinanceLine[]
@@ -212,6 +216,7 @@ model Booking {
   @@index([rateQuoteId])
   @@index([salesOwner])
   @@index([operator])
+  @@index([consolId])
 }
 
 model ShipmentMilestone {
@@ -514,4 +519,36 @@ model TransportOrder {
   @@index([containerId])
   @@index([providerOrgId])
   @@index([plannedPickupAt])
+}
+
+model Consol {
+  id              String    @id @default(cuid())
+  consolNo        String    @unique
+  mode            String    @default("SEA")
+  carrier         String?
+  serviceName     String?
+  masterBL        String?
+  vessel          String?
+  voyage          String?
+  origin          String
+  destination     String
+  portOfLoading   String
+  portOfDischarge String
+  terminal        String?
+  etd             DateTime
+  eta             DateTime
+  atd             DateTime?
+  ata             DateTime?
+  status          String    @default("PLANNED")
+  owningBranchId  String?
+  remarks         String?
+  createdBy       String?
+  shipments       Booking[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([carrier, vessel, voyage])
+  @@index([portOfLoading, portOfDischarge, etd])
+  @@index([status])
+  @@index([owningBranchId])
 }

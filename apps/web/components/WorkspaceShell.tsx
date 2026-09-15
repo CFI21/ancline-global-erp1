@@ -7,6 +7,7 @@ const links=[
   ['/', 'Control Tower'],
   ['/bookings','Bookings'],
   ['/booking-control','Booking Control'],
+  ['/shipment-control','Shipment / Consol Control'],
   ['/schedules','Vessel / Voyage Schedules'],
   ['/container-control','Container Control'],
   ['/transport','Land Transport / Delivery'],
