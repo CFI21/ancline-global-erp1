@@ -20,8 +20,8 @@ export class CommercialService {
     return text;
   }
 
-  private date(value:any,name:string,required=true){
-    if((value===undefined||value===null||value==='')&&!required) return null;
+  private date(value:any,name:string):Date{
+    if(value===undefined||value===null||value==='') throw new BadRequestException(`${name} is required`);
     const d=new Date(value);
     if(Number.isNaN(d.getTime())) throw new BadRequestException(`${name} must be a valid date`);
     return d;
