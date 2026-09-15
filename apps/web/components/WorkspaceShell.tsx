@@ -22,6 +22,7 @@ const links=[
   ['/documents','Documents'],
   ['/finance','Finance / Job Costing'],
   ['/accounting','AR / AP & Invoicing'],
+  ['/credit-control','Credit / Collections / Cash'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
