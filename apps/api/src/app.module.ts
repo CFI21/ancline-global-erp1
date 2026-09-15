@@ -23,6 +23,7 @@ import { ContainerMovementsModule } from './modules/container-movements/containe
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { TransportModule } from './modules/transport/transport.module';
+import { CustomsModule } from './modules/customs/customs.module';
 
 @Module({
   imports:[
@@ -49,6 +50,7 @@ import { TransportModule } from './modules/transport/transport.module';
     SchedulesModule,
     IntegrationsModule,
     TransportModule,
+    CustomsModule,
   ],
 })
 export class AppModule implements NestModule {
