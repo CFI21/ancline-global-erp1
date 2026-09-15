@@ -120,7 +120,7 @@ model Booking {
   owningBranchId       String?
   id                   String        @id @default(cuid())
   bookingNo            String        @unique
-  shipmentNo           String?       @unique
+  shipmentNo           String?
   shipmentStatus       String?       @default("BOOKED")
   consolId             String?
   customerId           String
@@ -217,6 +217,7 @@ model Booking {
   @@index([salesOwner])
   @@index([operator])
   @@index([consolId])
+  @@index([shipmentNo])
 }
 
 model ShipmentMilestone {
