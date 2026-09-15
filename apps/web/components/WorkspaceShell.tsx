@@ -10,6 +10,7 @@ const links=[
   ['/schedules','Vessel / Voyage Schedules'],
   ['/container-control','Container Control'],
   ['/transport','Land Transport / Delivery'],
+  ['/customs','Customs Clearance'],
   ['/exceptions','Exceptions / Action Board'],
   ['/routing','Routing / Voyage Plan'],
   ['/tracking','Shipment Tracking'],
