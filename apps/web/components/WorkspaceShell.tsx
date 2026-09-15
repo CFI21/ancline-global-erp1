@@ -23,6 +23,7 @@ const links=[
   ['/finance','Finance / Job Costing'],
   ['/accounting','AR / AP & Invoicing'],
   ['/credit-control','Credit / Collections / Cash'],
+  ['/general-ledger','General Ledger / Tax'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
@@ -31,19 +32,7 @@ const links=[
 ] as const;
 
 export default function WorkspaceShell({title,subtitle,active,children,actions}:{title:string;subtitle:string;active:string;children:ReactNode;actions?:ReactNode}){
-  return <div className="shell">
-    <aside className="side">
-      <div className="brand">ANCLINE WORLDWIDE</div>
-      {links.map(([href,label])=><a key={href} href={href} style={active===href?{background:'#183a5c'}:undefined}>{label}</a>)}
-    </aside>
-    <main className="main">
-      <div className="top">
-        <div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
-      </div>
-      {children}
-    </main>
-  </div>;
+  return <div className="shell"><aside className="side"><div className="brand">ANCLINE WORLDWIDE</div>{links.map(([href,label])=><a key={href} href={href} style={active===href?{background:'#183a5c'}:undefined}>{label}</a>)}</aside><main className="main"><div className="top"><div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div></div>{children}</main></div>;
 }
 
 export const fieldStyle:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
