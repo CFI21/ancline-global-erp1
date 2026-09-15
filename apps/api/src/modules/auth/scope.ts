@@ -7,6 +7,7 @@ export function bookingScope(user:ScopeUser){
   switch(user.role){
     case 'GLOBAL_ADMIN':
     case 'CONTROL_TOWER':
+    case 'FINANCE':
       return {};
     case 'BRANCH_OPS':
       return user.branchId ? { owningBranchId:user.branchId } : { id:'__none__' };

@@ -9,6 +9,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { RatesModule } from './modules/rates/rates.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -39,6 +40,7 @@ import { CommercialModule } from './modules/commercial/commercial.module';
     RatesModule,
     DocumentsModule,
     FinanceModule,
+    AccountingModule,
     TasksModule,
     ApprovalsModule,
     StorageModule,
