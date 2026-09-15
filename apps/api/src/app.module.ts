@@ -25,6 +25,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { TransportModule } from './modules/transport/transport.module';
 import { CustomsModule } from './modules/customs/customs.module';
 import { ShipmentControlModule } from './modules/shipment-control/shipment-control.module';
+import { CommercialModule } from './modules/commercial/commercial.module';
 
 @Module({
   imports:[
@@ -53,6 +54,7 @@ import { ShipmentControlModule } from './modules/shipment-control/shipment-contr
     TransportModule,
     CustomsModule,
     ShipmentControlModule,
+    CommercialModule,
   ],
 })
 export class AppModule implements NestModule {

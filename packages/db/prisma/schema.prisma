@@ -490,31 +490,31 @@ model VesselVoyageSchedule {
 }
 
 model TransportOrder {
-  id                String   @id @default(cuid())
-  orderNo           String   @unique
-  bookingId         String
-  containerId       String?
-  orderType         String   @default("IMPORT_DELIVERY")
-  providerOrgId     String?
-  providerName      String?
-  driverName        String?
-  driverPhone       String?
-  truckNo           String?
-  trailerNo         String?
-  pickupLocation    String
-  deliveryLocation  String
-  plannedPickupAt   DateTime?
-  plannedDeliveryAt DateTime?
-  actualPickupAt    DateTime?
-  actualDeliveryAt  DateTime?
-  status            String   @default("PLANNED")
-  customerReference String?
-  providerReference String?
-  instructions      String?
+  id                 String   @id @default(cuid())
+  orderNo            String   @unique
+  bookingId          String
+  containerId        String?
+  orderType          String   @default("IMPORT_DELIVERY")
+  providerOrgId      String?
+  providerName       String?
+  driverName         String?
+  driverPhone        String?
+  truckNo            String?
+  trailerNo          String?
+  pickupLocation     String
+  deliveryLocation   String
+  plannedPickupAt    DateTime?
+  plannedDeliveryAt  DateTime?
+  actualPickupAt     DateTime?
+  actualDeliveryAt   DateTime?
+  status             String   @default("PLANNED")
+  customerReference  String?
+  providerReference  String?
+  instructions       String?
   proofOfDeliveryRef String?
-  createdBy         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([bookingId, status])
   @@index([containerId])
@@ -552,4 +552,50 @@ model Consol {
   @@index([portOfLoading, portOfDischarge, etd])
   @@index([status])
   @@index([owningBranchId])
+}
+
+model ServiceContract {
+  id              String             @id @default(cuid())
+  contractNo      String             @unique
+  partyId         String
+  partyType       String
+  contractType    String
+  trade           String?
+  currency        String             @default("USD")
+  validFrom       DateTime
+  validTo         DateTime
+  minimumQuantity Decimal?           @db.Decimal(18,2)
+  quantityUnit    String?
+  status          String             @default("DRAFT")
+  notes           String?
+  rates           ContractRateLane[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([partyId, status])
+  @@index([validTo])
+}
+
+model ContractRateLane {
+  id                  String          @id @default(cuid())
+  contractId          String
+  origin              String
+  destination         String
+  equipment           String
+  chargeCode          String
+  buyRate             Decimal?        @db.Decimal(18,2)
+  sellRate            Decimal?        @db.Decimal(18,2)
+  currency            String
+  dgPremium           Decimal?        @db.Decimal(18,2)
+  reeferPremium       Decimal?        @db.Decimal(18,2)
+  oogRule             String?
+  freeTimeOrigin      Int?
+  freeTimeDestination Int?
+  contract            ServiceContract @relation(fields:[contractId], references:[id], onDelete:Cascade)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([contractId])
+  @@index([origin, destination, equipment])
+  @@index([chargeCode, currency])
 }
