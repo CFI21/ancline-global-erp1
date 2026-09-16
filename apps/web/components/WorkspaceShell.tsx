@@ -20,6 +20,7 @@ const links=[
   ['/commercial','Contracts / Tariffs'],
   ['/rates','Commercial / Quotes'],
   ['/documents','Documents'],
+  ['/procurement','Procurement / Vendor Spend'],
   ['/finance','Finance / Job Costing'],
   ['/accounting','AR / AP & Invoicing'],
   ['/credit-control','Credit / Collections / Cash'],

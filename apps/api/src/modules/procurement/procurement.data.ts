@@ -1,0 +1,46 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ScopeUser, bookingScope } from '../auth/scope';
+
+export const PROCUREMENT_SOURCE='ANCLINE_PROCUREMENT';
+export const ACCOUNTING_SOURCE='ANCLINE_ACCOUNTING';
+export const GL_SOURCE='ANCLINE_GL';
+export const MONTH_END_SOURCE='ANCLINE_MONTH_END';
+export const STAT_SOURCE='ANCLINE_STATUTORY_FINANCE';
+
+@Injectable()
+export class ProcurementData {
+  constructor(private prisma:PrismaService){}
+  private get db():any{return this.prisma as any;}
+  p(e:any){return (e?.payload||{}) as any;}
+  r(v:any){return Math.round((Number(v||0)+Number.EPSILON)*100)/100;}
+  periodOf(v:any){const d=new Date(v);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;}
+
+  private buildPO(events:any[]){
+    const created=events.find((e:any)=>e.eventType==='PO_CREATED');if(!created)return null;
+    const changes=events.filter((e:any)=>['PO_CREATED','PO_UPDATED'].includes(e.eventType));const base={...this.p(changes[changes.length-1])};
+    const approved=events.find((e:any)=>e.eventType==='PO_APPROVED'),submitted=events.find((e:any)=>e.eventType==='PO_SUBMITTED'),cancelled=[...events].reverse().find((e:any)=>e.eventType==='PO_CANCELLED'),closed=[...events].reverse().find((e:any)=>e.eventType==='PO_CLOSED');
+    const receipts=events.filter((e:any)=>e.eventType==='PO_RECEIPT_RECORDED').map((e:any)=>({id:e.id,...this.p(e),createdAt:e.createdAt}));
+    const received=new Map<string,number>();for(const receipt of receipts)for(const item of receipt.items||[])received.set(String(item.lineId),this.r((received.get(String(item.lineId))||0)+Number(item.quantity||0)));
+    const lines=(base.lines||[]).map((l:any)=>({...l,receivedQuantity:this.r(received.get(String(l.lineId))||0),remainingQuantity:this.r(Math.max(0,Number(l.quantity)-Number(received.get(String(l.lineId))||0))),financeLineId:approved?this.p(approved).financeLineIds?.[l.lineId]||null:null}));
+    const anyReceipt=lines.some((l:any)=>l.receivedQuantity>0),allReceived=lines.length>0&&lines.every((l:any)=>l.remainingQuantity<=0.0005);let status='DRAFT';if(submitted)status='SUBMITTED';if(approved)status='APPROVED';if(anyReceipt)status=allReceived?'RECEIVED':'PART_RECEIVED';if(closed)status='CLOSED';if(cancelled)status='CANCELLED';
+    return {...base,poNo:created.objectId,status,lines,receipts,approvedAt:approved?.createdAt||null,submittedAt:submitted?.createdAt||null,closedAt:closed?.createdAt||null,cancelledAt:cancelled?.createdAt||null,createdAt:created.createdAt,updatedAt:events[events.length-1]?.createdAt||created.createdAt};
+  }
+
+  async allPOs(){const events:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:PROCUREMENT_SOURCE,objectType:'PurchaseOrder'},orderBy:{createdAt:'asc'}}),g=new Map<string,any[]>();for(const e of events){if(!g.has(e.objectId))g.set(e.objectId,[]);g.get(e.objectId)!.push(e);}return Array.from(g.values()).map((x:any[])=>this.buildPO(x)).filter(Boolean) as any[];}
+  async accessiblePOs(u:ScopeUser){const rows=await this.allPOs();if(['GLOBAL_ADMIN','CONTROL_TOWER','FINANCE'].includes(u.role))return rows;const bookings:any[]=await this.db.booking.findMany({where:bookingScope(u),select:{id:true}}),allowed=new Set(bookings.map((b:any)=>b.id));return rows.filter((p:any)=>allowed.has(p.bookingId));}
+
+  async branchEntityMap(){const rows:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:STAT_SOURCE,objectType:'LegalEntity',eventType:'LEGAL_ENTITY_SET'},orderBy:{createdAt:'asc'}}),m=new Map<string,string>();for(const e of rows){const p=this.p(e);if(p.active===false)continue;for(const b of p.branchIds||[])m.set(String(b),String(e.objectId));}return m;}
+  async latestBudgets(){const rows:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:MONTH_END_SOURCE,objectType:'BudgetLine',eventType:'BUDGET_LINE_SET'},orderBy:{createdAt:'asc'}}),m=new Map<string,any>();for(const e of rows)m.set(e.objectId,this.p(e));return m;}
+  async postedJournals(){const rows:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:GL_SOURCE,objectType:'JournalEntry'},orderBy:{createdAt:'asc'}}),g=new Map<string,any[]>();for(const e of rows){if(!g.has(e.objectId))g.set(e.objectId,[]);g.get(e.objectId)!.push(e);}const out:any[]=[];for(const [journalNo,ev] of g){const c=ev.find((x:any)=>x.eventType==='JOURNAL_CREATED'),posted=ev.find((x:any)=>x.eventType==='JOURNAL_POSTED');if(c&&posted)out.push({journalNo,...this.p(c)});}return out;}
+
+  async budgetCheck(po:any){
+    const period=this.periodOf(po.orderDate),entityMap=await this.branchEntityMap(),entityId=entityMap.get(String(po.owningBranchId||''))||'GROUP';const [budgets,journals,all]=await Promise.all([this.latestBudgets(),this.postedJournals(),this.allPOs()]);const rows:any[]=[];
+    for(const line of po.lines){const account=String(line.expenseAccount).toUpperCase(),budget=budgets.get(`BUDGET:${period}:${entityId}:${po.currency}:${account}`)||budgets.get(`BUDGET:${period}:GROUP:${po.currency}:${account}`)||null;let actual=0;for(const j of journals){if(j.period!==period||String(j.currency).toUpperCase()!==po.currency)continue;const je=String(j.legalEntityId||j.entityId||'');if(entityId!=='GROUP'&&je&&je!==entityId)continue;for(const l of j.lines||[])if(String(l.account||'').toUpperCase()===account)actual+=Number(l.debit||0)-Number(l.credit||0);}let committed=0;for(const other of all){if(other.poNo===po.poNo||['DRAFT','SUBMITTED','CANCELLED','CLOSED'].includes(other.status)||this.periodOf(other.orderDate)!==period||other.currency!==po.currency)continue;if(entityId!=='GROUP'&&entityMap.get(String(other.owningBranchId||''))!==entityId)continue;for(const ol of other.lines||[])if(String(ol.expenseAccount).toUpperCase()===account)committed+=Number(ol.amount||0);}const budgetAmount=budget?Number(budget.amount||0):null,projected=this.r(actual+committed+Number(line.amount||0)),remaining=budgetAmount==null?null:this.r(budgetAmount-projected),status=budgetAmount==null?'UNBUDGETED':projected-budgetAmount>0.005?'OVER_BUDGET':'WITHIN_BUDGET';rows.push({lineId:line.lineId,account,period,scopeId:budget?.scopeId||entityId,currency:po.currency,budget:budgetAmount==null?null:this.r(budgetAmount),actual:this.r(actual),committed:this.r(committed),currentPO:this.r(line.amount),projected,remaining,status});}
+    return {poNo:po.poNo,period,entityId,policy:po.budgetPolicy,status:rows.some((x:any)=>x.status==='OVER_BUDGET')?'OVER_BUDGET':rows.some((x:any)=>x.status==='UNBUDGETED')?'UNBUDGETED':'WITHIN_BUDGET',lines:rows};
+  }
+
+  async invoiceRows(){const rows:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:ACCOUNTING_SOURCE,objectType:'FinanceInvoice'},orderBy:{createdAt:'asc'}}),g=new Map<string,any[]>();for(const e of rows){if(!g.has(e.objectId))g.set(e.objectId,[]);g.get(e.objectId)!.push(e);}const out:any[]=[];for(const [invoiceNo,ev] of g){const c=ev.find((x:any)=>x.eventType==='INVOICE_CREATED');if(!c)continue;const p=this.p(c);if(String(p.invoiceType||'AR').toUpperCase()!=='AP')continue;const issued=ev.find((x:any)=>x.eventType==='INVOICE_ISSUED'),voided=[...ev].reverse().find((x:any)=>x.eventType==='INVOICE_VOIDED');out.push({invoiceNo,...p,status:voided?'VOID':issued?'ISSUED':'DRAFT',createdAt:c.createdAt});}return out;}
+  async overrides(){const rows:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:PROCUREMENT_SOURCE,objectType:'APMatch',eventType:'AP_MATCH_OVERRIDE'},orderBy:{createdAt:'asc'}}),m=new Map<string,any>();for(const e of rows)m.set(e.objectId,{...this.p(e),createdAt:e.createdAt});return m;}
+  async apMatches(){const [invoices,pos,overrides]=await Promise.all([this.invoiceRows(),this.allPOs(),this.overrides()]);const byFinance=new Map<string,{po:any,line:any}>();for(const po of pos)for(const line of po.lines||[])if(line.financeLineId)byFinance.set(String(line.financeLineId),{po,line});const out:any[]=[];for(const invoice of invoices.filter((x:any)=>x.status!=='VOID')){const override=overrides.get(invoice.invoiceNo)||null,lines:any[]=[];for(const il of invoice.lines||[]){const hit=byFinance.get(String(il.id));if(!hit){lines.push({financeLineId:il.id,invoiceAmount:this.r(il.amount),status:'NO_PO'});continue;}const {po,line}=hit,ordered=this.r(line.amount),received=this.r(Number(line.unitRate||0)*Number(line.receivedQuantity||0)),invoiceAmount=this.r(il.amount),tolerance=this.r(ordered*Number(po.tolerancePct||0)/100),variance=this.r(invoiceAmount-received),fullReceipt=Number(line.remainingQuantity||0)<=0.0005,status=fullReceipt&&Math.abs(invoiceAmount-ordered)<=tolerance+0.005?'MATCHED':!fullReceipt?'RECEIPT_PENDING':'VARIANCE';lines.push({financeLineId:il.id,poNo:po.poNo,lineId:line.lineId,orderedAmount:ordered,receivedAmount:received,invoiceAmount,tolerance,variance,fullReceipt,status});}const rawStatus=lines.length&&lines.every((x:any)=>x.status==='MATCHED')?'MATCHED':'EXCEPTION';out.push({invoiceNo:invoice.invoiceNo,partyId:invoice.partyId,partyName:invoice.partyName,currency:invoice.currency,totalAmount:this.r(invoice.totalAmount),status:override?'OVERRIDDEN':rawStatus,override,lines,createdAt:invoice.createdAt});}return out.sort((a:any,b:any)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime());}
+}
