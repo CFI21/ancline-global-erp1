@@ -2,6 +2,13 @@ export const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 
 function sleep(ms:number){return new Promise(resolve=>setTimeout(resolve,ms));}
 
+function clearExpiredSession(){
+  if(typeof window==='undefined') return;
+  localStorage.removeItem('ancline_token');
+  localStorage.removeItem('ancline_user');
+  if(window.location.pathname!=='/login') window.location.replace('/login');
+}
+
 function friendlyHttpError(status:number,statusText:string,text:string,data:any){
   const contentTypeHtml=/^\s*<!doctype html|^\s*<html/i.test(text||'');
   if(status===502||status===503||status===504){
@@ -28,6 +35,7 @@ export async function api(path:string,token?:string,init:RequestInit={}){
       try{data=text?JSON.parse(text):{};}catch{data=text;}
 
       if(r.ok) return data;
+      if(r.status===401&&token) clearExpiredSession();
 
       const retryable=r.status===502||r.status===503||r.status===504;
       const message=friendlyHttpError(r.status,r.statusText,text,data);
