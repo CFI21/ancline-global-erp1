@@ -25,6 +25,7 @@ const links=[
   ['/credit-control','Credit / Collections / Cash'],
   ['/general-ledger','General Ledger / Tax'],
   ['/finance-reporting','Financial Posting / Reporting'],
+  ['/group-finance','Group Finance / Consolidation'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
