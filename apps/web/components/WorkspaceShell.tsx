@@ -24,6 +24,7 @@ const links=[
   ['/accounting','AR / AP & Invoicing'],
   ['/credit-control','Credit / Collections / Cash'],
   ['/general-ledger','General Ledger / Tax'],
+  ['/finance-reporting','Financial Posting / Reporting'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],

@@ -12,6 +12,7 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { CreditControlModule } from './modules/credit-control/credit-control.module';
 import { GeneralLedgerModule } from './modules/general-ledger/general-ledger.module';
+import { FinanceReportingModule } from './modules/finance-reporting/finance-reporting.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -30,5 +31,5 @@ import { CustomsModule } from './modules/customs/customs.module';
 import { ShipmentControlModule } from './modules/shipment-control/shipment-control.module';
 import { CommercialModule } from './modules/commercial/commercial.module';
 
-@Module({imports:[PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,AccountingModule,CreditControlModule,GeneralLedgerModule,TasksModule,ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule,ContainerMovementsModule,SchedulesModule,IntegrationsModule,TransportModule,CustomsModule,ShipmentControlModule,CommercialModule]})
+@Module({imports:[PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,AccountingModule,CreditControlModule,GeneralLedgerModule,FinanceReportingModule,TasksModule,ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule,ContainerMovementsModule,SchedulesModule,IntegrationsModule,TransportModule,CustomsModule,ShipmentControlModule,CommercialModule]})
 export class AppModule implements NestModule {configure(consumer:MiddlewareConsumer){consumer.apply(RequestLoggingMiddleware).forRoutes({path:'{*path}',method:RequestMethod.ALL});}}
