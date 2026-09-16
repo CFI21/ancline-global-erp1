@@ -28,6 +28,7 @@ const links=[
   ['/group-finance','Group Finance / Consolidation'],
   ['/statutory-finance','Statutory Finance / Entity Close'],
   ['/treasury','Treasury / Liquidity'],
+  ['/month-end','Month-End Control'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
