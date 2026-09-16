@@ -26,6 +26,7 @@ const links=[
   ['/general-ledger','General Ledger / Tax'],
   ['/finance-reporting','Financial Posting / Reporting'],
   ['/group-finance','Group Finance / Consolidation'],
+  ['/statutory-finance','Statutory Finance / Entity Close'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
