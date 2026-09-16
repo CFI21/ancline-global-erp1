@@ -27,6 +27,7 @@ const links=[
   ['/finance-reporting','Financial Posting / Reporting'],
   ['/group-finance','Group Finance / Consolidation'],
   ['/statutory-finance','Statutory Finance / Entity Close'],
+  ['/treasury','Treasury / Liquidity'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
