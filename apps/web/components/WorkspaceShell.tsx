@@ -17,6 +17,7 @@ const links=[
   ['/tracking','Shipment Tracking'],
   ['/integrations','Integration Control'],
   ['/organizations','Organizations'],
+  ['/sales-crm','Sales CRM / Pipeline'],
   ['/commercial','Contracts / Tariffs'],
   ['/rates','Commercial / Quotes'],
   ['/commercial-guardrails','Commercial Guardrails'],
