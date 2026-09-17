@@ -17,6 +17,7 @@ const links=[
   ['/tracking','Shipment Tracking'],
   ['/integrations','Integration Control'],
   ['/connectivity','External Connectivity / EDI'],
+  ['/workflow-automation','Workflow Automation'],
   ['/organizations','Organizations'],
   ['/sales-crm','Sales CRM / Pipeline'],
   ['/customer-service','Customer Service / Claims'],
