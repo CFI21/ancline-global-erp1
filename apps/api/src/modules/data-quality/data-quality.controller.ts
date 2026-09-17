@@ -3,7 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DataQualityService } from './data-quality.service';
 
 @UseGuards(JwtAuthGuard)
-@Controller('api/data-quality')
+@Controller('data-quality')
 export class DataQualityController {
  constructor(private service:DataQualityService){}
  @Get('dashboard') dashboard(@Req() req:any){return this.service.dashboard(req.user);}
