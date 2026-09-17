@@ -32,6 +32,7 @@ import { EnterpriseReportingModule } from './modules/enterprise-reporting/enterp
 import { WorkflowAutomationModule } from './modules/workflow-automation/workflow-automation.module';
 import { DataQualityModule } from './modules/data-quality/data-quality.module';
 import { ControlEnforcementModule } from './modules/control-enforcement/control-enforcement.module';
+import { BackgroundAutomationModule } from './modules/background-automation/background-automation.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -51,5 +52,5 @@ import { CustomsModule } from './modules/customs/customs.module';
 import { ShipmentControlModule } from './modules/shipment-control/shipment-control.module';
 import { CommercialModule } from './modules/commercial/commercial.module';
 
-@Module({imports:[PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,OrganizationsModule,RatesModule,DocumentsModule,DocumentAutomationModule,FinanceModule,AccountingModule,CreditControlModule,GeneralLedgerModule,FinanceReportingModule,GroupFinanceModule,StatutoryFinanceModule,TreasuryModule,MonthEndModule,ProcurementModule,VendorControlModule,CommercialProfitabilityModule,CommercialGuardrailsModule,SalesCrmModule,CustomerServiceModule,EnterpriseRiskModule,QualityModule,WorkforceModule,GovernanceModule,EnterpriseReportingModule,WorkflowAutomationModule,DataQualityModule,ControlEnforcementModule,TasksModule,ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule,ContainerMovementsModule,SchedulesModule,IntegrationsModule,ConnectivityModule,TransportModule,CustomsModule,ShipmentControlModule,CommercialModule]})
+@Module({imports:[PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,OrganizationsModule,RatesModule,DocumentsModule,DocumentAutomationModule,FinanceModule,AccountingModule,CreditControlModule,GeneralLedgerModule,FinanceReportingModule,GroupFinanceModule,StatutoryFinanceModule,TreasuryModule,MonthEndModule,ProcurementModule,VendorControlModule,CommercialProfitabilityModule,CommercialGuardrailsModule,SalesCrmModule,CustomerServiceModule,EnterpriseRiskModule,QualityModule,WorkforceModule,GovernanceModule,EnterpriseReportingModule,WorkflowAutomationModule,DataQualityModule,ControlEnforcementModule,BackgroundAutomationModule,TasksModule,ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule,ContainerMovementsModule,SchedulesModule,IntegrationsModule,ConnectivityModule,TransportModule,CustomsModule,ShipmentControlModule,CommercialModule]})
 export class AppModule implements NestModule {configure(consumer:MiddlewareConsumer){consumer.apply(RequestLoggingMiddleware).forRoutes({path:'{*path}',method:RequestMethod.ALL});}}
