@@ -34,6 +34,7 @@ const links=[
   ['/credit-control','Credit / Collections / Cash'],
   ['/general-ledger','General Ledger / Tax'],
   ['/finance-reporting','Financial Posting / Reporting'],
+  ['/enterprise-reporting','Enterprise Reporting / BI'],
   ['/group-finance','Group Finance / Consolidation'],
   ['/statutory-finance','Statutory Finance / Entity Close'],
   ['/treasury','Treasury / Liquidity'],
