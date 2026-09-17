@@ -26,6 +26,7 @@ const links=[
   ['/rates','Commercial / Quotes'],
   ['/commercial-guardrails','Commercial Guardrails'],
   ['/documents','Documents'],
+  ['/document-automation','Document Automation / Comms'],
   ['/procurement','Procurement / Vendor Spend'],
   ['/vendor-control','Margin / Vendor Control'],
   ['/commercial-profitability','Commercial Profitability'],
