@@ -4,201 +4,22 @@ import { ScopeService } from '../auth/scope.service';
 import { ScopeUser, bookingScope } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
 
-const states = [
-  'DRAFT','RATE_REQUESTED','RATE_RECEIVED','RATE_APPROVED','QUOTE_SENT','CUSTOMER_ACCEPTED',
-  'BOOKING_REQUESTED','CREDIT_CHECK','EQUIPMENT_CHECK','SLOT_CHECK','AGENT_ACCEPTANCE',
-  'CARRIER_CONFIRMATION','FINAL_APPROVAL','CONFIRMED','OPERATIONAL','COMPLETED','FINANCIALLY_CLOSED'
-];
+const states = ['DRAFT','RATE_REQUESTED','RATE_RECEIVED','RATE_APPROVED','QUOTE_SENT','CUSTOMER_ACCEPTED','BOOKING_REQUESTED','CREDIT_CHECK','EQUIPMENT_CHECK','SLOT_CHECK','AGENT_ACCEPTANCE','CARRIER_CONFIRMATION','FINAL_APPROVAL','CONFIRMED','OPERATIONAL','COMPLETED','FINANCIALLY_CLOSED'];
 
 @Injectable()
 export class BookingsService {
-  constructor(
-    private prisma:PrismaService,
-    private scope:ScopeService,
-    private audit:AuditService
-  ){}
+  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
+  list(user:ScopeUser){return this.prisma.booking.findMany({where:bookingScope(user),include:{customer:true,producingAgent:true,rateQuote:true},orderBy:{createdAt:'desc'}});}
+  async get(id:string,user:ScopeUser){await this.scope.assertBookingAccess(user,id);return this.prisma.booking.findUnique({where:{id},include:{customer:true,producingAgent:true,rateQuote:true,documents:true,containers:true,financeLines:true,tasks:true,approvals:true,auditEvents:true,milestones:{orderBy:[{plannedAt:'asc'},{createdAt:'asc'}]},routingLegs:{orderBy:{sequence:'asc'}}}});}
+  private async validateQuote(rateQuoteId:string|undefined|null,customerId:string){if(!rateQuoteId)return;const quote=await this.prisma.rateQuote.findUnique({where:{id:rateQuoteId}});if(!quote)throw new BadRequestException('Selected rate / quote was not found');if(quote.customerId!==customerId)throw new BadRequestException('Selected rate / quote belongs to a different customer');}
+  async create(body:any,user:ScopeUser){this.scope.assertInternal(user);await this.validateQuote(body?.rateQuoteId,body?.customerId);const row=await this.prisma.booking.create({data:body});await this.audit.log({actorId:user.sub,action:'BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{bookingNo:row.bookingNo,rateQuoteId:row.rateQuoteId||null}});return row;}
+  async update(id:string,body:any,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const existing=await this.prisma.booking.findUnique({where:{id}});if(!existing)throw new BadRequestException('Booking not found');if(existing.status==='CANCELLED')throw new BadRequestException('Cancelled bookings cannot be edited');const allowed=['bookingNo','customerId','producingAgentId','owningBranchId','rateQuoteId','salesOwner','operator','bookingType','transportMode','serviceType','bookingDate','customerReference','shipperReference','carrierBookingNo','houseBL','masterBL','shipper','consignee','notifyParty','origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery','transshipmentPort','terminal','polAgent','podAgent','etd','eta','atd','ata','cyClosing','siCutoff','vgmCutoff','docCutoff','portCutoff','carrier','vesselVoyage','equipment','quantity','containerOwner','throughBL','commodity','packageCount','packageType','grossWeight','netWeight','volumeCbm','marksNumbers','hsCode','cargoDescription','incoterm','freightTerms','currency','specialCargo','dgUnNo','dgImoClass','dgPackingGroup','dgProperShippingName','reeferTemperatureC','reeferVentilation','reeferHumidityPct','oogLengthCm','oogWidthCm','oogHeightCm','oogWeightKg','notes','creditStatus','slotStatus','equipmentStatus','status'];const data:any={};for(const key of allowed)if(Object.prototype.hasOwnProperty.call(body,key))data[key]=body[key];if(Object.prototype.hasOwnProperty.call(data,'rateQuoteId'))await this.validateQuote(data.rateQuoteId,data.customerId||existing.customerId);const updated=await this.prisma.booking.update({where:{id},data});await this.audit.log({actorId:user.sub,action:'BOOKING_UPDATE',objectType:'Booking',objectId:id,bookingId:id,detail:{bookingNo:updated.bookingNo,changedFields:Object.keys(data)}});return updated;}
+  async duplicate(id:string,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const source=await this.prisma.booking.findUnique({where:{id}});if(!source)throw new BadRequestException('Booking not found');const {id:_id,bookingNo:_bookingNo,status:_status,cancellationReason:_reason,cancelledAt:_cancelledAt,cancelledBy:_cancelledBy,createdAt:_createdAt,updatedAt:_updatedAt,...copy}=source as any;const bookingNo=`${source.bookingNo}-C${Date.now().toString().slice(-5)}`;const row=await this.prisma.booking.create({data:{...copy,bookingNo,status:'DRAFT',carrierBookingNo:null,houseBL:null,masterBL:null,atd:null,ata:null,creditStatus:null,slotStatus:null,equipmentStatus:null,cancellationReason:null,cancelledAt:null,cancelledBy:null}});await this.audit.log({actorId:user.sub,action:'BOOKING_DUPLICATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{sourceBookingId:id,sourceBookingNo:source.bookingNo,newBookingNo:row.bookingNo}});return row;}
+  async cancel(id:string,body:any,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const current=await this.prisma.booking.findUnique({where:{id}});if(!current)throw new BadRequestException('Booking not found');if(current.status==='CANCELLED')return current;if(current.status==='FINANCIALLY_CLOSED')throw new BadRequestException('A financially closed booking cannot be cancelled');const reason=String(body?.reason||'').trim();if(!reason)throw new BadRequestException('Cancellation reason is required');const updated=await this.prisma.booking.update({where:{id},data:{status:'CANCELLED',cancellationReason:reason,cancelledAt:new Date(),cancelledBy:user.sub}});await this.audit.log({actorId:user.sub,action:'BOOKING_CANCEL',objectType:'Booking',objectId:id,bookingId:id,detail:{from:current.status,reason}});return updated;}
+  async addContainer(id:string,body:any,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});if(booking?.status==='CANCELLED')throw new BadRequestException('Cancelled bookings cannot be changed');if(!body?.containerNo||!body?.type)throw new BadRequestException('Container number and type are required');const containerNo=String(body.containerNo).trim().toUpperCase();if(await this.prisma.container.findUnique({where:{containerNo}}))throw new BadRequestException(`Container ${containerNo} already exists`);const row=await this.prisma.container.create({data:{containerNo,bookingId:id,type:String(body.type),ownership:String(body.ownership||'CARRIER'),status:String(body.status||'PLANNED'),location:body.location?String(body.location):null,sealNo:body.sealNo?String(body.sealNo):null,vgm:body.vgm!==''&&body.vgm!=null?Number(body.vgm):null,grossWeight:body.grossWeight!==''&&body.grossWeight!=null?Number(body.grossWeight):null,pickupDate:body.pickupDate?new Date(body.pickupDate):null,emptyDepot:body.emptyDepot?String(body.emptyDepot):null,fullReturnTerminal:body.fullReturnTerminal?String(body.fullReturnTerminal):null}});await this.audit.log({actorId:user.sub,action:'CONTAINER_ADD',objectType:'Container',objectId:row.id,bookingId:id,detail:{containerNo:row.containerNo,type:row.type}});return row;}
+  async updateContainer(id:string,containerId:string,body:any,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});if(booking?.status==='CANCELLED')throw new BadRequestException('Cancelled bookings cannot be changed');const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});if(!current)throw new BadRequestException('Container not found');const data:any={},allowed=['containerNo','type','ownership','status','location','sealNo','vgm','grossWeight','pickupDate','emptyDepot','fullReturnTerminal'];for(const key of allowed){if(!Object.prototype.hasOwnProperty.call(body,key))continue;if(key==='containerNo')data[key]=String(body[key]).trim().toUpperCase();else if(key==='vgm'||key==='grossWeight')data[key]=body[key]!==''&&body[key]!=null?Number(body[key]):null;else if(key==='pickupDate')data[key]=body[key]?new Date(body[key]):null;else data[key]=body[key]||null;}if(data.containerNo&&data.containerNo!==current.containerNo&&await this.prisma.container.findUnique({where:{containerNo:data.containerNo}}))throw new BadRequestException(`Container ${data.containerNo} already exists`);const updated=await this.prisma.container.update({where:{id:containerId},data});await this.audit.log({actorId:user.sub,action:'CONTAINER_UPDATE',objectType:'Container',objectId:containerId,bookingId:id,detail:{changedFields:Object.keys(data)}});return updated;}
+  async deleteContainer(id:string,containerId:string,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});if(booking?.status==='CANCELLED')throw new BadRequestException('Cancelled bookings cannot be changed');const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});if(!current)throw new BadRequestException('Container not found');await this.prisma.container.delete({where:{id:containerId}});await this.audit.log({actorId:user.sub,action:'CONTAINER_DELETE',objectType:'Container',objectId:containerId,bookingId:id,detail:{containerNo:current.containerNo}});return {ok:true};}
 
-  list(user:ScopeUser){
-    return this.prisma.booking.findMany({
-      where:bookingScope(user),
-      include:{customer:true,producingAgent:true,rateQuote:true},
-      orderBy:{createdAt:'desc'}
-    });
-  }
-
-  async get(id:string,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    return this.prisma.booking.findUnique({
-      where:{id},
-      include:{
-        customer:true,
-        producingAgent:true,
-        rateQuote:true,
-        documents:true,
-        containers:true,
-        financeLines:true,
-        tasks:true,
-        approvals:true,
-        auditEvents:true,
-        milestones:{orderBy:[{plannedAt:'asc'},{createdAt:'asc'}]},
-        routingLegs:{orderBy:{sequence:'asc'}}
-      }
-    });
-  }
-
-  private async validateQuote(rateQuoteId:string|undefined|null,customerId:string){
-    if(!rateQuoteId) return;
-    const quote=await this.prisma.rateQuote.findUnique({where:{id:rateQuoteId}});
-    if(!quote) throw new BadRequestException('Selected rate / quote was not found');
-    if(quote.customerId!==customerId) throw new BadRequestException('Selected rate / quote belongs to a different customer');
-  }
-
-  async create(body:any,user:ScopeUser){
-    this.scope.assertInternal(user);
-    await this.validateQuote(body?.rateQuoteId,body?.customerId);
-    const row=await this.prisma.booking.create({data:body});
-    await this.audit.log({actorId:user.sub,action:'BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{bookingNo:row.bookingNo,rateQuoteId:row.rateQuoteId||null}});
-    return row;
-  }
-
-  async update(id:string,body:any,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const existing=await this.prisma.booking.findUnique({where:{id}});
-    if(!existing) throw new BadRequestException('Booking not found');
-    if(existing.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be edited');
-
-    const allowed=[
-      'bookingNo','customerId','producingAgentId','owningBranchId','rateQuoteId','salesOwner','operator','bookingType','transportMode','serviceType','bookingDate',
-      'customerReference','shipperReference','carrierBookingNo','houseBL','masterBL','shipper','consignee','notifyParty',
-      'origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery','transshipmentPort','terminal',
-      'polAgent','podAgent','etd','eta','atd','ata','cyClosing','siCutoff','vgmCutoff','docCutoff','portCutoff',
-      'carrier','vesselVoyage','equipment','quantity','containerOwner','throughBL','commodity','packageCount','packageType',
-      'grossWeight','netWeight','volumeCbm','marksNumbers','hsCode','cargoDescription','incoterm','freightTerms','currency',
-      'specialCargo','dgUnNo','dgImoClass','dgPackingGroup','dgProperShippingName','reeferTemperatureC','reeferVentilation',
-      'reeferHumidityPct','oogLengthCm','oogWidthCm','oogHeightCm','oogWeightKg','notes','creditStatus','slotStatus','equipmentStatus','status'
-    ];
-    const data:any={};
-    for(const key of allowed){ if(Object.prototype.hasOwnProperty.call(body,key)) data[key]=body[key]; }
-    if(Object.prototype.hasOwnProperty.call(data,'rateQuoteId')) await this.validateQuote(data.rateQuoteId,data.customerId||existing.customerId);
-
-    const updated=await this.prisma.booking.update({where:{id},data});
-    await this.audit.log({
-      actorId:user.sub,
-      action:'BOOKING_UPDATE',
-      objectType:'Booking',
-      objectId:id,
-      bookingId:id,
-      detail:{bookingNo:updated.bookingNo,changedFields:Object.keys(data)}
-    });
-    return updated;
-  }
-
-  async duplicate(id:string,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const source=await this.prisma.booking.findUnique({where:{id}});
-    if(!source) throw new BadRequestException('Booking not found');
-    const {id:_id,bookingNo:_bookingNo,status:_status,cancellationReason:_reason,cancelledAt:_cancelledAt,cancelledBy:_cancelledBy,createdAt:_createdAt,updatedAt:_updatedAt,...copy}=source as any;
-    const bookingNo=`${source.bookingNo}-C${Date.now().toString().slice(-5)}`;
-    const row=await this.prisma.booking.create({data:{...copy,bookingNo,status:'DRAFT',carrierBookingNo:null,houseBL:null,masterBL:null,atd:null,ata:null,creditStatus:null,slotStatus:null,equipmentStatus:null,cancellationReason:null,cancelledAt:null,cancelledBy:null}});
-    await this.audit.log({actorId:user.sub,action:'BOOKING_DUPLICATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{sourceBookingId:id,sourceBookingNo:source.bookingNo,newBookingNo:row.bookingNo}});
-    return row;
-  }
-
-  async cancel(id:string,body:any,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const current=await this.prisma.booking.findUnique({where:{id}});
-    if(!current) throw new BadRequestException('Booking not found');
-    if(current.status==='CANCELLED') return current;
-    if(current.status==='FINANCIALLY_CLOSED') throw new BadRequestException('A financially closed booking cannot be cancelled');
-    const reason=String(body?.reason||'').trim();
-    if(!reason) throw new BadRequestException('Cancellation reason is required');
-    const updated=await this.prisma.booking.update({where:{id},data:{status:'CANCELLED',cancellationReason:reason,cancelledAt:new Date(),cancelledBy:user.sub}});
-    await this.audit.log({actorId:user.sub,action:'BOOKING_CANCEL',objectType:'Booking',objectId:id,bookingId:id,detail:{from:current.status,reason}});
-    return updated;
-  }
-
-  async addContainer(id:string,body:any,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});
-    if(booking?.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be changed');
-    if(!body?.containerNo || !body?.type) throw new BadRequestException('Container number and type are required');
-    const containerNo=String(body.containerNo).trim().toUpperCase();
-    const duplicate=await this.prisma.container.findUnique({where:{containerNo}});
-    if(duplicate) throw new BadRequestException(`Container ${containerNo} already exists`);
-    const row=await this.prisma.container.create({
-      data:{
-        containerNo,
-        bookingId:id,
-        type:String(body.type),
-        ownership:String(body.ownership || 'CARRIER'),
-        status:String(body.status || 'PLANNED'),
-        location:body.location ? String(body.location) : null,
-        sealNo:body.sealNo ? String(body.sealNo) : null,
-        vgm:body.vgm !== '' && body.vgm != null ? Number(body.vgm) : null,
-        grossWeight:body.grossWeight !== '' && body.grossWeight != null ? Number(body.grossWeight) : null,
-        pickupDate:body.pickupDate ? new Date(body.pickupDate) : null,
-        emptyDepot:body.emptyDepot ? String(body.emptyDepot) : null,
-        fullReturnTerminal:body.fullReturnTerminal ? String(body.fullReturnTerminal) : null
-      }
-    });
-    await this.audit.log({actorId:user.sub,action:'CONTAINER_ADD',objectType:'Container',objectId:row.id,bookingId:id,detail:{containerNo:row.containerNo,type:row.type}});
-    return row;
-  }
-
-  async updateContainer(id:string,containerId:string,body:any,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});
-    if(booking?.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be changed');
-    const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
-    if(!current) throw new BadRequestException('Container not found');
-    const data:any={};
-    const allowed=['containerNo','type','ownership','status','location','sealNo','vgm','grossWeight','pickupDate','emptyDepot','fullReturnTerminal'];
-    for(const key of allowed){
-      if(!Object.prototype.hasOwnProperty.call(body,key)) continue;
-      if(key==='containerNo') data[key]=String(body[key]).trim().toUpperCase();
-      else if(key==='vgm'||key==='grossWeight') data[key]=body[key]!==''&&body[key]!=null?Number(body[key]):null;
-      else if(key==='pickupDate') data[key]=body[key]?new Date(body[key]):null;
-      else data[key]=body[key]||null;
-    }
-    if(data.containerNo && data.containerNo!==current.containerNo){
-      const duplicate=await this.prisma.container.findUnique({where:{containerNo:data.containerNo}});
-      if(duplicate) throw new BadRequestException(`Container ${data.containerNo} already exists`);
-    }
-    const updated=await this.prisma.container.update({where:{id:containerId},data});
-    await this.audit.log({actorId:user.sub,action:'CONTAINER_UPDATE',objectType:'Container',objectId:containerId,bookingId:id,detail:{changedFields:Object.keys(data)}});
-    return updated;
-  }
-
-  async deleteContainer(id:string,containerId:string,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const booking=await this.prisma.booking.findUnique({where:{id},select:{status:true}});
-    if(booking?.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot be changed');
-    const current=await this.prisma.container.findFirst({where:{id:containerId,bookingId:id}});
-    if(!current) throw new BadRequestException('Container not found');
-    await this.prisma.container.delete({where:{id:containerId}});
-    await this.audit.log({actorId:user.sub,action:'CONTAINER_DELETE',objectType:'Container',objectId:containerId,bookingId:id,detail:{containerNo:current.containerNo}});
-    return {ok:true};
-  }
-
-  async advance(id:string,user:ScopeUser){
-    await this.scope.assertBookingAccess(user,id);
-    this.scope.assertInternal(user);
-    const b=await this.prisma.booking.findUnique({where:{id}});
-    if(!b) throw new BadRequestException('Booking not found');
-    if(b.status==='CANCELLED') throw new BadRequestException('Cancelled bookings cannot advance');
-    const i=states.indexOf(b.status as any);
-    if(i<0 || i===states.length-1) return b;
-    const next=states[i+1] as any;
-    if(next==='CONFIRMED' && (b.creditStatus!=='Passed'||b.slotStatus!=='Protected'||b.equipmentStatus!=='Available'))
-      throw new BadRequestException('Credit, slot and equipment must be clear before confirmation');
-    const updated=await this.prisma.booking.update({where:{id},data:{status:next}});
-    await this.audit.log({actorId:user.sub,action:'BOOKING_STATUS_ADVANCE',objectType:'Booking',objectId:id,bookingId:id,detail:{from:b.status,to:next}});
-    return updated;
-  }
+  private async commercialConfirmationGate(b:any){const q=b.rateQuoteId?await this.prisma.rateQuote.findUnique({where:{id:b.rateQuoteId}}):null;const events:any[]=await this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_COMMERCIAL_GUARDRAILS'},orderBy:{createdAt:'asc'}}),policyEvents=events.filter((e:any)=>e.objectType==='CommercialPolicy'&&e.eventType==='POLICY_SET'),latest=new Map<string,any>();for(const e of policyEvents)latest.set(e.objectId,e);const policies=[...latest.values()].map((e:any)=>e.payload as any).filter((p:any)=>p?.active!==false),lane=`${b.origin||''}->${b.destination||''}`,policy={...(policies.find((p:any)=>p.scopeType==='GLOBAL')||{}),...(policies.find((p:any)=>p.scopeType==='CUSTOMER'&&String(p.scopeKey)===String(b.customerId))||{}),...(policies.find((p:any)=>p.scopeType==='LANE'&&p.scopeKey===lane)||{})},blockers:string[]=[];if(q){const sell=Number(q.sellRate||0),buy=Number(q.buyRate||0),gp=sell-buy,margin=sell?gp/sell*100:0;if(new Date(q.validTo).getTime()<Date.now())blockers.push(`rate quote ${q.quoteNo} is expired`);if(margin<Number(policy.minMarginPct||0))blockers.push(`margin ${margin.toFixed(2)}% is below minimum ${Number(policy.minMarginPct||0)}%`);if(gp<Number(policy.minGp||0))blockers.push(`gross profit ${gp.toFixed(2)} is below minimum ${Number(policy.minGp||0)}`);}else if(policy.requireQuote===true)blockers.push('an active rate quote is required');const creditRows:any[]=await this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_CREDIT_CONTROL',objectType:'CreditProfile',objectId:b.customerId},orderBy:{createdAt:'desc'},take:1}),credit:any=creditRows[0]?.payload||{},risk=String(credit.riskRating||'').toUpperCase();if(policy.requireCreditApprovalForHighRisk!==false&&(risk==='HIGH'||risk==='RESTRICTED'||credit.creditHold===true))blockers.push(`customer credit risk requires commercial approval (${risk||'HOLD'})`);if(!blockers.length)return;const approved=events.some((e:any)=>e.objectType==='GuardrailApproval'&&e.eventType==='GUARDRAIL_APPROVED'&&String((e.payload as any)?.bookingId)===String(b.id));if(!approved)throw new BadRequestException(`Commercial guardrail blocked confirmation: ${blockers.join('; ')}`);}
+  async advance(id:string,user:ScopeUser){await this.scope.assertBookingAccess(user,id);this.scope.assertInternal(user);const b=await this.prisma.booking.findUnique({where:{id}});if(!b)throw new BadRequestException('Booking not found');if(b.status==='CANCELLED')throw new BadRequestException('Cancelled bookings cannot advance');const i=states.indexOf(b.status as any);if(i<0||i===states.length-1)return b;const next=states[i+1] as any;if(next==='CONFIRMED'){if(b.creditStatus!=='Passed'||b.slotStatus!=='Protected'||b.equipmentStatus!=='Available')throw new BadRequestException('Credit, slot and equipment must be clear before confirmation');await this.commercialConfirmationGate(b);}const updated=await this.prisma.booking.update({where:{id},data:{status:next}});await this.audit.log({actorId:user.sub,action:'BOOKING_STATUS_ADVANCE',objectType:'Booking',objectId:id,bookingId:id,detail:{from:b.status,to:next}});return updated;}
 }

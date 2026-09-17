@@ -19,6 +19,7 @@ const links=[
   ['/organizations','Organizations'],
   ['/commercial','Contracts / Tariffs'],
   ['/rates','Commercial / Quotes'],
+  ['/commercial-guardrails','Commercial Guardrails'],
   ['/documents','Documents'],
   ['/procurement','Procurement / Vendor Spend'],
   ['/vendor-control','Margin / Vendor Control'],
