@@ -22,6 +22,7 @@ const links=[
   ['/documents','Documents'],
   ['/procurement','Procurement / Vendor Spend'],
   ['/vendor-control','Margin / Vendor Control'],
+  ['/commercial-profitability','Commercial Profitability'],
   ['/finance','Finance / Job Costing'],
   ['/accounting','AR / AP & Invoicing'],
   ['/credit-control','Credit / Collections / Cash'],
