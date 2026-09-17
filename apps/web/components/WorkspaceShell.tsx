@@ -20,6 +20,7 @@ const links=[
   ['/sales-crm','Sales CRM / Pipeline'],
   ['/customer-service','Customer Service / Claims'],
   ['/enterprise-risk','Enterprise Risk / Insurance'],
+  ['/quality-management','Quality Management / CAPA'],
   ['/commercial','Contracts / Tariffs'],
   ['/rates','Commercial / Quotes'],
   ['/commercial-guardrails','Commercial Guardrails'],
