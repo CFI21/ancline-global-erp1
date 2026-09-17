@@ -19,6 +19,7 @@ const links=[
   ['/organizations','Organizations'],
   ['/sales-crm','Sales CRM / Pipeline'],
   ['/customer-service','Customer Service / Claims'],
+  ['/enterprise-risk','Enterprise Risk / Insurance'],
   ['/commercial','Contracts / Tariffs'],
   ['/rates','Commercial / Quotes'],
   ['/commercial-guardrails','Commercial Guardrails'],
