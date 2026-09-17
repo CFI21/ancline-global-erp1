@@ -5,5 +5,5 @@ import { AuditModule } from '../audit/audit.module';
 import { WorkflowAutomationController } from './workflow-automation.controller';
 import { WorkflowAutomationService } from './workflow-automation.service';
 
-@Module({imports:[PrismaModule,AuthModule,AuditModule],controllers:[WorkflowAutomationController],providers:[WorkflowAutomationService]})
+@Module({imports:[PrismaModule,AuthModule,AuditModule],controllers:[WorkflowAutomationController],providers:[WorkflowAutomationService],exports:[WorkflowAutomationService]})
 export class WorkflowAutomationModule {}
