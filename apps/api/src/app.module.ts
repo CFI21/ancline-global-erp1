@@ -22,6 +22,7 @@ import { VendorControlModule } from './modules/vendor-control/vendor-control.mod
 import { CommercialProfitabilityModule } from './modules/commercial-profitability/commercial-profitability.module';
 import { CommercialGuardrailsModule } from './modules/commercial-guardrails/commercial-guardrails.module';
 import { SalesCrmModule } from './modules/sales-crm/sales-crm.module';
+import { CustomerServiceModule } from './modules/customer-service/customer-service.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -40,5 +41,5 @@ import { CustomsModule } from './modules/customs/customs.module';
 import { ShipmentControlModule } from './modules/shipment-control/shipment-control.module';
 import { CommercialModule } from './modules/commercial/commercial.module';
 
-@Module({imports:[PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,AccountingModule,CreditControlModule,GeneralLedgerModule,FinanceReportingModule,GroupFinanceModule,StatutoryFinanceModule,TreasuryModule,MonthEndModule,ProcurementModule,VendorControlModule,CommercialProfitabilityModule,CommercialGuardrailsModule,SalesCrmModule,TasksModule,ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule,ContainerMovementsModule,SchedulesModule,IntegrationsModule,TransportModule,CustomsModule,ShipmentControlModule,CommercialModule]})
+@Module({imports:[PrismaModule,AuditModule,ObservabilityModule,AuthModule,HealthModule,BookingsModule,OrganizationsModule,RatesModule,DocumentsModule,FinanceModule,AccountingModule,CreditControlModule,GeneralLedgerModule,FinanceReportingModule,GroupFinanceModule,StatutoryFinanceModule,TreasuryModule,MonthEndModule,ProcurementModule,VendorControlModule,CommercialProfitabilityModule,CommercialGuardrailsModule,SalesCrmModule,CustomerServiceModule,TasksModule,ApprovalsModule,StorageModule,PortalModule,DiagnosticsModule,UatModule,OperationsModule,TrackingModule,RoutingModule,ContainerMovementsModule,SchedulesModule,IntegrationsModule,TransportModule,CustomsModule,ShipmentControlModule,CommercialModule]})
 export class AppModule implements NestModule {configure(consumer:MiddlewareConsumer){consumer.apply(RequestLoggingMiddleware).forRoutes({path:'{*path}',method:RequestMethod.ALL});}}
