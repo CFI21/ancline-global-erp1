@@ -42,6 +42,7 @@ const links=[
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
   ['/notifications','Notifications'],
+  ['/governance','Master Data / Rules Governance'],
   ['/administration','Administration'],
 ] as const;
 
