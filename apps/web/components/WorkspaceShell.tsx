@@ -18,6 +18,7 @@ const links=[
   ['/integrations','Integration Control'],
   ['/connectivity','External Connectivity / EDI'],
   ['/workflow-automation','Workflow Automation'],
+  ['/data-quality','Data Quality / Validation'],
   ['/organizations','Organizations'],
   ['/sales-crm','Sales CRM / Pipeline'],
   ['/customer-service','Customer Service / Claims'],
