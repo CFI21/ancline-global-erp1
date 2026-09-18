@@ -9,6 +9,7 @@ const links=[
   ['/booking-control','Booking Control'],
   ['/shipment-control','Shipment / Consol Control'],
   ['/carrier-operations','Carrier Booking / Space Control'],
+  ['/carrier-payment','Carrier Payment / Payer Control'],
   ['/forwarding-amendments','Forwarding Amendments'],
   ['/schedules','Vessel / Voyage Schedules'],
   ['/container-control','Container Control'],
