@@ -132,6 +132,57 @@ export class PortalService {
     return row;
   }
 
+  async nvoccRates(bookingId:string,user:ScopeUser){
+    const role=this.allowedNvoccRole(user);
+    await this.scope.assertBookingAccess(user,bookingId);
+    const booking=await this.prisma.booking.findUnique({where:{id:bookingId}});
+    if(!booking)throw new BadRequestException('Booking not found');
+    if(String((booking as any).businessModel||'NVOCC').toUpperCase()!=='NVOCC')throw new BadRequestException('NVOCC rates are available only for NVOCC jobs');
+    const now=new Date();
+    const rows=await this.prisma.rateQuote.findMany({
+      where:{customerId:booking.customerId,validFrom:{lte:now},validTo:{gte:now},status:{in:['Rate Approved','Quote Sent','DRAFT']}},
+      orderBy:[{validTo:'asc'},{createdAt:'desc'}],take:300
+    });
+    const norm=(v:any)=>String(v||'').trim().toUpperCase().replace(/\s+/g,'');
+    const origin=norm(booking.portOfLoading||booking.origin),destination=norm(booking.portOfDischarge||booking.destination),equipment=norm(booking.equipment);
+    const laneMatch=(trade:any)=>{
+      const parts=String(trade||'').toUpperCase().split(/\s*(?:->|>|\/|→|-)\s*/).filter(Boolean).map(norm);
+      return parts.length>=2&&parts[0]===origin&&parts[parts.length-1]===destination;
+    };
+    return rows.filter((r:any)=>{
+      const source=String(r.source||'').toUpperCase();
+      const nvoccSource=!source.startsWith('CARRIER_')&&!source.startsWith('FORWARDING_');
+      return nvoccSource&&laneMatch(r.trade)&&(!equipment||norm(r.equipment)===equipment);
+    }).map((r:any)=>({
+      rateId:r.id,quoteNo:r.quoteNo,trade:r.trade,equipment:r.equipment,sellRate:r.sellRate,currency:r.currency,
+      validFrom:r.validFrom,validTo:r.validTo,source:r.source||'NVOCC_COMMERCIAL_DESK',
+      ...(role==='GLOBAL_ADMIN'?{buyRate:r.buyRate}: {})
+    }));
+  }
+
+  async nvoccSelectRate(bookingId:string,rateId:string,user:ScopeUser){
+    const role=this.allowedNvoccRole(user);
+    const offers:any[]=await this.nvoccRates(bookingId,user);
+    if(!offers.some(x=>x.rateId===rateId))throw new BadRequestException('Selected NVOCC rate is not available for this booking');
+    const [booking,template]=await Promise.all([
+      this.prisma.booking.findUnique({where:{id:bookingId}}),
+      this.prisma.rateQuote.findUnique({where:{id:rateId}})
+    ]);
+    if(!booking||!template)throw new BadRequestException('NVOCC booking or rate was not found');
+    const quoteNo=`NVQ-${Date.now().toString().slice(-10)}`;
+    const quote=await this.prisma.$transaction(async(tx:any)=>{
+      const q=await tx.rateQuote.create({data:{
+        quoteNo,customerId:booking.customerId,trade:template.trade,equipment:template.equipment,
+        buyRate:template.buyRate,sellRate:template.sellRate,currency:template.currency,
+        validFrom:new Date(),validTo:template.validTo,status:'Quote Sent',source:`NVOCC_PORTAL:${template.id}`
+      }});
+      await tx.booking.update({where:{id:bookingId},data:{rateQuoteId:q.id,currency:q.currency,status:'QUOTE_SENT'}});
+      return q;
+    });
+    await this.audit.log({actorId:user.sub,action:'NVOCC_PORTAL_RATE_SELECTED',objectType:'Booking',objectId:bookingId,bookingId,detail:{templateRateId:rateId,quoteNo:quote.quoteNo,role}});
+    return {quote:{id:quote.id,quoteNo:quote.quoteNo,sellRate:quote.sellRate,currency:quote.currency,status:quote.status,validTo:quote.validTo}};
+  }
+
   async nvoccAcceptQuote(bookingId:string,user:ScopeUser){
     this.allowedNvoccRole(user);await this.scope.assertBookingAccess(user,bookingId);
     const booking=await this.prisma.booking.findUnique({where:{id:bookingId},include:{rateQuote:true}});
