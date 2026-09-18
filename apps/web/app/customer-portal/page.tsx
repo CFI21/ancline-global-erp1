@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import {api,currentUser,fmtDate,requireToken,signOut} from '../../lib/api';
+import {api,currentUser,fmtDate,requireToken} from '../../lib/api';
+import WorkspaceShell from '../../components/WorkspaceShell';
 import PortalRateBooking from '../../components/PortalRateBooking';
 import ForwardingBookingChanges from '../../components/ForwardingBookingChanges';
 
@@ -22,8 +23,16 @@ export default function CustomerPortal(){
   const releasedDocs=rows.reduce((n,b)=>n+(b.documents||[]).length,0);
   const selectedBooking=rows.find(b=>b.id===selected);
 
-  return <main style={{padding:18,maxWidth:1280,margin:'0 auto'}}>
-    <div className="top"><div><div className="sub">GLOBAL ANCLINE FORWARDING</div><h1 style={{margin:'2px 0'}}>{portalRole==='GLOBAL_ADMIN'?'Forwarding Portal Administration':portalRole==='AGENT'?'Agent Direct Co-load / Cross Trade':'My Forwarding Shipments'}</h1><div className="sub">{portalRole} · automated carrier booking · live operational visibility · {user?.email||''}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{portalRole==='GLOBAL_ADMIN'&&<><a className="btn" href="/" style={{textDecoration:'none'}}>Admin ERP</a><a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>NVOCC Portal</a></>}{agentForwarding&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>Back to Liner Agency</a>}<button className="btn" onClick={()=>location.reload()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
+  return <WorkspaceShell
+    title={portalRole==='GLOBAL_ADMIN'?'Forwarding Portal Administration':portalRole==='AGENT'?'Agent Direct Co-load / Cross Trade':'My Forwarding Shipments'}
+    subtitle={`GLOBAL ANCLINE FORWARDING · ${portalRole} · automated carrier booking · live operational visibility · ${user?.email||''}`}
+    active="/customer-portal"
+    actions={<>
+      {portalRole==='GLOBAL_ADMIN'&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>NVOCC Portal</a>}
+      {agentForwarding&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>Back to Liner Agency</a>}
+      <button className="btn" onClick={()=>location.reload()}>Refresh</button>
+    </>}
+  >
     {err&&<div className="card" style={{marginBottom:12}}>Portal notice: {err}</div>}
     <PortalRateBooking token={requireToken()||''} role={portalRole} onBooked={()=>location.reload()}/>
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">TOTAL SHIPMENTS</div><div className="kpi">{loading?'…':rows.length}</div></div><div className="card"><div className="sub">ACTIVE</div><div className="kpi">{loading?'…':active}</div></div><div className="card"><div className="sub">IN TRANSIT</div><div className="kpi">{loading?'…':inTransit}</div></div><div className="card"><div className="sub">RELEASED DOCUMENTS</div><div className="kpi">{loading?'…':releasedDocs}</div></div></div>
@@ -37,5 +46,5 @@ export default function CustomerPortal(){
       <h3 style={{marginTop:16}}>Released Documents</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Status</th></tr></thead><tbody>{selectedBooking.documents?.map(d=><tr key={d.id}><td><b>{d.documentNo||'-'}</b></td><td>{d.type}</td><td>{d.version||1}</td><td><span className="status">{d.status}</span></td></tr>)}{!selectedBooking.documents?.length&&<tr><td colSpan={4}>No released customer documents available yet.</td></tr>}</tbody></table></div>
       <ForwardingBookingChanges bookingId={selectedBooking.id} token={requireToken()||''} onChanged={()=>location.reload()}/>
     </div>}
-  </main>;
+  </WorkspaceShell>;
 }

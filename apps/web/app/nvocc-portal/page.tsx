@@ -1,7 +1,8 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
-import {api,currentUser,fmtDate,fmtMoney,requireToken,signOut} from '../../lib/api';
+import {api,currentUser,fmtDate,fmtMoney,requireToken} from '../../lib/api';
+import WorkspaceShell from '../../components/WorkspaceShell';
 
 type Party={id:string;code:string;name:string;roles?:string[]};
 type Booking={id:string;bookingNo:string;businessModel:string;bookingChannel:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;etd?:string;eta?:string;houseBL?:string;masterBL?:string;customer?:Party;producingAgent?:Party;rateQuote?:any;documents?:any[];containers?:any[];creditStatus?:string;slotStatus?:string;equipmentStatus?:string};
@@ -68,8 +69,16 @@ export default function NvoccPortal(){
   const field:React.CSSProperties={width:'100%',padding:8,border:'1px solid #cfd9e2',borderRadius:6,background:'#fff'};
   const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
 
-  return <main style={{padding:18,maxWidth:1380,margin:'0 auto'}}>
-    <div className="top"><div><div className="sub">ANCLINE NVOCC PORTAL</div><h1 style={{margin:'2px 0'}}>NVOCC Rates, Bookings & Documents</h1><div className="sub">Agent · Branch Office · Global Admin only · {user?.email||''}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{role==='GLOBAL_ADMIN'&&<><a className="btn" href="/" style={{textDecoration:'none'}}>Admin ERP</a><a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Global Forwarding</a></>}{agentForwarding&&<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Direct Co-load / Cross Trade</a>}<button className="btn" onClick={()=>void load()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
+  return <WorkspaceShell
+    title="NVOCC Rates, Bookings & Documents"
+    subtitle={`ANCLINE NVOCC PORTAL · Agent / Branch Office / Global Admin · ${user?.email||''}`}
+    active="/nvocc-portal"
+    actions={<>
+      {role==='GLOBAL_ADMIN'&&<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Global Forwarding</a>}
+      {agentForwarding&&<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Direct Co-load / Cross Trade</a>}
+      <button className="btn" onClick={()=>void load()}>Refresh</button>
+    </>}
+  >
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
 
     <div className="grid" style={{marginBottom:12}}>
@@ -106,5 +115,5 @@ export default function NvoccPortal(){
       <h3 style={{marginTop:0}}>All NVOCC Documents</h3><div className="sub" style={{marginBottom:10}}>Full NVOCC document visibility for authorized Agent, Branch Office and Global Admin users.</div>
       <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Document No.</th><th>Type</th><th>Version</th><th>Release Control</th><th>Status</th><th>Updated</th></tr></thead><tbody>{docs.map(d=><tr key={d.id}><td><b>{d.booking?.bookingNo||'-'}</b><div className="sub">{d.booking?.origin||''} → {d.booking?.destination||''}</div></td><td>{d.documentNo||'-'}</td><td>{d.type}</td><td>{d.version||1}</td><td>{d.releaseControl||'-'}</td><td><span className="status">{d.status}</span></td><td>{fmtDate(d.updatedAt)}</td></tr>)}{docs.length===0&&<tr><td colSpan={7}>No NVOCC documents found.</td></tr>}</tbody></table></div>
     </div>
-  </main>;
+  </WorkspaceShell>;
 }
