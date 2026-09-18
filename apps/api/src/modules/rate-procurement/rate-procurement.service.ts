@@ -19,7 +19,7 @@ export class RateProcurementService {
   private admin(user:ScopeUser){if(String(user.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required for carrier rate provider configuration');}
   private assertRateAccess(booking:any,user:ScopeUser){
     const model=String(booking?.businessModel||'NVOCC').toUpperCase(),role=String(user?.role||'').toUpperCase();
-    if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Admin / Control Tower users');
+    if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Global Admin users');
     if(model==='FORWARDING'&&!['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('Forwarding online rate access denied for this role');
     if(!['NVOCC','FORWARDING'].includes(model))throw new BadRequestException('Unsupported booking operating model');
   }
