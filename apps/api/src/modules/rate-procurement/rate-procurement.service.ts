@@ -15,14 +15,14 @@ export class RateProcurementService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
   private get db():any{return this.prisma as any;}
   private internal(user:ScopeUser){this.scope.assertInternal(user);}
-  private external(user:ScopeUser){return ['CUSTOMER','SHIPPER','CONSIGNEE','AGENT','BRANCH_OPS'].includes(String(user.role||'').toUpperCase());}
+  private external(user:ScopeUser){return ['CUSTOMER','SHIPPER','CONSIGNEE'].includes(String(user.role||'').toUpperCase());}
   private admin(user:ScopeUser){if(String(user.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required for carrier rate provider configuration');}
   private assertRateAccess(booking:any,user:ScopeUser){
     const model=String(booking?.businessModel||'NVOCC').toUpperCase(),role=String(user?.role||'').toUpperCase();
-    if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Global Admin users');
-    if(model==='FORWARDING'&&!['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('Forwarding online rate access denied for this role');
-    if(!['NVOCC','FORWARDING'].includes(model))throw new BadRequestException('Unsupported booking operating model');
+    if(model!=='FORWARDING')throw new BadRequestException('Global carrier rate procurement is Forwarding-only; use the NVOCC Portal for ANC NVOCC tariffs');
+    if(!['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('Global Forwarding online rate access denied for this role');
   }
+
   private text(v:any){return String(v??'').trim();}
   private money(v:any,name='Rate'){const n=Number(v);if(!Number.isFinite(n)||n<0)throw new BadRequestException(`${name} must be a valid positive amount`);return Math.round(n*100)/100;}
   private round(v:any){return Math.round((Number(v||0)+Number.EPSILON)*100)/100;}
