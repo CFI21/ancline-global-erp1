@@ -89,7 +89,9 @@ export class RateProcurementService {
   private async bookingRow(bookingId:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,bookingId);
     const booking=await this.db.booking.findUnique({where:{id:bookingId},include:{customer:{select:{id:true,code:true,name:true}},rateQuote:true}});
-    if(!booking)throw new NotFoundException('Booking not found');return booking;
+    if(!booking)throw new NotFoundException('Booking not found');
+    if(String(booking.businessModel||'NVOCC').toUpperCase()!=='FORWARDING')throw new BadRequestException('Forwarding global rate procurement is available only for FORWARDING bookings; NVOCC pricing and space control remain separate');
+    return booking;
   }
 
   private enrichOffer(x:any){const buy=this.round(x?.allInBuyRate??x?.buyRate),base=this.round(x?.baseBuyRate??buy),surcharge=this.round(x?.surchargeTotal??Math.max(0,buy-base));return {...x,baseBuyRate:base,surchargeTotal:surcharge,allInBuyRate:buy,buyRate:buy,costLines:Array.isArray(x?.costLines)&&x.costLines.length?x.costLines:[{chargeCode:'OCEAN_FREIGHT',description:'Ocean freight',unitRate:buy}]};}
@@ -116,7 +118,7 @@ export class RateProcurementService {
     const booking=await this.bookingRow(bookingId,user),offers=await this.storedOffers(bookingId),selection=await this.selected(bookingId),lastSearch=await this.lastSearch(bookingId);
     if(this.external(user)){
       const profiles=await this.providerProfiles(),byCode=new Map(profiles.map((p:any)=>[String(p.providerCode),p]));
-      return {booking:{id:booking.id,bookingNo:booking.bookingNo,status:booking.status,origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading,portOfDischarge:booking.portOfDischarge,equipment:booking.equipment,quantity:booking.quantity,commodity:booking.commodity,specialCargo:booking.specialCargo,etd:booking.etd,currency:booking.currency,carrier:booking.carrier,rateQuote:booking.rateQuote?{id:booking.rateQuote.id,quoteNo:booking.rateQuote.quoteNo,sellRate:booking.rateQuote.sellRate,currency:booking.rateQuote.currency,status:booking.rateQuote.status,validTo:booking.rateQuote.validTo}:null,customer:booking.customer},providers:[],carriers:[],offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))).filter(Boolean),selection:selection?{offerId:selection.offerId,quoteNo:selection.quoteNo,sellRate:selection.sellRate,currency:selection.currency,selectedAt:selection.selectedAt}:null,lastSearch:lastSearch?{searchedAt:lastSearch.searchedAt,totalOffers:lastSearch.totalOffers}:null};
+      return {booking:{id:booking.id,bookingNo:booking.bookingNo,businessModel:booking.businessModel,bookingChannel:booking.bookingChannel,status:booking.status,origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading,portOfDischarge:booking.portOfDischarge,equipment:booking.equipment,quantity:booking.quantity,commodity:booking.commodity,specialCargo:booking.specialCargo,etd:booking.etd,currency:booking.currency,carrier:booking.carrier,rateQuote:booking.rateQuote?{id:booking.rateQuote.id,quoteNo:booking.rateQuote.quoteNo,sellRate:booking.rateQuote.sellRate,currency:booking.rateQuote.currency,status:booking.rateQuote.status,validTo:booking.rateQuote.validTo}:null,customer:booking.customer},providers:[],carriers:[],offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))).filter(Boolean),selection:selection?{offerId:selection.offerId,quoteNo:selection.quoteNo,sellRate:selection.sellRate,currency:selection.currency,selectedAt:selection.selectedAt}:null,lastSearch:lastSearch?{searchedAt:lastSearch.searchedAt,totalOffers:lastSearch.totalOffers}:null};
     }
     const [providers,carriers]=await Promise.all([this.providerProfiles(),this.carriers(user)]);return {booking,providers,offers,carriers,selection,lastSearch};
   }
