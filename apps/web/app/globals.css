@@ -226,3 +226,94 @@
   line-height:12px;
   padding:0 2px;
 }
+
+/* Reserved right-side summary rail for Inquiry workspace */
+.cw-workspace-body{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 218px;
+  gap:3px;
+  padding:0 3px 3px;
+  background:#efefef;
+  align-items:stretch;
+}
+.cw-workspace-left{min-width:0}
+.cw-workspace-left .cw-main-grid{
+  grid-template-columns:repeat(3,minmax(210px,1fr));
+  gap:2px;
+  padding:0 0 3px;
+}
+.cw-workspace-left .cw-bottom-grid{
+  padding:0;
+  gap:2px;
+}
+.cw-summary-rail{
+  min-width:218px;
+  width:218px;
+  box-sizing:border-box;
+  border:1px solid #bfc3c6;
+  background:#f7f7f7;
+  display:flex;
+  flex-direction:column;
+  align-self:stretch;
+  font-size:8.8px;
+}
+.cw-summary-title{
+  height:22px;
+  box-sizing:border-box;
+  padding:5px 6px 3px;
+  border-bottom:1px solid #aeb3b7;
+  background:#e8e8e8;
+  font-weight:700;
+  font-size:9.5px;
+}
+.cw-summary-section{
+  padding:4px 5px;
+  border-bottom:1px solid #d2d2d2;
+}
+.cw-summary-head{
+  font-weight:700;
+  color:#555;
+  padding-bottom:2px;
+  margin-bottom:2px;
+  border-bottom:1px solid #dedede;
+}
+.cw-summary-line{
+  display:grid;
+  grid-template-columns:70px minmax(0,1fr);
+  gap:4px;
+  min-height:17px;
+  align-items:center;
+}
+.cw-summary-line>span{color:#5c5c5c;text-align:right}
+.cw-summary-line>b,.cw-summary-line>a{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#111;
+}
+.cw-summary-line>a{color:#0047bf;text-decoration:none}
+.cw-summary-status{display:inline-block;text-align:center;border:1px solid #999;background:#eee;padding:1px 3px}
+.cw-summary-status.open{background:#52db69}
+.cw-summary-status.converted{background:#c9e1ff}
+.cw-summary-status.closed,.cw-summary-status.lost{background:#ddd}
+.cw-summary-actions{
+  margin-top:auto;
+  padding:5px;
+  border-top:1px solid #c7c7c7;
+  display:grid;
+  gap:3px;
+}
+.cw-summary-actions button{
+  height:20px;
+  border:1px solid #a5a5a5;
+  background:#e2e2e2;
+  font-size:8.8px;
+  cursor:pointer;
+}
+.cw-summary-actions button:disabled{opacity:.5;cursor:default}
+@media(max-width:1180px){
+  .cw-workspace-body{grid-template-columns:minmax(760px,1fr) 200px}
+  .cw-summary-rail{width:200px;min-width:200px}
+  .cw-workspace-left .cw-main-grid{grid-template-columns:repeat(3,minmax(200px,1fr))}
+}

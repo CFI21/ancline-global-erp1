@@ -111,6 +111,8 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
           <div className="cw-headitem"><label>Type</label><select value={form.inquiryType||'EMAIL'} onChange={e=>{set('inquiryType',e.target.value);set('inquiryTypeLabel',e.target.options[e.target.selectedIndex].text);}}><option value="EMAIL">Email Inquiry</option><option value="PHONE">Phone Inquiry</option><option value="WEB">Web Inquiry</option><option value="VISIT">Sales Visit</option><option value="REFERRAL">Referral</option></select><input className="cw-type-label" value={form.inquiryTypeLabel||''} readOnly/></div>
         </div>
 
+        <div className="cw-workspace-body">
+          <div className="cw-workspace-left">
         <div className="cw-main-grid">
           <fieldset className="cw-panel cw-org"><legend>Organization</legend>
             <div className="cw-row"><label>Name</label><select className="cw-input" value={form.organizationId||''} onChange={e=>applyOrg(e.target.value)}><option value="">New / unlinked prospect</option>{orgs.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select><button className="cw-mini" type="button">...</button></div>
@@ -168,6 +170,43 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             {showCommEditor&&<div className="cw-comm-editor"><select value={comm.type} onChange={e=>setComm({...comm,type:e.target.value})}><option>EMAIL</option><option>PHONE</option><option>MEETING</option><option>NOTE</option></select><input placeholder="Contact" value={comm.contact} onChange={e=>setComm({...comm,contact:e.target.value})}/><input placeholder="Subject" value={comm.subject} onChange={e=>setComm({...comm,subject:e.target.value})}/><button disabled={busy||isNew||!comm.subject.trim()} onClick={()=>void addCommunication()}>Save</button></div>}
             <div className="cw-lower-actions"><label><input type="checkbox"/> Show Notes</label><span className="cw-spacer"/><button disabled={isNew} onClick={()=>setShowCommEditor(true)}>□ New</button><button disabled={isNew||!comms.length} onClick={()=>setShowCommEditor(true)}>✎ Edit</button></div>
           </div>
+        </div>
+          </div>
+
+          <aside className="cw-summary-rail">
+            <div className="cw-summary-title">Inquiry Summary</div>
+            <div className="cw-summary-section">
+              <div className="cw-summary-line"><span>Inquiry ID</span><b>{inquiryNo}</b></div>
+              <div className="cw-summary-line"><span>Type</span><b>{form.inquiryTypeLabel||form.inquiryType||'—'}</b></div>
+              <div className="cw-summary-line"><span>Status</span><b className={'cw-summary-status '+String(form.status||'OPEN').toLowerCase()}>{form.status||'OPEN'}</b></div>
+            </div>
+            <div className="cw-summary-section">
+              <div className="cw-summary-head">Customer</div>
+              <div className="cw-summary-line"><span>Organization</span><b>{form.organizationName||'—'}</b></div>
+              <div className="cw-summary-line"><span>Code</span><b>{form.organizationCode||'—'}</b></div>
+              <div className="cw-summary-line"><span>Contact</span><b>{form.contactName||'—'}</b></div>
+              <div className="cw-summary-line"><span>Phone</span><b>{form.phone||form.mobile||'—'}</b></div>
+              <div className="cw-summary-line"><span>Email</span><b title={form.emailAddress||''}>{form.emailAddress||'—'}</b></div>
+            </div>
+            <div className="cw-summary-section">
+              <div className="cw-summary-head">Sales</div>
+              <div className="cw-summary-line"><span>Sales Rep</span><b>{form.assignedSalesRep||'—'}</b></div>
+              <div className="cw-summary-line"><span>Interest</span><b>{interestLabel}</b></div>
+              <div className="cw-summary-line"><span>Source</span><b>{[form.leadSourceCode,form.leadSourceName].filter(Boolean).join(' - ')||'—'}</b></div>
+              <div className="cw-summary-line"><span>Opportunity</span>{opportunityId?<a href={`/sales-crm?opportunity=${opportunityId}`}><b>{opportunityId}</b></a>:<b>Not created</b>}</div>
+            </div>
+            <div className="cw-summary-section">
+              <div className="cw-summary-head">Activity</div>
+              <div className="cw-summary-line"><span>Communications</span><b>{comms.length}</b></div>
+              <div className="cw-summary-line"><span>Last Type</span><b>{comms[0]?.type||'—'}</b></div>
+              <div className="cw-summary-line"><span>Last Subject</span><b title={comms[0]?.subject||''}>{comms[0]?.subject||'—'}</b></div>
+            </div>
+            <div className="cw-summary-actions">
+              <button type="button" disabled={busy} onClick={()=>void save(false)}>Save</button>
+              {!opportunityId&&!isNew&&<button type="button" disabled={busy} onClick={()=>void convert()}>Create Opportunity</button>}
+              {opportunityId&&<button type="button" onClick={()=>location.href=`/sales-crm?opportunity=${opportunityId}`}>Open Opportunity</button>}
+            </div>
+          </aside>
         </div>
 
         <div className="cw-action-row">
