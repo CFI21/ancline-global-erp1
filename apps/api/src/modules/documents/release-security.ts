@@ -1,6 +1,7 @@
 export async function evaluateReleaseSecurity(db:any,bookingId:string){
   const booking=await db.booking.findUnique({where:{id:bookingId},include:{financeLines:true}});
   if(!booking)return {clear:false,mode:'UNKNOWN',blockers:['Booking not found'],requiredPrepaidPct:0,paidAmount:0,requiredAmount:0,creditStatus:null};
+  if(String(booking.businessModel||'NVOCC').toUpperCase()!=='FORWARDING')return {clear:true,mode:'NVOCC_SEPARATE_CONTROL',blockers:[],requiredPrepaidPct:0,paidAmount:0,requiredAmount:0,invoicedAmount:0,revenueAmount:0,creditStatus:booking.creditStatus||null,profileHold:false,freightTerms:booking.freightTerms||null,businessModel:booking.businessModel||'NVOCC'};
   const selected=await db.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateOffer',eventType:'RATE_OFFER_SELECTED',externalId:bookingId},orderBy:{createdAt:'desc'}});
   const terms=(selected?.payload&&typeof selected.payload==='object'?(selected.payload as any).commercialTerms:null)||{};
   const freightTerms=String(booking.freightTerms||'').toUpperCase();
@@ -38,5 +39,5 @@ export async function evaluateReleaseSecurity(db:any,bookingId:string){
   if(mode==='CREDIT'&&!creditClear)blockers.push(profileHold?'Customer credit profile is on hold':'Customer credit/security status is not Passed');
   if(String(booking.status||'').toUpperCase()==='CANCELLED')blockers.push('Booking is cancelled');
 
-  return {clear:blockers.length===0,mode,blockers,requiredPrepaidPct,paidAmount:Math.round(paidAmount*100)/100,requiredAmount:Math.round(requiredAmount*100)/100,invoicedAmount:Math.round(invoicedAmount*100)/100,revenueAmount:Math.round(revenueAmount*100)/100,creditStatus:booking.creditStatus||null,profileHold,freightTerms:booking.freightTerms||null};
+  return {clear:blockers.length===0,mode,blockers,requiredPrepaidPct,businessModel:'FORWARDING',bookingChannel:booking.bookingChannel||'INTERNAL',paidAmount:Math.round(paidAmount*100)/100,requiredAmount:Math.round(requiredAmount*100)/100,invoicedAmount:Math.round(invoicedAmount*100)/100,revenueAmount:Math.round(revenueAmount*100)/100,creditStatus:booking.creditStatus||null,profileHold,freightTerms:booking.freightTerms||null};
 }
