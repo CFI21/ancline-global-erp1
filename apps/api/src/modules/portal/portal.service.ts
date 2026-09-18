@@ -87,7 +87,7 @@ export class PortalService {
     if(role==='AGENT'&&customerId!==user.agentId)throw new ForbiddenException('Agent can only create its own NVOCC booking request');
     if(role!=='AGENT'&&roles.includes('AGENT'))producingAgentId=customerId;
     const quantity=Math.max(1,Math.min(999,Math.floor(Number(body?.quantity||1))));
-    const bookingNo='NVOCC-'+Date.now().toString().slice(-10);
+    const bookingNo='ANC-NVOCC-BKG-'+Date.now().toString().slice(-10);
     const bookingChannel=role==='AGENT'?'NVOCC_AGENT_PORTAL':role==='BRANCH_OPS'?'NVOCC_BRANCH_PORTAL':'NVOCC_ADMIN_PORTAL';
     const row=await this.prisma.booking.create({data:{
       bookingNo,businessModel:'NVOCC',bookingChannel,customerId,producingAgentId,owningBranchId,salesOwner:user.email,
@@ -143,7 +143,7 @@ export class PortalService {
       this.prisma.rateQuote.findUnique({where:{id:rateId}})
     ]);
     if(!booking||!template)throw new BadRequestException('NVOCC booking or rate was not found');
-    const quoteNo=`NVQ-${Date.now().toString().slice(-10)}`;
+    const quoteNo=`ANC-NVOCC-Q-${Date.now().toString().slice(-10)}`;
     const quote=await this.prisma.$transaction(async(tx:any)=>{
       const q=await tx.rateQuote.create({data:{
         quoteNo,customerId:booking.customerId,trade:template.trade,equipment:template.equipment,
@@ -362,7 +362,7 @@ export class PortalService {
     if(!costCenterCode)throw new BadRequestException('Forwarding booking requires a cost center');
     const existing=await this.prisma.booking.findFirst({where:{rateQuoteId:quote.id}});
     if(existing){const base:any={booking:{id:existing.id,bookingNo:existing.bookingNo,status:existing.status,shipmentStatus:existing.shipmentStatus},quote:{id:quote.id,quoteNo:quote.quoteNo,status:'Customer Accepted'},automation:{status:existing.shipmentStatus||'BOOKING_REQUESTED'}};if(role==='GLOBAL_ADMIN')base.booking=existing;return base;}
-    const bookingNo='FWD-'+Date.now().toString().slice(-10);
+    const bookingNo='ANC-FWD-BKG-'+Date.now().toString().slice(-10);
     const bookingChannel=role==='CUSTOMER'?'CUSTOMER_PORTAL':role==='SHIPPER'?'SHIPPER_PORTAL':role==='CONSIGNEE'?'CONSIGNEE_PORTAL':role==='AGENT'?'AGENT_FORWARDING_CROSS_TRADE':'ADMIN_FORWARDING';
     const shipper=role==='SHIPPER'?customer.name:(request.shipper||null),consignee=role==='CONSIGNEE'?customer.name:(request.consignee||null);
     const vesselVoyage=[offer.vessel,offer.voyage].filter(Boolean).join(' / ')||null;
