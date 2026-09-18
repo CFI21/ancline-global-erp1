@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
+import { assertAncCarrierOutboundPayload } from '../carrier-outbound-policy';
 
 const SOURCE='ANCLINE_RATE_PROCUREMENT';
 const PROVIDER_OBJECT='CarrierRateProvider';
@@ -206,6 +207,7 @@ export class RateProcurementService {
       commodity:booking.commodity||null,specialCargo:booking.specialCargo||null,grossWeight:booking.grossWeight||null,volumeCbm:booking.volumeCbm||null,
       requestedEtd:booking.etd||null,currency:booking.currency||'USD'
     };
+    assertAncCarrierOutboundPayload(request);
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000),started=Date.now();
     try{
       const response=await (globalThis as any).fetch(provider.endpoint,{method:'POST',headers:this.authHeaders(provider),body:JSON.stringify(request),signal:controller.signal});const text=await response.text();let data:any={};try{data=text?JSON.parse(text):{};}catch{data={message:text};}
