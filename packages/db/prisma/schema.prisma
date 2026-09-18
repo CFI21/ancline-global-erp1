@@ -8,6 +8,8 @@ datasource db {
 
 enum OrgRole {
   CUSTOMER
+  SHIPPER
+  CONSIGNEE
   AGENT
   CARRIER
   SLOT_PROVIDER
@@ -80,6 +82,7 @@ model UserAccount {
   branchId    String?
   agentId     String?
   customerId  String?
+  partyId     String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
