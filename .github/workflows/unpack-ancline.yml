@@ -1,35 +1,20 @@
-name: Unpack ANCLINE ERP Project
+name: Inspect ANCLINE ERP Archive
 
 on:
-  push:
-    paths:
-      - '.github/workflows/unpack-ancline.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  unpack:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Extract ANCLINE ERP archive
+      - name: Inspect archive without modifying repository
         run: |
-          unzip -o ANCLINE_GLOBAL_ERP1_GitHub_Upload_Ready.zip -d .
-
-      - name: Commit extracted project files
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No extracted changes to commit."
-          else
-            git commit -m "Extract ANCLINE ERP project files"
-            git push origin HEAD:main
-          fi
+          test -f ANCLINE_GLOBAL_ERP1_GitHub_Upload_Ready.zip
+          unzip -t ANCLINE_GLOBAL_ERP1_GitHub_Upload_Ready.zip
+          echo "Archive is valid. No files were extracted or committed."
