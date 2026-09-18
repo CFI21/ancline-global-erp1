@@ -36,7 +36,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
       const o=await api('/sales-crm/organizations',t);setOrgs(Array.isArray(o)?o:[]);
       if(isNew){
         const initial={...blankLead,assignedSalesRep:user?.email||''};
-        setLead(initial);setForm(initial);setComm(x=>({...x,contact:''}));return;
+        setLead(initial);setForm(initial);setComm((x:any)=>({...x,contact:''}));return;
       }
       const [l,c,g]=await Promise.all([
         api(`/sales-crm/leads/${leadId}`,t),
