@@ -188,8 +188,11 @@ export class TestDataService implements OnModuleInit {
 
   async reset(user:ScopeUser){
     this.admin(user);
-    const bookings=await this.db.booking.findMany({where:{bookingNo:{startsWith:'ANC-TEST-'}},select:{id:true}});
-    const ids=bookings.map((x:any)=>x.id);
+    const [bookings,testCustomers]=await Promise.all([
+      this.db.booking.findMany({where:{bookingNo:{startsWith:'ANC-TEST-'}},select:{id:true}}),
+      this.db.organization.findMany({where:{code:{startsWith:'TEST-CUST-'}},select:{id:true}})
+    ]);
+    const ids=bookings.map((x:any)=>x.id),customerIds=testCustomers.map((x:any)=>x.id);
     if(ids.length){
       await this.db.jobCloseoutChecklist.deleteMany({where:{bookingId:{in:ids}}});
       await this.db.approval.deleteMany({where:{bookingId:{in:ids}}});
@@ -200,13 +203,17 @@ export class TestDataService implements OnModuleInit {
       await this.db.shipmentMilestone.deleteMany({where:{bookingId:{in:ids}}});
       await this.db.bookingLeg.deleteMany({where:{bookingId:{in:ids}}});
       await this.db.auditEvent.deleteMany({where:{bookingId:{in:ids}}});
+      await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_CARRIER_PAYMENT',objectId:{in:ids}}});
+      await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateOffer',objectId:{in:ids}}});
       await this.db.booking.deleteMany({where:{id:{in:ids}}});
     }
+    if(customerIds.length)await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_CREDIT_CONTROL',objectType:'CreditProfile',objectId:{in:customerIds}}});
+    await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',objectId:{in:['TEST_ATLANTIC','TEST_PACIFIC','TEST_GULF']}}});
+    await this.db.integrationEvent.deleteMany({where:{sourceSystem:SOURCE}});
     await this.db.rateQuote.deleteMany({where:{quoteNo:{startsWith:'ANC-TEST-'}}});
     await this.db.userAccount.deleteMany({where:{email:{endsWith:'@ancline.invalid'}}});
-    await this.db.integrationEvent.deleteMany({where:{OR:[{sourceSystem:SOURCE},{sourceSystem:'ANCLINE_TEST_DATA'}]}});
     await this.db.organization.deleteMany({where:{OR:[{code:{startsWith:'TEST-CUST-'}},{code:{startsWith:'TEST-CARRIER-'}},{code:'TEST-AGENT-SG'}]}});
     await this.db.branch.deleteMany({where:{code:'TEST-NL-BR'}});
-    return {reset:true,deletedBookings:ids.length};
+    return {reset:true,deletedBookings:ids.length,deletedCustomers:customerIds.length};
   }
 }
