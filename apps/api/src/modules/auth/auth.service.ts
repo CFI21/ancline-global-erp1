@@ -16,6 +16,9 @@ export class AuthService {
       agentId:account.agentId||null,
       customerId:account.customerId||null,
       partyId:account.partyId||null,
+      costCenterCode:account.costCenterCode||null,
+      agentMode:account.agentMode||null,
+      permissions:Array.isArray(account.permissions)?account.permissions:[],
       managedAccount:true,
       authSource
     };
@@ -58,6 +61,9 @@ export class AuthService {
       agentId:body.agentId||null,
       customerId:body.customerId||null,
       partyId:body.partyId||null,
+      costCenterCode:body.costCenterCode||null,
+      agentMode:role==='AGENT'?'LINER_AGENCY_ONLY':null,
+      permissions:Array.isArray(body.permissions)?body.permissions:[],
       managedAccount:false,
       authSource:'DEV'
     };
