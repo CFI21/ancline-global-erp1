@@ -17,7 +17,7 @@ export class ScopeService {
   }
 
   assertInternal(user:ScopeUser){
-    if(['CUSTOMER','AGENT'].includes(user.role))
+    if(['CUSTOMER','SHIPPER','CONSIGNEE','AGENT'].includes(user.role))
       throw new ForbiddenException('Internal-only operation');
   }
 }
