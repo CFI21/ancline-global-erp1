@@ -87,7 +87,7 @@ export class StorageService {
     const sts=`AWS4-HMAC-SHA256\n${amz}\n${scope}\n${this.sha(canonical)}`;
     const sig=createHmac('sha256',this.signingKey(day)).update(sts).digest('hex');
     const authorization=`AWS4-HMAC-SHA256 Credential=${this.accessKey()}/${scope}, SignedHeaders=${signed}, Signature=${sig}`;
-    return {url,headers:{host:url.host,'x-amz-content-sha256':payloadHash,'x-amz-date':amz,authorization}};
+    return {url,headers:{'x-amz-content-sha256':payloadHash,'x-amz-date':amz,authorization}};
   }
 
   async verifyObject(key:string){
