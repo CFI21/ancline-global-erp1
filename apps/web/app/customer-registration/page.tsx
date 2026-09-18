@@ -3,7 +3,7 @@
 import {useState} from 'react';
 import {api} from '../../lib/api';
 
-type Person={name:string;country:string;ownershipPct?:string;idRef?:string};
+type Person={name:string;country:string;ownershipPct:string;idRef:string};
 const blankPerson:Person={name:'',country:'',ownershipPct:'',idRef:''};
 
 export default function CustomerRegistrationPage(){
