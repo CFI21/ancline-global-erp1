@@ -29,15 +29,16 @@ export default function Login(){
       api('/auth/oidc/configuration').catch(()=>({configured:false,devLoginAllowed:true}))
     ]).then(([o,c])=>{setOrgs(Array.isArray(o)?o:[]);setOidc(c||{configured:false,devLoginAllowed:true});});
   },[]);
-  const scopedOrgs=useMemo(()=>role==='CUSTOMER'?orgs.filter(o=>o.roles?.includes('CUSTOMER')):role==='AGENT'?orgs.filter(o=>o.roles?.includes('AGENT')):role==='BRANCH_OPS'?orgs.filter(o=>o.roles?.includes('ANCLINE_BRANCH')):[],[role,orgs]);
+  const scopedOrgs=useMemo(()=>role==='CUSTOMER'?orgs.filter(o=>o.roles?.includes('CUSTOMER')):role==='SHIPPER'?orgs.filter(o=>o.roles?.includes('SHIPPER')):role==='CONSIGNEE'?orgs.filter(o=>o.roles?.includes('CONSIGNEE')):role==='AGENT'?orgs.filter(o=>o.roles?.includes('AGENT')):role==='BRANCH_OPS'?orgs.filter(o=>o.roles?.includes('ANCLINE_BRANCH')):[],[role,orgs]);
   useEffect(()=>{setScopeId(scopedOrgs[0]?.id||'');},[role,scopedOrgs.length]);
 
   async function login(){
-    if((role==='CUSTOMER'||role==='AGENT'||role==='BRANCH_OPS')&&!scopeId){setMsg(`Select a ${role==='CUSTOMER'?'customer':role==='AGENT'?'agent':'branch'} organization first.`);return;}
+    if((role==='CUSTOMER'||role==='SHIPPER'||role==='CONSIGNEE'||role==='AGENT'||role==='BRANCH_OPS')&&!scopeId){setMsg(`Select a ${role==='CUSTOMER'?'customer':role==='SHIPPER'?'shipper':role==='CONSIGNEE'?'consignee':role==='AGENT'?'agent':'branch'} organization first.`);return;}
     setBusy(true);setMsg('');
     try{
       const payload:any={email,role};
       if(role==='CUSTOMER')payload.customerId=scopeId;
+      if(role==='SHIPPER'||role==='CONSIGNEE')payload.partyId=scopeId;
       if(role==='AGENT')payload.agentId=scopeId;
       if(role==='BRANCH_OPS')payload.branchId=scopeId;
       const j=await api('/auth/login',undefined,{method:'POST',body:JSON.stringify(payload)});
@@ -45,7 +46,7 @@ export default function Login(){
       localStorage.setItem('ancline_token',j.accessToken);
       localStorage.setItem('ancline_user',JSON.stringify(j.user));
       const r=j.user?.role;
-      location.href=r==='CUSTOMER'?'/customer-portal':r==='AGENT'?'/agent-portal':r==='BRANCH_OPS'?'/branch-portal':'/';
+      location.href=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(r)?'/customer-portal':['AGENT','BRANCH_OPS'].includes(r)?'/nvocc-portal':'/';
     }catch(e:any){setMsg(e?.message||'Login failed');}finally{setBusy(false);}
   }
 
@@ -73,9 +74,9 @@ export default function Login(){
       {oidc.devLoginAllowed&&<>
         <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
         <label>Role<select value={role} onChange={e=>setRole(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}>
-          {['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'].map(x=><option key={x}>{x}</option>)}
+          {['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'].map(x=><option key={x}>{x}</option>)}
         </select></label>
-        {(role==='CUSTOMER'||role==='AGENT'||role==='BRANCH_OPS')&&<label>{role==='CUSTOMER'?'Customer Organization':role==='AGENT'?'Agent Organization':'Branch Organization'}<select value={scopeId} onChange={e=>setScopeId(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}><option value="">Select organization</option>{scopedOrgs.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>}
+        {(role==='CUSTOMER'||role==='SHIPPER'||role==='CONSIGNEE'||role==='AGENT'||role==='BRANCH_OPS')&&<label>{role==='CUSTOMER'?'Customer Organization':role==='SHIPPER'?'Shipper Organization':role==='CONSIGNEE'?'Consignee Organization':role==='AGENT'?'Agent Organization':'Branch Organization'}<select value={scopeId} onChange={e=>setScopeId(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}><option value="">Select organization</option>{scopedOrgs.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>}
         <button className="btn" onClick={login} disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
       </>}
       {!oidc.devLoginAllowed&&!oidc.configured&&<div>ANCLINE sign-in is not configured. Contact your administrator.</div>}
