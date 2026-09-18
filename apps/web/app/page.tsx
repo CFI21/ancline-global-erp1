@@ -29,7 +29,7 @@ export default function Home(){
   }
 
   return <div className="shell">
-    <aside className="side"><div className="brand">ANCLINE WORLDWIDE</div><a href="/">Control Tower</a><a href="/bookings">Bookings</a><a href="/organizations">Organizations</a><a href="/rates">Rates / Quotes</a><a href="/documents">Documents</a><a href="/finance">Finance</a><a href="/approvals">Approvals</a><a href="/tasks">My Work</a></aside>
+    <aside className="side"><div className="brand">ANCLINE WORLDWIDE</div><a href="/">Control Tower</a><a href="/nvocc-portal">NVOCC Portal</a><a href="/customer-portal">Global Forwarding Portal</a><a href="/bookings">Bookings</a><a href="/organizations">Organizations</a><a href="/rates">Rates / Quotes</a><a href="/documents">Documents</a><a href="/finance">Finance</a><a href="/approvals">Approvals</a><a href="/tasks">My Work</a></aside>
     <main className="main">
       <div className="top"><div><h1 style={{margin:0}}>Global Control Tower</h1><div className="sub">ANCLINE operational command center</div></div><div style={{display:'flex',gap:8,alignItems:'center'}}><div className="status">API: {health.status||'unknown'}</div><button className="btn" onClick={signOut}>Sign out</button></div></div>
       {error&&<div className="card" style={{marginBottom:16}}>Dashboard notice: {error}</div>}
