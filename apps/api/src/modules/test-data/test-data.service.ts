@@ -12,9 +12,9 @@ export class TestDataService implements OnModuleInit {
   private admin(user?:ScopeUser){if(user&&String(user?.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required');}
   private now(){return new Date();}
   private d(days:number,hour=12){const x=new Date();x.setUTCDate(x.getUTCDate()+days);x.setUTCHours(hour,0,0,0);return x;}
-  private async event(objectType:string,objectId:string,eventType:string,payload:any,status='COMPLETED',sourceSystem=SOURCE){
-    await this.db.integrationEvent.deleteMany({where:{sourceSystem,objectType,objectId,eventType}});
-    return this.db.integrationEvent.create({data:{sourceSystem,objectType,objectId,eventType,status,completedAt:status==='COMPLETED'?this.now():null,payload}});
+  private async event(objectType:string,objectId:string,eventType:string,payload:any,status='COMPLETED',sourceSystem=SOURCE,externalId?:string|null){
+    await this.db.integrationEvent.deleteMany({where:{sourceSystem,objectType,objectId,eventType,...(externalId?{externalId}: {})}});
+    return this.db.integrationEvent.create({data:{sourceSystem,objectType,objectId,eventType,externalId:externalId||null,status,completedAt:status==='COMPLETED'?this.now():null,payload}});
   }
   async onModuleInit(){
     if(String(process.env.ANCLINE_TEST_DATA_SEED||'false').toLowerCase()==='true'){
@@ -106,8 +106,8 @@ export class TestDataService implements OnModuleInit {
       const x:any=bookingDefs[idx],quoteNo=`ANC-TEST-FWD-Q-${x.key}-001`,bookingNo=`ANC-TEST-FWD-BKG-${x.key}-001`;
       const quote=await this.db.rateQuote.upsert({
         where:{quoteNo},
-        update:{customerId:x.customer.id,trade:`${x.origin}-${x.destination}`,equipment:x.equipment,buyRate:x.buy,sellRate:x.sell,currency:x.currency,validFrom:this.d(-5),validTo:this.d(30),status:'Customer Accepted',source:'TEST_DATA',customerRef:x.customer.customerRef,costCenterCode:x.customer.costCenterCode,carrierCode:x.carrier.providerCode,carrierQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,termsVersion:'ANC-TEST-FWD-TERMS-2026.1',termsAcceptedAt:this.d(-2),termsAcceptedBy:x.customer.email,requestData:{testData:true,origin:x.origin,destination:x.destination,equipment:x.equipment,quantity:x.qty},carrierOfferData:{testData:true,providerCode:x.carrier.providerCode,buy:x.buy,currency:x.currency}},
-        create:{quoteNo,customerId:x.customer.id,trade:`${x.origin}-${x.destination}`,equipment:x.equipment,buyRate:x.buy,sellRate:x.sell,currency:x.currency,validFrom:this.d(-5),validTo:this.d(30),status:'Customer Accepted',source:'TEST_DATA',customerRef:x.customer.customerRef,costCenterCode:x.customer.costCenterCode,carrierCode:x.carrier.providerCode,carrierQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,termsVersion:'ANC-TEST-FWD-TERMS-2026.1',termsAcceptedAt:this.d(-2),termsAcceptedBy:x.customer.email,requestData:{testData:true,origin:x.origin,destination:x.destination,equipment:x.equipment,quantity:x.qty},carrierOfferData:{testData:true,providerCode:x.carrier.providerCode,buy:x.buy,currency:x.currency}}
+        update:{customerId:x.customer.id,trade:`${x.origin}-${x.destination}`,equipment:x.equipment,buyRate:x.buy,sellRate:x.sell,currency:x.currency,validFrom:this.d(-5),validTo:this.d(30),status:'Customer Accepted',source:`FORWARDING_CARRIER:${x.carrier.providerCode}`,customerRef:x.customer.customerRef,costCenterCode:x.customer.costCenterCode,carrierCode:x.carrier.providerCode,carrierQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,termsVersion:'ANC-TEST-FWD-TERMS-2026.1',termsAcceptedAt:this.d(-2),termsAcceptedBy:x.customer.email,requestData:{testData:true,origin:x.origin,destination:x.destination,equipment:x.equipment,quantity:x.qty},carrierOfferData:{testData:true,providerCode:x.carrier.providerCode,buy:x.buy,currency:x.currency}},
+        create:{quoteNo,customerId:x.customer.id,trade:`${x.origin}-${x.destination}`,equipment:x.equipment,buyRate:x.buy,sellRate:x.sell,currency:x.currency,validFrom:this.d(-5),validTo:this.d(30),status:'Customer Accepted',source:`FORWARDING_CARRIER:${x.carrier.providerCode}`,customerRef:x.customer.customerRef,costCenterCode:x.customer.costCenterCode,carrierCode:x.carrier.providerCode,carrierQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,termsVersion:'ANC-TEST-FWD-TERMS-2026.1',termsAcceptedAt:this.d(-2),termsAcceptedBy:x.customer.email,requestData:{testData:true,origin:x.origin,destination:x.destination,equipment:x.equipment,quantity:x.qty},carrierOfferData:{testData:true,providerCode:x.carrier.providerCode,buy:x.buy,currency:x.currency}}
       });
       const booking=await this.db.booking.upsert({
         where:{bookingNo},
@@ -154,7 +154,7 @@ export class TestDataService implements OnModuleInit {
         {chargeGroup:'ORIGIN_HAULAGE',term:x.service==='DOOR_TO_DOOR'?'PREPAID_ORIGIN':'NOT_APPLICABLE',applicable:x.service==='DOOR_TO_DOOR'},
         {chargeGroup:'DESTINATION_HAULAGE',term:x.service==='DOOR_TO_DOOR'?'COLLECT':'NOT_APPLICABLE',applicable:x.service==='DOOR_TO_DOOR'}
       ],customerDataOutbound:false,houseDataOutbound:false,testData:true},'COMPLETED','ANCLINE_CARRIER_PAYMENT');
-      await this.event('CarrierRateOffer',booking.id,'RATE_OFFER_SELECTED',{bookingId:booking.id,providerCode:x.carrier.providerCode,externalQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,buy:x.buy,currency:x.currency,testData:true},'COMPLETED','ANCLINE_RATE_PROCUREMENT');
+      await this.event('CarrierRateOffer',booking.id,'RATE_OFFER_SELECTED',{bookingId:booking.id,providerCode:x.carrier.providerCode,externalQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,buy:x.buy,currency:x.currency,testData:true},'COMPLETED','ANCLINE_RATE_PROCUREMENT',booking.id);
     }
 
     const nvCustomer=customerRows[0],nvBookingNo='ANC-TEST-NVOCC-BKG-001';
