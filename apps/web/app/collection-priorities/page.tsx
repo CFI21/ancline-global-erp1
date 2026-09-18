@@ -1,0 +1,5 @@
+'use client';
+import {useEffect,useState} from 'react';
+import WorkspaceShell from '../../components/WorkspaceShell';
+import {api,fmtMoney,requireToken} from '../../lib/api';
+export default function Page(){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{const t=requireToken();if(!t)return;void api('/finance-automation/collections/priorities',t).then(setRows);},[]);return <WorkspaceShell title="Collection Priorities" subtitle="Deterministic AR collection ranking using overdue, disputes and breached promises" active="/collection-priorities"><div className="card"><table className="table"><thead><tr><th>Invoice</th><th>Customer</th><th>Outstanding</th><th>Days Overdue</th><th>Priority</th><th>Score</th><th>Recommended Action</th></tr></thead><tbody>{rows.map(r=><tr key={r.invoiceNo}><td>{r.invoiceNo}</td><td>{r.partyName||'-'}</td><td>{fmtMoney(r.balanceAmount,r.currency)}</td><td>{r.daysOverdue}</td><td><span className="status">{r.priority}</span></td><td>{r.score}</td><td>{r.recommendedAction}</td></tr>)}{!rows.length&&<tr><td colSpan={7}>No open AR collections.</td></tr>}</tbody></table></div></WorkspaceShell>;}
