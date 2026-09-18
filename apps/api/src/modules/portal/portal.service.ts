@@ -4,6 +4,7 @@ import { bookingScope, ScopeUser } from '../auth/scope';
 import { ScopeService } from '../auth/scope.service';
 import { AuditService } from '../audit/audit.service';
 import { evaluateReleaseSecurity } from '../documents/release-security';
+import { assertAncCarrierOutboundPayload } from '../carrier-outbound-policy';
 
 @Injectable()
 export class PortalService {
@@ -251,14 +252,29 @@ export class PortalService {
       await this.prisma.booking.update({where:{id:booking.id},data:{shipmentStatus:'CARRIER_AUTOMATION_PENDING'}});
       return {status:'PENDING_CONFIGURATION',providerCode};
     }
-    const request={
+    const paymentEvent=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CARRIER_PAYMENT',objectType:'CarrierPaymentInstruction',objectId:booking.id,eventType:'CARRIER_PAYMENT_INSTRUCTIONS_SET'},orderBy:{createdAt:'desc'}});
+    const paymentPayload:any=paymentEvent?.payload||{};
+    const paymentInstructions=(Array.isArray(paymentPayload.instructions)?paymentPayload.instructions:[])
+      .filter((x:any)=>x?.applicable!==false&&String(x?.term||'').toUpperCase()!=='NOT_APPLICABLE')
+      .map((x:any)=>({
+        chargeGroup:x.chargeGroup,
+        term:x.term,
+        payerType:x.payerType,
+        payerCode:x.carrierPayerCode||x.payerCode||null,
+        payerName:x.payerName||null,
+        payerAddress:x.term==='PREPAID_ELSEWHERE'?(x.payerAddress||null):null,
+        payerCountryCode:x.payerCountryCode||null
+      }));
+    const request:any={
       requestReference:'ANC-BOOK-'+String(booking.bookingNo||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,48),
       bookingParty:{name:provider?.carrierIdentity?.accountName||'ANC',accountCode:provider?.carrierIdentity?.accountCode||null},
       carrierQuoteReference:quote?.carrierQuoteRef||selection.externalQuoteRef||quoteOffer.carrierQuoteRef||null,
       origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading||booking.origin,portOfDischarge:booking.portOfDischarge||booking.destination,
       equipment:booking.equipment,quantity:booking.quantity||1,commodity:booking.commodity||null,grossWeight:booking.grossWeight||null,volumeCbm:booking.volumeCbm||null,
-      requestedEtd:booking.etd||null,freightTerms:booking.freightTerms||null
+      requestedEtd:booking.etd||null
     };
+    if(paymentInstructions.length)request.paymentInstructions=paymentInstructions;
+    assertAncCarrierOutboundPayload(request);
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
     try{
       const response=await (globalThis as any).fetch(bookingEndpoint,{method:'POST',headers:this.carrierAuthHeaders(provider),body:JSON.stringify(request),signal:controller.signal});
@@ -298,7 +314,7 @@ export class PortalService {
     const where:any={source:{startsWith:'FORWARDING_CARRIER:'}};
     if(role!=='GLOBAL_ADMIN'){if(!customerId)return [];where.customerId=customerId;}
     const rows=await this.prisma.rateQuote.findMany({where,orderBy:{createdAt:'desc'},take:300});
-    return rows.map((q:any)=>({id:q.id,quoteNo:q.quoteNo,customerRef:q.customerRef,costCenterCode:q.costCenterCode,trade:q.trade,equipment:q.equipment,sellRate:q.sellRate,currency:q.currency,validFrom:q.validFrom,validTo:q.validTo,status:q.status,carrierCode:q.carrierCode,carrierQuoteRef:q.carrierQuoteRef,termsVersion:q.termsVersion,termsAcceptedAt:q.termsAcceptedAt,requestData:q.requestData}));
+    return rows.map((q:any)=>({id:q.id,quoteNo:q.quoteNo,customerRef:q.customerRef,costCenterCode:q.costCenterCode,trade:q.trade,equipment:q.equipment,sellRate:q.sellRate,currency:q.currency,validFrom:q.validFrom,validTo:q.validTo,status:q.status,termsVersion:q.termsVersion,termsAcceptedAt:q.termsAcceptedAt,...(role==='GLOBAL_ADMIN'?{carrierCode:q.carrierCode,carrierQuoteRef:q.carrierQuoteRef,requestData:q.requestData}: {})}));
   }
 
   async acceptForwardingQuote(quoteId:string,body:any,user:ScopeUser){
@@ -325,7 +341,7 @@ export class PortalService {
     const costCenterCode=String(role==='AGENT'?(user.costCenterCode||''):(quote.costCenterCode||customer.costCenterCode||'')).trim().toUpperCase();
     if(!costCenterCode)throw new BadRequestException('Forwarding booking requires a cost center');
     const existing=await this.prisma.booking.findFirst({where:{rateQuoteId:quote.id}});
-    if(existing)return {booking:existing,quote:{id:quote.id,quoteNo:quote.quoteNo,status:'Customer Accepted'},automation:{status:existing.shipmentStatus||'BOOKING_REQUESTED'}};
+    if(existing){const base:any={booking:{id:existing.id,bookingNo:existing.bookingNo,status:existing.status,shipmentStatus:existing.shipmentStatus},quote:{id:quote.id,quoteNo:quote.quoteNo,status:'Customer Accepted'},automation:{status:existing.shipmentStatus||'BOOKING_REQUESTED'}};if(role==='GLOBAL_ADMIN')base.booking=existing;return base;}
     const bookingNo='FWD-'+Date.now().toString().slice(-10);
     const bookingChannel=role==='CUSTOMER'?'CUSTOMER_PORTAL':role==='SHIPPER'?'SHIPPER_PORTAL':role==='CONSIGNEE'?'CONSIGNEE_PORTAL':role==='AGENT'?'AGENT_FORWARDING_CROSS_TRADE':'ADMIN_FORWARDING';
     const shipper=role==='SHIPPER'?customer.name:(request.shipper||null),consignee=role==='CONSIGNEE'?customer.name:(request.consignee||null);
@@ -353,7 +369,10 @@ export class PortalService {
     });
     const automation=await this.autoForwardingCarrierBooking(booking,quote,user);
     await this.audit.log({actorId:user.sub,action:'FORWARDING_QUOTE_ACCEPTED_BOOKING_CREATE',objectType:'Booking',objectId:booking.id,bookingId:booking.id,detail:{bookingNo,quoteNo:quote.quoteNo,customerRef:quote.customerRef,carrierCode:quote.carrierCode,carrierQuoteRef:quote.carrierQuoteRef,costCenterCode,forwardingTradeType:tradeType,termsVersion:quote.termsVersion,role,automation:automation.status}});
-    return {booking,quote:{id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,carrierCode:quote.carrierCode,carrierQuoteRef:quote.carrierQuoteRef,sellRate:quote.sellRate,currency:quote.currency,status:'Customer Accepted',termsVersion:quote.termsVersion},automation};
+    const publicBooking:any={id:booking.id,bookingNo:booking.bookingNo,status:booking.status,shipmentStatus:automation.status};
+    const publicQuote:any={id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,sellRate:quote.sellRate,currency:quote.currency,status:'Customer Accepted',termsVersion:quote.termsVersion};
+    if(role==='GLOBAL_ADMIN'){publicQuote.carrierCode=quote.carrierCode;publicQuote.carrierQuoteRef=quote.carrierQuoteRef;return {booking,quote:publicQuote,automation};}
+    return {booking:publicBooking,quote:publicQuote,automation:{status:automation.status}};
   }
 
   async releaseSecurity(bookingId:string,user:ScopeUser){
