@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../lib/api';
+import { api, currentUser } from '../../lib/api';
 
 type Org={id:string;code:string;name:string;roles:string[]};
 type Booking={id:string;bookingNo:string;businessModel?:string;bookingChannel?:string;shipmentNo?:string;shipmentStatus?:string;carrierBookingNo?:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;equipment?:string;etd?:string;eta?:string;atd?:string;specialCargo?:string;creditStatus?:string;slotStatus?:string;equipmentStatus?:string;cyClosing?:string;siCutoff?:string;vgmCutoff?:string;docCutoff?:string;portCutoff?:string;customer?:{name:string}};
@@ -51,6 +51,8 @@ export default function BookingsPage(){
   const [attentionFilter,setAttentionFilter]=useState('ALL');
   const [etdFrom,setEtdFrom]=useState('');
   const [etdTo,setEtdTo]=useState('');
+  const [userRole,setUserRole]=useState('');
+  const isAdmin=userRole==='GLOBAL_ADMIN';
 
   const customers=useMemo(()=>orgs.filter(o=>o.roles?.includes('CUSTOMER')),[orgs]);
   const agents=useMemo(()=>orgs.filter(o=>o.roles?.includes('AGENT')),[orgs]);
@@ -76,7 +78,7 @@ export default function BookingsPage(){
   },[bookings,search,statusFilter,customerFilter,carrierFilter,attentionFilter,etdFrom,etdTo]);
   const opsSummary=useMemo(()=>bookings.reduce((a,b)=>{const op=operationalState(b);if(!['CANCELLED','COMPLETED','FINANCIALLY_CLOSED'].includes(b.status))a.active++;if(op.needsAction)a.action++;if(op.cutoff?.state==='OVERDUE'||op.cutoff?.state==='DUE <48H')a.cutoff++;if(op.issues.length)a.controls++;if(op.special)a.special++;return a;},{active:0,action:0,cutoff:0,controls:0,special:0}),[bookings]);
 
-  useEffect(()=>{const t=localStorage.getItem('ancline_token')||'';if(!t){location.href='/login';return;}setToken(t);void load(t);},[]);
+  useEffect(()=>{const t=localStorage.getItem('ancline_token')||'';if(!t){location.href='/login';return;}setToken(t);setUserRole(String(currentUser()?.role||''));void load(t);},[]);
 
   async function request(path:string,init:RequestInit={},auth=true,t=token){
     return api(path,auth?t:undefined,init);
@@ -132,7 +134,7 @@ export default function BookingsPage(){
     {message&&<div className="card" style={{marginBottom:14}}>{message}</div>}
     {showForm&&<>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Booking Details & References</h3><div style={grid}>
-        <Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select><Input l="Booking No." k="bookingNo" ph="Auto generated if blank"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/>
+        {isAdmin?<Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select>:<div><span style={label}>Operating Model</span><div className="status">NVOCC</div></div>}<Input l="Booking No." k="bookingNo" ph="Auto generated if blank"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/>
         <Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select><Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select><Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select><Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select><Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select><Input l="Incoterm" k="incoterm" ph="FOB / CIF / EXW"/>
       </div></div>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Customer & Parties</h3><div style={grid}><label><span style={label}>Customer</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">-- New / select customer --</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>{!form.customerId&&<Input l="New Customer Name" k="customerName" ph="Customer company name"/>}<Input l="Shipper" k="shipper"/><Input l="Consignee" k="consignee"/><Input l="Notify Party" k="notifyParty"/><label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">-- Optional --</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label></div></div>
