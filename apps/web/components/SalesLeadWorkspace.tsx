@@ -119,10 +119,10 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             <div className="cw-row"><label>Address 2</label><input className="cw-input cw-green" value={form.address2||''} onChange={e=>set('address2',e.target.value)}/><span/></div>
             <div className="cw-pair-row"><label>Port / Country</label><input className="cw-input cw-green cw-codebox" value={form.portCountry||''} onChange={e=>set('portCountry',e.target.value)}/><button className="cw-mini" type="button">...</button><label>City</label><input className="cw-input cw-green" value={form.city||''} onChange={e=>set('city',e.target.value)}/></div>
             <div className="cw-pair-row"><label>Post Code</label><input className="cw-input cw-green cw-codebox" value={form.postCode||''} onChange={e=>set('postCode',e.target.value)}/><span></span><label>State</label><input className="cw-input cw-green" value={form.state||''} onChange={e=>set('state',e.target.value)}/></div>
-            ${field('website','Website')}
-            ${field('registrationNumber','Reg. Number')}
+            {field('website','Website')}
+            {field('registrationNumber','Reg. Number')}
           </fieldset>
-          <fieldset className="cw-panel cw-contact"><legend>Contact</legend>
+          <fieldset className="cw-panel cw-contact cw-ratio37"><legend>Contact</legend>
             {field('contactName','Inquiry Contact')}
             <div className="cw-row"><label>Phone</label><input className="cw-input" value={form.phone||''} onChange={e=>set('phone',e.target.value)}/><button className="cw-phone">☎</button></div>
             {field('emailAddress','E-Mail Address',{type:'email'})}
@@ -132,7 +132,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
           </fieldset>
 
           <div className="cw-right-stack">
-            <fieldset className="cw-panel"><legend>Details</legend>
+            <fieldset className="cw-panel cw-details cw-ratio37"><legend>Details</legend>
               <div className="cw-row"><label>Status</label><select className="cw-input cw-status-open" value={form.status||'OPEN'} onChange={e=>set('status',e.target.value)}><option value="OPEN">Open</option><option value="QUALIFIED">Qualified</option><option value="ON_HOLD">On Hold</option><option value="CONVERTED">Converted</option><option value="CLOSED">Closed</option><option value="LOST">Lost</option></select><span/></div>
               <div className="cw-row"><label>Assigned Sales Rep</label><input className="cw-input" value={form.assignedSalesRep||''} onChange={e=>set('assignedSalesRep',e.target.value)}/><button className="cw-mini" type="button">...</button></div>
               <div className="cw-row"><label>Original Call</label><input className="cw-input" type="date" value={form.originalCall||''} onChange={e=>set('originalCall',e.target.value)}/><button className="cw-mini" type="button">▣</button></div>
@@ -141,7 +141,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             </fieldset>
             <fieldset className="cw-panel"><legend>Lead Source</legend>
               <div className="cw-row cw-source-row"><label>Source</label><select className="cw-input cw-codebox" value={form.leadSourceCode||'DIRECT'} onChange={e=>set('leadSourceCode',e.target.value)}><option value="DIRECT">DIR</option><option value="OAG">OAG</option><option value="WEB">WEB</option><option value="REF">REF</option><option value="PHONE">TEL</option><option value="VISIT">VIS</option></select><input className="cw-input" value={form.leadSourceName||''} onChange={e=>set('leadSourceName',e.target.value)}/></div>
-              ${field('sourceDetails','Source Details')}
+              {field('sourceDetails','Source Details')}
               <div className="cw-row cw-ref-org"><label>Referring Organization</label><input className="cw-input cw-codebox" value={form.referringOrganization||''} onChange={e=>set('referringOrganization',e.target.value)}/><div className="cw-ref-tail"><button className="cw-mini" type="button">...</button><input className="cw-input" value={form.referringOrganization||'(None Selected)'} readOnly/></div></div>
               <div className="cw-row"><label>Referring Contact</label><select className="cw-input cw-disabled" value={form.referringContact||''} disabled><option value="">{form.referringContact||''}</option></select><span/></div>
             </fieldset>          </div>

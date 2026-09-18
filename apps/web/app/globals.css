@@ -105,3 +105,39 @@
 .cw-comm-editor{grid-template-columns:70px 120px 1fr 42px;padding:2px;gap:2px}.cw-comm-editor input,.cw-comm-editor select,.cw-comm-editor button{height:18px;font-size:9px}
 .cw-action-row{padding:3px 6px;gap:4px}.cw-action-row button{min-width:88px;padding:3px 8px;font-size:9.5px}.cw-action-row .cw-primary-action{min-width:150px}
 .cw-footerbar{height:25px;padding:2px 5px;gap:3px}.cw-footerbar button{padding:2px 4px;font-size:9.5px}
+
+/* 3:7 label-to-field ratio for Contact and Details, preserving ANCLINE mappings */
+.cw-ratio37{padding:3px 4px 2px}
+.cw-ratio37 .cw-row{
+  grid-template-columns:minmax(72px,30%) minmax(0,70%) auto;
+  column-gap:2px;
+  margin:1px 0;
+  min-height:17px;
+}
+.cw-ratio37 .cw-row>label{
+  width:100%;
+  text-align:right;
+  padding-right:3px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.cw-ratio37 .cw-input{
+  height:17px;
+  min-height:17px;
+  padding:0 3px;
+  line-height:15px;
+}
+.cw-ratio37 .cw-mini,.cw-ratio37 .cw-phone{
+  height:17px;
+  min-height:17px;
+  align-self:center;
+}
+.cw-contact .cw-row{grid-template-columns:minmax(76px,30%) minmax(0,70%) auto}
+.cw-details .cw-row{grid-template-columns:minmax(82px,30%) minmax(0,70%) auto}
+.cw-details .cw-dual-value{
+  grid-template-columns:minmax(82px,30%) minmax(52px,22%) minmax(0,48%);
+}
+.cw-details .cw-interest-code{max-width:none}
+.cw-contact select.cw-input,.cw-details select.cw-input{padding-right:16px}
+.cw-contact .cw-phone{min-width:26px;width:26px;padding:0}
+.cw-details .cw-mini{min-width:21px;width:21px;padding:0}
