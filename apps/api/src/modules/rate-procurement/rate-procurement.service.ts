@@ -55,9 +55,10 @@ export class RateProcurementService {
     if(!providerCode||!name)throw new BadRequestException('Provider code and name are required');
     const authMode=this.text(body?.authMode||'NONE').toUpperCase();
     if(!['NONE','BASIC','BEARER','API_KEY'].includes(authMode))throw new BadRequestException('Auth mode must be NONE, BASIC, BEARER or API_KEY');
-    const endpoint=this.text(body?.endpoint),bookingEndpoint=this.text(body?.bookingEndpoint),secretEnv=this.text(body?.secretEnv);
+    const endpoint=this.text(body?.endpoint),bookingEndpoint=this.text(body?.bookingEndpoint),amendmentEndpoint=this.text(body?.amendmentEndpoint),cancellationEndpoint=this.text(body?.cancellationEndpoint),vgmEndpoint=this.text(body?.vgmEndpoint),shippingInstructionsEndpoint=this.text(body?.shippingInstructionsEndpoint),blDraftEndpoint=this.text(body?.blDraftEndpoint),trackingEndpoint=this.text(body?.trackingEndpoint),secretEnv=this.text(body?.secretEnv);
     if(endpoint&&!/^https:\/\//i.test(endpoint))throw new BadRequestException('Carrier rate endpoint must use HTTPS');
     if(bookingEndpoint&&!/^https:\/\//i.test(bookingEndpoint))throw new BadRequestException('Carrier booking endpoint must use HTTPS');
+    for(const [label,value] of [['Amendment',amendmentEndpoint],['Cancellation',cancellationEndpoint],['VGM',vgmEndpoint],['Shipping Instructions',shippingInstructionsEndpoint],['B/L Draft',blDraftEndpoint],['Tracking',trackingEndpoint]] as any[]){if(value&&!/^https:\/\//i.test(value))throw new BadRequestException(`${label} endpoint must use HTTPS`);}
     if(secretEnv&&!/^[A-Z][A-Z0-9_]*$/.test(secretEnv))throw new BadRequestException('Secret environment key must use A-Z, 0-9 and underscore');
     if(authMode!=='NONE'&&!secretEnv)throw new BadRequestException('A secure secret environment key is required for authenticated providers');
     if(authMode==='BASIC'&&!this.text(body?.username))throw new BadRequestException('Username is required for BASIC authentication');
@@ -76,13 +77,32 @@ export class RateProcurementService {
     if(!Number.isFinite(prepaidPct)||prepaidPct<0||prepaidPct>100)throw new BadRequestException('Prepaid % must be between 0 and 100');
     if(creditLimit!=null&&(!Number.isFinite(creditLimit)||creditLimit<0))throw new BadRequestException('Carrier credit limit is invalid');
     const creditCurrency=this.text(body?.creditCurrency||'USD').toUpperCase();if(!/^[A-Z]{3}$/.test(creditCurrency))throw new BadRequestException('Credit currency must be a 3-letter code');
+    const capMode=(value:any,fallback='DISABLED')=>{const mode=this.text(value||fallback).toUpperCase();if(!['DISABLED','API','EDI','MANUAL'].includes(mode))throw new BadRequestException('Carrier capability mode must be DISABLED, API, EDI or MANUAL');return mode;};
+    const capabilities={
+      RATES:capMode(body?.capabilities?.RATES,endpoint?'API':'DISABLED'),
+      BOOKING:capMode(body?.capabilities?.BOOKING,bookingEndpoint?'API':'DISABLED'),
+      AMENDMENT:capMode(body?.capabilities?.AMENDMENT,amendmentEndpoint?'API':'DISABLED'),
+      CANCELLATION:capMode(body?.capabilities?.CANCELLATION,cancellationEndpoint?'API':'DISABLED'),
+      VGM:capMode(body?.capabilities?.VGM,vgmEndpoint?'API':'DISABLED'),
+      SHIPPING_INSTRUCTIONS:capMode(body?.capabilities?.SHIPPING_INSTRUCTIONS,shippingInstructionsEndpoint?'API':'DISABLED'),
+      BL_DRAFT:capMode(body?.capabilities?.BL_DRAFT,blDraftEndpoint?'API':'DISABLED'),
+      TRACKING:capMode(body?.capabilities?.TRACKING,trackingEndpoint?'API':'DISABLED')
+    };
+    const optionalCapabilities={
+      ADDITIONAL_FREE_TIME:capMode(body?.optionalCapabilities?.ADDITIONAL_FREE_TIME,'DISABLED'),
+      GREEN_PRODUCT:capMode(body?.optionalCapabilities?.GREEN_PRODUCT,'DISABLED'),
+      SHIPPING_GUARANTEE:capMode(body?.optionalCapabilities?.SHIPPING_GUARANTEE,'DISABLED'),
+      LIVE_REEFER:capMode(body?.optionalCapabilities?.LIVE_REEFER,'DISABLED'),
+      INLAND_RATE:capMode(body?.optionalCapabilities?.INLAND_RATE,'DISABLED'),
+      LOCAL_CHARGES:capMode(body?.optionalCapabilities?.LOCAL_CHARGES,'DISABLED')
+    };
     const fieldMap:any={},surchargeFieldMap:any={};
     for(const k of ['buyRate','currency','carrier','serviceName','vessel','voyage','origin','destination','equipment','quantity','etd','eta','validTo','externalQuoteRef','surcharges']){const v=this.text(body?.fieldMap?.[k]??body?.[`${k}Path`]);if(v)fieldMap[k]=v;}
     for(const k of ['chargeCode','description','amount','currency']){const v=this.text(body?.surchargeFieldMap?.[k]??body?.[`surcharge${k.charAt(0).toUpperCase()+k.slice(1)}Path`]);if(v)surchargeFieldMap[k]=v;}
     const payload={
       providerCode,name,carrier:this.text(body?.carrier||name),carrierOrgId,authMode,
       username:this.text(body?.username)||null,secretEnv:secretEnv||null,apiKeyHeader:this.text(body?.apiKeyHeader||'x-api-key')||'x-api-key',
-      endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,responseArrayPath:this.text(body?.responseArrayPath)||null,fieldMap,surchargeFieldMap,bookingFieldMap:{carrierBookingNo:this.text(body?.carrierBookingNoPath)||null},
+      endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,amendmentEndpoint:amendmentEndpoint||null,cancellationEndpoint:cancellationEndpoint||null,vgmEndpoint:vgmEndpoint||null,shippingInstructionsEndpoint:shippingInstructionsEndpoint||null,blDraftEndpoint:blDraftEndpoint||null,trackingEndpoint:trackingEndpoint||null,capabilities,optionalCapabilities,responseArrayPath:this.text(body?.responseArrayPath)||null,fieldMap,surchargeFieldMap,bookingFieldMap:{carrierBookingNo:this.text(body?.carrierBookingNoPath)||null},
       rateBasis,buyIncludesSurcharges:Boolean(body?.buyIncludesSurcharges),
       defaultPricingMethod,defaultPricingValue,defaultMarginPct:defaultPricingMethod==='MARKUP_PCT'?defaultPricingValue:0,minimumMarkupPct,
       paymentTermsDays:Math.round(paymentTermsDays),paymentMethod:this.text(body?.paymentMethod||'BANK_TRANSFER').toUpperCase(),
@@ -90,7 +110,7 @@ export class RateProcurementService {
       active:body?.active!==false,notes:this.text(body?.notes)||null,updatedBy:user.sub
     };
     await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'PROVIDER_PROFILE_SET',externalId:providerCode,objectType:PROVIDER_OBJECT,objectId:providerCode,status:'COMPLETED',payload,completedAt:new Date()}});
-    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_PROVIDER_SET',objectType:PROVIDER_OBJECT,objectId:providerCode,detail:{name,carrierOrgId,authMode,endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,rateBasis,defaultPricingMethod,defaultPricingValue,minimumMarkupPct,paymentTermsDays:payload.paymentTermsDays,active:payload.active}});
+    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_PROVIDER_SET',objectType:PROVIDER_OBJECT,objectId:providerCode,detail:{name,carrierOrgId,authMode,endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,capabilities,optionalCapabilities,rateBasis,defaultPricingMethod,defaultPricingValue,minimumMarkupPct,paymentTermsDays:payload.paymentTermsDays,active:payload.active}});
     return {...payload,...this.readiness(payload)};
   }
 
