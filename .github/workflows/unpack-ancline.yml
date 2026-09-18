@@ -21,7 +21,6 @@ jobs:
       - name: Extract ANCLINE ERP archive
         run: |
           unzip -o ANCLINE_GLOBAL_ERP1_GitHub_Upload_Ready.zip -d .
-          rm -f .github/workflows/ci.yml
 
       - name: Commit extracted project files
         run: |

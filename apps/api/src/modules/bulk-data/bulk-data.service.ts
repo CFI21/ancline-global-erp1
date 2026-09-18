@@ -1,6 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
 
 const SOURCE='ANCLINE_BULK_DATA';
 const MAX_ROWS=1000;
@@ -11,7 +10,7 @@ type ImportType='CUSTOMER'|'CARRIER'|'RATE'|'BOOKING';
 
 @Injectable()
 export class BulkDataService {
-  constructor(private prisma:PrismaService,private audit:AuditService){}
+  constructor(private prisma:PrismaService){}
   private get db():any{return this.prisma as any;}
   private admin(user:any){if(String(user?.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required for bulk data import');}
   private text(v:any){return String(v??'').trim();}
@@ -88,17 +87,82 @@ export class BulkDataService {
     return {row:index+1,valid:errors.length===0,errors,warnings};
   }
 
-  validate(body:any,user:any){
+  private rowKey(type:ImportType,row:any){
+    return type==='CUSTOMER'||type==='CARRIER'?this.upper(row?.code):type==='RATE'?this.upper(row?.quoteNo):this.upper(row?.bookingNo);
+  }
+
+  private async preflight(type:ImportType,rows:any[]){
+    const results=rows.map((r:any,i:number)=>this.syntax(type,r,i));
+    const seen=new Map<string,number>();
+    for(let i=0;i<rows.length;i++){
+      const key=this.rowKey(type,rows[i]);
+      if(!key)continue;
+      const first=seen.get(key);
+      if(first!==undefined){
+        const msg='Duplicate '+type+' key '+key+' in the same batch';
+        if(!results[first].errors.includes(msg))results[first].errors.push(msg);
+        results[i].errors.push(msg);
+      }else seen.set(key,i);
+    }
+
+    if(type==='RATE'){
+      const customerCodes=Array.from(new Set(rows.map(r=>this.upper(r?.customerCode)).filter(Boolean)));
+      const carrierCodes=Array.from(new Set(rows.map(r=>this.upper(r?.carrierCode)).filter(Boolean)));
+      const orgCodes=Array.from(new Set([...customerCodes,...carrierCodes]));
+      const orgs=orgCodes.length?await this.db.organization.findMany({where:{code:{in:orgCodes}}}):[];
+      const byCode=new Map(orgs.map((o:any)=>[o.code,o]));
+      for(let i=0;i<rows.length;i++){
+        const customerCode=this.upper(rows[i]?.customerCode),carrierCode=this.upper(rows[i]?.carrierCode);
+        const customer:any=byCode.get(customerCode);
+        if(customerCode&&(!customer||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER')))results[i].errors.push('Customer '+customerCode+' not found');
+        if(carrierCode){
+          const carrier:any=byCode.get(carrierCode);
+          if(!carrier||!Array.isArray(carrier.roles)||!carrier.roles.includes('CARRIER'))results[i].errors.push('Carrier '+carrierCode+' not found');
+        }
+      }
+    }
+
+    if(type==='BOOKING'){
+      const customerCodes=Array.from(new Set(rows.map(r=>this.upper(r?.customerCode)).filter(Boolean)));
+      const carrierCodes=Array.from(new Set(rows.map(r=>this.upper(r?.carrierCode)).filter(Boolean)));
+      const orgCodes=Array.from(new Set([...customerCodes,...carrierCodes]));
+      const quoteNos=Array.from(new Set(rows.map(r=>this.upper(r?.rateQuoteNo)).filter(Boolean)));
+      const [orgs,quotes]=await Promise.all([
+        orgCodes.length?this.db.organization.findMany({where:{code:{in:orgCodes}}}):[],
+        quoteNos.length?this.db.rateQuote.findMany({where:{quoteNo:{in:quoteNos}}}):[]
+      ]);
+      const byCode=new Map(orgs.map((o:any)=>[o.code,o]));
+      const byQuote=new Map(quotes.map((q:any)=>[q.quoteNo,q]));
+      for(let i=0;i<rows.length;i++){
+        const customerCode=this.upper(rows[i]?.customerCode),carrierCode=this.upper(rows[i]?.carrierCode),rateQuoteNo=this.upper(rows[i]?.rateQuoteNo);
+        const customer:any=byCode.get(customerCode);
+        if(customerCode&&(!customer||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER')))results[i].errors.push('Customer '+customerCode+' not found');
+        if(carrierCode){
+          const carrier:any=byCode.get(carrierCode);
+          if(!carrier||!Array.isArray(carrier.roles)||!carrier.roles.includes('CARRIER'))results[i].errors.push('Carrier '+carrierCode+' not found');
+        }
+        if(rateQuoteNo){
+          const quote:any=byQuote.get(rateQuoteNo);
+          if(!quote)results[i].errors.push('Rate quote '+rateQuoteNo+' not found');
+          else if(customer&&quote.customerId!==customer.id)results[i].errors.push('Rate quote '+rateQuoteNo+' belongs to another customer');
+        }
+      }
+    }
+
+    return results.map((x:any)=>({...x,valid:x.errors.length===0}));
+  }
+
+  async validate(body:any,user:any){
     this.admin(user);
     const type=this.type(body?.type),rows=this.rows(body?.rows);
-    const results=rows.map((r:any,i:number)=>this.syntax(type,r,i));
+    const results=await this.preflight(type,rows);
     return {type,total:rows.length,valid:results.filter((x:any)=>x.valid).length,invalid:results.filter((x:any)=>!x.valid).length,results};
   }
 
-  private async upsertCustomer(r:any){
+  private async upsertCustomer(r:any,db:any=db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
-    const existing=await this.db.organization.findUnique({where:{code}});
+    const existing=await db.organization.findUnique({where:{code}});
     const roles=Array.from(new Set([...(existing?.roles||[]),'CUSTOMER']));
     const kycStatus=this.upper(r.kycStatus)||existing?.kycStatus||'NOT_STARTED';
     if(!KYC_STATUSES.has(kycStatus))throw new Error('Invalid kycStatus');
@@ -111,21 +175,21 @@ export class BulkDataService {
     if(this.text(r.registrationRef))data.registrationRef=this.text(r.registrationRef);
     if(this.text(r.costCenterCode))data.costCenterCode=this.upper(r.costCenterCode);
     if(kycStatus==='APPROVED'&&!existing?.kycApprovedAt){data.kycApprovedAt=new Date();data.kycApprovedBy='BULK_IMPORT';}
-    const row=existing?await this.db.organization.update({where:{code},data}):await this.db.organization.create({data:{code,...data}});
+    const row=existing?await db.organization.update({where:{code},data}):await db.organization.create({data:{code,...data}});
     return {id:row.id,code:row.code,name:row.name,role:'CUSTOMER',kycStatus:row.kycStatus};
   }
 
-  private async upsertCarrier(r:any){
+  private async upsertCarrier(r:any,db:any=db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
-    const existing=await this.db.organization.findUnique({where:{code}});
+    const existing=await db.organization.findUnique({where:{code}});
     const roles=Array.from(new Set([...(existing?.roles||[]),'CARRIER']));
     const data={name,roles,countryCode,active:this.bool(r.active,true)};
-    const row=existing?await this.db.organization.update({where:{code},data}):await this.db.organization.create({data:{code,...data}});
+    const row=existing?await db.organization.update({where:{code},data}):await db.organization.create({data:{code,...data}});
     const providerCode=this.upper(r.providerCode);
     if(providerCode){
-      await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',objectId:providerCode,eventType:'PROVIDER_PROFILE_SET'}});
-      await this.db.integrationEvent.create({data:{
+      await db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',objectId:providerCode,eventType:'PROVIDER_PROFILE_SET'}});
+      await db.integrationEvent.create({data:{
         sourceSystem:'ANCLINE_RATE_PROCUREMENT',eventType:'PROVIDER_PROFILE_SET',objectType:'CarrierRateProvider',objectId:providerCode,status:'COMPLETED',completedAt:new Date(),
         payload:{providerCode,name:row.name,carrier:row.name,carrierOrgId:row.id,active:row.active,authMode:'NONE',endpoint:null,bookingEndpoint:null,capabilities:{RATES:'MANUAL',BOOKING:'MANUAL',AMENDMENT:'MANUAL',CANCELLATION:'MANUAL',VGM:'MANUAL',SHIPPING_INSTRUCTIONS:'MANUAL',BL_DRAFT:'MANUAL',TRACKING:'MANUAL'},carrierIdentity:{accountName:'ANCLINE',accountCode:this.text(r.accountCode)||null},dataProtection:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false},bulkImported:true}
       }});
@@ -133,31 +197,31 @@ export class BulkDataService {
     return {id:row.id,code:row.code,name:row.name,role:'CARRIER',providerCode:providerCode||null};
   }
 
-  private async upsertRate(r:any){
+  private async upsertRate(r:any,db:any=db){
     const quoteNo=this.upper(r.quoteNo),customerCode=this.upper(r.customerCode);
-    const customer=await this.db.organization.findUnique({where:{code:customerCode}});
+    const customer=await db.organization.findUnique({where:{code:customerCode}});
     if(!customer||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
     let carrier:any=null;
-    const carrierCode=this.upper(r.carrierCode);if(carrierCode){carrier=await this.db.organization.findUnique({where:{code:carrierCode}});if(!carrier||!carrier.roles?.includes('CARRIER'))throw new Error('Carrier '+carrierCode+' not found');}
+    const carrierCode=this.upper(r.carrierCode);if(carrierCode){carrier=await db.organization.findUnique({where:{code:carrierCode}});if(!carrier||!carrier.roles?.includes('CARRIER'))throw new Error('Carrier '+carrierCode+' not found');}
     const buy=this.num(r.buyRate,'buyRate',true),sell=this.num(r.sellRate,'sellRate',true);
     if((buy as number)<0||(sell as number)<0)throw new Error('Rates cannot be negative');
     const validFrom=this.date(r.validFrom,'validFrom',true)!,validTo=this.date(r.validTo,'validTo',true)!;if(validTo<validFrom)throw new Error('validTo must be after validFrom');
     const providerCode=this.upper(r.providerCode)||carrierCode||null;
-    const data:any={customerId:customer.id,trade:this.upper(r.trade),equipment:this.upper(r.equipment),buyRate:buy,sellRate:sell,currency:this.upper(r.currency)||'USD',validFrom,validTo,status:this.text(r.status)||'DRAFT',source:this.text(r.source)||'BULK_IMPORT',customerRef:customer.customerRef||null,costCenterCode:customer.costCenterCode||null,carrierCode:providerCode,carrierQuoteRef:this.text(r.carrierQuoteRef)||null,requestData:{bulkImported:true,trade:this.upper(r.trade),equipment:this.upper(r.equipment)},carrierOfferData:carrier?{bulkImported:true,carrierOrgId:carrier.id,carrierCode:carrier.code,providerCode,buyRate:buy,currency:this.upper(r.currency)||'USD',customerDataOutbound:false,houseDataOutbound:false}:null};
-    const existing=await this.db.rateQuote.findUnique({where:{quoteNo}});
-    const row=existing?await this.db.rateQuote.update({where:{quoteNo},data}):await this.db.rateQuote.create({data:{quoteNo,...data}});
+    const data:any={customerId:customer.id,trade:this.upper(r.trade),equipment:this.upper(r.equipment),buyRate:buy,sellRate:sell,currency:this.upper(r.currency)||'USD',validFrom,validTo,status:this.text(r.status)||'DRAFT',source:this.text(r.source)||'BULK_IMPORT',customerRef:customer.customerRef||null,costCenterCode:customer.costCenterCode||null,carrierCode:providerCode,carrierQuoteRef:this.text(r.carrierQuoteRef)||null,requestData:{bulkImported:true,trade:this.upper(r.trade),equipment:this.upper(r.equipment)},carrierOfferData:carrier?{bulkImported:true,carrierOrgId:carrier.id,carrierCode:carrier.code,providerCode,buyRate:buy,currency:this.upper(r.currency)||'USD',customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,customerDataOutbound:false,houseDataOutbound:false}:null};
+    const existing=await db.rateQuote.findUnique({where:{quoteNo}});
+    const row=existing?await db.rateQuote.update({where:{quoteNo},data}):await db.rateQuote.create({data:{quoteNo,...data}});
     return {id:row.id,quoteNo:row.quoteNo,customerCode,carrierCode:carrierCode||null,status:row.status};
   }
 
-  private async upsertBooking(r:any){
+  private async upsertBooking(r:any,db:any=db){
     const bookingNo=this.upper(r.bookingNo),customerCode=this.upper(r.customerCode),businessModel=this.upper(r.businessModel)||'NVOCC';
-    const customer=await this.db.organization.findUnique({where:{code:customerCode}});
+    const customer=await db.organization.findUnique({where:{code:customerCode}});
     if(!customer||!customer.roles?.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
     let quote:any=null;const rateQuoteNo=this.upper(r.rateQuoteNo);
-    if(rateQuoteNo){quote=await this.db.rateQuote.findUnique({where:{quoteNo:rateQuoteNo}});if(!quote)throw new Error('Rate quote '+rateQuoteNo+' not found');if(quote.customerId!==customer.id)throw new Error('Rate quote belongs to another customer');}
+    if(rateQuoteNo){quote=await db.rateQuote.findUnique({where:{quoteNo:rateQuoteNo}});if(!quote)throw new Error('Rate quote '+rateQuoteNo+' not found');if(quote.customerId!==customer.id)throw new Error('Rate quote belongs to another customer');}
     if(businessModel==='FORWARDING'&&!quote)throw new Error('FORWARDING booking requires rateQuoteNo');
     if(!['NVOCC','FORWARDING'].includes(businessModel))throw new Error('Invalid businessModel');
-    let carrier:any=null;const carrierCode=this.upper(r.carrierCode);if(carrierCode){carrier=await this.db.organization.findUnique({where:{code:carrierCode}});if(!carrier||!carrier.roles?.includes('CARRIER'))throw new Error('Carrier '+carrierCode+' not found');}
+    let carrier:any=null;const carrierCode=this.upper(r.carrierCode);if(carrierCode){carrier=await db.organization.findUnique({where:{code:carrierCode}});if(!carrier||!carrier.roles?.includes('CARRIER'))throw new Error('Carrier '+carrierCode+' not found');}
     const status=this.upper(r.status)||'DRAFT';if(!BOOKING_STATUSES.has(status))throw new Error('Invalid booking status');
     const quantity=this.int(r.quantity,'quantity');if(quantity!==null&&quantity<1)throw new Error('quantity must be at least 1');
     const data:any={
@@ -170,28 +234,41 @@ export class BulkDataService {
       notes:'BULK IMPORT — carrier outbound privacy policy enforced'
     };
     if(!data.origin||!data.destination)throw new Error('origin and destination are required');
-    const existing=await this.db.booking.findUnique({where:{bookingNo}});
-    const row=existing?await this.db.booking.update({where:{bookingNo},data}):await this.db.booking.create({data:{bookingNo,...data}});
+    const existing=await db.booking.findUnique({where:{bookingNo}});
+    const row=existing?await db.booking.update({where:{bookingNo},data}):await db.booking.create({data:{bookingNo,...data}});
     return {id:row.id,bookingNo:row.bookingNo,customerCode,businessModel:row.businessModel,status:row.status,carrier:row.carrier,rateQuoteNo:quote?.quoteNo||null};
   }
 
   async importRows(body:any,user:any){
     this.admin(user);
     const type=this.type(body?.type),rows=this.rows(body?.rows);
-    const syntax=rows.map((r:any,i:number)=>this.syntax(type,r,i));
-    if(syntax.some((x:any)=>!x.valid))return {type,committed:false,total:rows.length,succeeded:0,failed:syntax.filter((x:any)=>!x.valid).length,results:syntax,message:'Validation failed. No rows were imported.'};
+    const checks=await this.preflight(type,rows);
+    if(checks.some((x:any)=>!x.valid))return {type,committed:false,total:rows.length,succeeded:0,failed:checks.filter((x:any)=>!x.valid).length,results:checks,message:'Validation failed. No rows were imported.'};
+
     const batchId='BULK-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
-    const results:any[]=[];
-    for(let i=0;i<rows.length;i++){
-      try{
-        const value=type==='CUSTOMER'?await this.upsertCustomer(rows[i]):type==='CARRIER'?await this.upsertCarrier(rows[i]):type==='RATE'?await this.upsertRate(rows[i]):await this.upsertBooking(rows[i]);
-        results.push({row:i+1,status:'SUCCESS',value});
-      }catch(e:any){results.push({row:i+1,status:'FAILED',error:e?.message||String(e)});}
+    let activeRow=0;
+    try{
+      const committed=await (this.prisma as any).$transaction(async (tx:any)=>{
+        const results:any[]=[];
+        for(let i=0;i<rows.length;i++){
+          activeRow=i+1;
+          const value=type==='CUSTOMER'?await this.upsertCustomer(rows[i],tx):type==='CARRIER'?await this.upsertCarrier(rows[i],tx):type==='RATE'?await this.upsertRate(rows[i],tx):await this.upsertBooking(rows[i],tx);
+          results.push({row:i+1,status:'SUCCESS',value});
+        }
+        const payload={batchId,type,total:rows.length,succeeded:rows.length,failed:0,actorId:user?.sub||user?.email||'unknown',customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false};
+        await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,status:'COMPLETED',payload,completedAt:new Date()}});
+        await tx.auditEvent.create({data:{actorId:user?.sub||user?.email||'unknown',action:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,bookingId:null,detail:payload}});
+        return {results,payload};
+      });
+      return {type,batchId,committed:true,total:rows.length,succeeded:rows.length,failed:0,results:committed.results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false}};
+    }catch(e:any){
+      const error=e?.message||String(e);
+      return {
+        type,batchId,committed:false,total:rows.length,succeeded:0,failed:rows.length,
+        results:rows.map((_:any,i:number)=>({row:i+1,status:'FAILED',error:i+1===activeRow?error:'Batch rolled back because another row failed'})),
+        message:'Import failed. The entire batch was rolled back; no rows were committed.'
+      };
     }
-    const succeeded=results.filter(x=>x.status==='SUCCESS').length,failed=results.length-succeeded,status=failed?'PARTIAL':'COMPLETED';
-    const payload={batchId,type,total:rows.length,succeeded,failed,actorId:user?.sub||user?.email||'unknown',customerKycOutbound:false,customerReferenceOutbound:false,houseDataOutbound:false};
-    await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,status,payload,completedAt:new Date()}});
-    await this.audit.log({actorId:user?.sub||user?.email||'unknown',action:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,detail:payload});
-    return {type,batchId,committed:true,total:rows.length,succeeded,failed,results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseDataOutbound:false}};
   }
+
 }

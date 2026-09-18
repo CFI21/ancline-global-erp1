@@ -34,6 +34,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: Run API tests
+        run: npm run test:ci -w apps/api
+
       - name: Build API
         run: npm run build -w apps/api
 
