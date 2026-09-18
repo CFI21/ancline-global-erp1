@@ -141,3 +141,88 @@
 .cw-contact select.cw-input,.cw-details select.cw-input{padding-right:16px}
 .cw-contact .cw-phone{min-width:26px;width:26px;padding:0}
 .cw-details .cw-mini{min-width:21px;width:21px;padding:0}
+
+/* Exact equal sizing: Contact = Details = Lead Source */
+.cw-main-grid{
+  grid-template-columns:minmax(270px,1fr) minmax(270px,1fr) minmax(270px,1fr);
+  gap:2px;
+  padding:3px;
+}
+.cw-right-stack{
+  width:100%;
+  min-width:0;
+  gap:2px;
+}
+.cw-contact,.cw-details,.cw-lead-source{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  padding:2px 3px 2px;
+}
+.cw-contact .cw-row,
+.cw-details .cw-row,
+.cw-lead-source .cw-row{
+  grid-template-columns:30% minmax(0,1fr) 20px;
+  column-gap:2px;
+  margin:0;
+  min-height:16px;
+  height:16px;
+}
+.cw-contact .cw-row>label,
+.cw-details .cw-row>label,
+.cw-lead-source .cw-row>label{
+  width:100%;
+  box-sizing:border-box;
+  text-align:right;
+  padding-right:3px;
+  font-size:8.8px;
+  line-height:14px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.cw-contact .cw-input,
+.cw-details .cw-input,
+.cw-lead-source .cw-input{
+  width:100%;
+  min-width:0;
+  height:16px;
+  min-height:16px;
+  padding:0 2px;
+  font-size:8.8px;
+  line-height:14px;
+  box-sizing:border-box;
+}
+.cw-contact .cw-mini,.cw-contact .cw-phone,
+.cw-details .cw-mini,.cw-details .cw-phone,
+.cw-lead-source .cw-mini,.cw-lead-source .cw-phone{
+  width:20px;
+  min-width:20px;
+  height:16px;
+  min-height:16px;
+  padding:0;
+  font-size:8px;
+  line-height:14px;
+}
+.cw-details .cw-dual-value,
+.cw-lead-source .cw-source-row,
+.cw-lead-source .cw-ref-org{
+  grid-template-columns:30% 23% minmax(0,47%);
+}
+.cw-details .cw-dual-value .cw-input,
+.cw-lead-source .cw-source-row .cw-input,
+.cw-lead-source .cw-ref-org .cw-input{
+  max-width:none;
+}
+.cw-lead-source .cw-ref-tail{
+  display:grid;
+  grid-template-columns:20px minmax(0,1fr);
+  gap:2px;
+  min-width:0;
+}
+.cw-lead-source .cw-ref-tail .cw-mini{width:20px;min-width:20px}
+.cw-contact legend,.cw-details legend,.cw-lead-source legend{
+  font-size:9px;
+  line-height:12px;
+  padding:0 2px;
+}
