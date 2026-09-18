@@ -15,11 +15,11 @@ export class RateProcurementService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
   private get db():any{return this.prisma as any;}
   private internal(user:ScopeUser){this.scope.assertInternal(user);}
-  private external(user:ScopeUser){return ['CUSTOMER','AGENT'].includes(String(user.role||'').toUpperCase());}
+  private external(user:ScopeUser){return ['CUSTOMER','SHIPPER','CONSIGNEE','AGENT'].includes(String(user.role||'').toUpperCase());}
   private assertRateAccess(booking:any,user:ScopeUser){
     const model=String(booking?.businessModel||'NVOCC').toUpperCase(),role=String(user?.role||'').toUpperCase();
-    if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN','CONTROL_TOWER'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Admin / Control Tower users');
-    if(model==='FORWARDING'&&!['CUSTOMER','AGENT','BRANCH_OPS','GLOBAL_ADMIN','CONTROL_TOWER'].includes(role))throw new BadRequestException('Forwarding online rate access denied for this role');
+    if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Admin / Control Tower users');
+    if(model==='FORWARDING'&&!['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('Forwarding online rate access denied for this role');
     if(!['NVOCC','FORWARDING'].includes(model))throw new BadRequestException('Unsupported booking operating model');
   }
   private text(v:any){return String(v??'').trim();}
@@ -54,8 +54,9 @@ export class RateProcurementService {
     if(!providerCode||!name)throw new BadRequestException('Provider code and name are required');
     const authMode=this.text(body?.authMode||'NONE').toUpperCase();
     if(!['NONE','BASIC','BEARER','API_KEY'].includes(authMode))throw new BadRequestException('Auth mode must be NONE, BASIC, BEARER or API_KEY');
-    const endpoint=this.text(body?.endpoint),secretEnv=this.text(body?.secretEnv);
+    const endpoint=this.text(body?.endpoint),bookingEndpoint=this.text(body?.bookingEndpoint),secretEnv=this.text(body?.secretEnv);
     if(endpoint&&!/^https:\/\//i.test(endpoint))throw new BadRequestException('Carrier rate endpoint must use HTTPS');
+    if(bookingEndpoint&&!/^https:\/\//i.test(bookingEndpoint))throw new BadRequestException('Carrier booking endpoint must use HTTPS');
     if(secretEnv&&!/^[A-Z][A-Z0-9_]*$/.test(secretEnv))throw new BadRequestException('Secret environment key must use A-Z, 0-9 and underscore');
     if(authMode!=='NONE'&&!secretEnv)throw new BadRequestException('A secure secret environment key is required for authenticated providers');
     if(authMode==='BASIC'&&!this.text(body?.username))throw new BadRequestException('Username is required for BASIC authentication');
@@ -80,7 +81,7 @@ export class RateProcurementService {
     const payload={
       providerCode,name,carrier:this.text(body?.carrier||name),carrierOrgId,authMode,
       username:this.text(body?.username)||null,secretEnv:secretEnv||null,apiKeyHeader:this.text(body?.apiKeyHeader||'x-api-key')||'x-api-key',
-      endpoint:endpoint||null,responseArrayPath:this.text(body?.responseArrayPath)||null,fieldMap,surchargeFieldMap,
+      endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,responseArrayPath:this.text(body?.responseArrayPath)||null,fieldMap,surchargeFieldMap,bookingFieldMap:{carrierBookingNo:this.text(body?.carrierBookingNoPath)||null},
       rateBasis,buyIncludesSurcharges:Boolean(body?.buyIncludesSurcharges),
       defaultPricingMethod,defaultPricingValue,defaultMarginPct:defaultPricingMethod==='MARKUP_PCT'?defaultPricingValue:0,minimumMarkupPct,
       paymentTermsDays:Math.round(paymentTermsDays),paymentMethod:this.text(body?.paymentMethod||'BANK_TRANSFER').toUpperCase(),
@@ -88,7 +89,7 @@ export class RateProcurementService {
       active:body?.active!==false,notes:this.text(body?.notes)||null,updatedBy:user.sub
     };
     await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'PROVIDER_PROFILE_SET',externalId:providerCode,objectType:PROVIDER_OBJECT,objectId:providerCode,status:'COMPLETED',payload,completedAt:new Date()}});
-    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_PROVIDER_SET',objectType:PROVIDER_OBJECT,objectId:providerCode,detail:{name,carrierOrgId,authMode,endpoint:endpoint||null,rateBasis,defaultPricingMethod,defaultPricingValue,minimumMarkupPct,paymentTermsDays:payload.paymentTermsDays,active:payload.active}});
+    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_PROVIDER_SET',objectType:PROVIDER_OBJECT,objectId:providerCode,detail:{name,carrierOrgId,authMode,endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,rateBasis,defaultPricingMethod,defaultPricingValue,minimumMarkupPct,paymentTermsDays:payload.paymentTermsDays,active:payload.active}});
     return {...payload,...this.readiness(payload)};
   }
 
