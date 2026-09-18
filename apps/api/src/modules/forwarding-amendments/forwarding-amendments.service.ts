@@ -3,12 +3,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
+import { assertAncCarrierOutboundPayload } from '../carrier-outbound-policy';
 
 const SOURCE='ANCLINE_FORWARDING_AMENDMENT';
 const OBJECT='ForwardingAmendment';
 const RATE_SOURCE='ANCLINE_RATE_PROCUREMENT';
 const PROVIDER_OBJECT='CarrierRateProvider';
-const PRIVATE_HOUSE_FIELDS=new Set(['customerReference','shipperReference','shipper','consignee','notifyParty']);
+const PRIVATE_HOUSE_FIELDS=new Set(['customerReference','shipperReference','shipper','consignee','notifyParty','freightTerms']);
 const ALLOWED_FIELDS=new Set([
   'customerReference','shipperReference','shipper','consignee','notifyParty',
   'origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery','transshipmentPort',
@@ -105,6 +106,7 @@ export class ForwardingAmendmentsService {
       reasonCode:request.requestType==='CANCELLATION'?'ANC_CANCELLATION_REQUEST':'ANC_BOOKING_AMENDMENT',
       changes:request.carrierChanges||{}
     };
+    assertAncCarrierOutboundPayload(body);
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
     try{
       const response=await (globalThis as any).fetch(endpoint,{method:'POST',headers:this.headers(profile),body:JSON.stringify(body),signal:controller.signal});
