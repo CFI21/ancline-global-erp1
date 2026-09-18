@@ -77,6 +77,14 @@ export class RateProcurementService {
     if(!Number.isFinite(prepaidPct)||prepaidPct<0||prepaidPct>100)throw new BadRequestException('Prepaid % must be between 0 and 100');
     if(creditLimit!=null&&(!Number.isFinite(creditLimit)||creditLimit<0))throw new BadRequestException('Carrier credit limit is invalid');
     const creditCurrency=this.text(body?.creditCurrency||'USD').toUpperCase();if(!/^[A-Z]{3}$/.test(creditCurrency))throw new BadRequestException('Credit currency must be a 3-letter code');
+    const carrierIdentity={
+      accountName:this.text(body?.carrierIdentity?.accountName||body?.carrierAccountName||'ANC')||'ANC',
+      accountCode:this.text(body?.carrierIdentity?.accountCode||body?.carrierAccountCode)||null,
+      masterShipperName:this.text(body?.carrierIdentity?.masterShipperName||body?.masterShipperName||body?.carrierIdentity?.accountName||body?.carrierAccountName||'ANC')||'ANC',
+      masterConsigneeName:this.text(body?.carrierIdentity?.masterConsigneeName||body?.masterConsigneeName)||null,
+      masterNotifyPartyName:this.text(body?.carrierIdentity?.masterNotifyPartyName||body?.masterNotifyPartyName)||null
+    };
+    const dataProtection={identityShield:'STRICT',customerKycOutbound:false,customerReferenceOutbound:false,customerPartyOutbound:false,houseDocumentDataOutbound:false};
     const capMode=(value:any,fallback='DISABLED')=>{const mode=this.text(value||fallback).toUpperCase();if(!['DISABLED','API','EDI','MANUAL'].includes(mode))throw new BadRequestException('Carrier capability mode must be DISABLED, API, EDI or MANUAL');return mode;};
     const capabilities={
       RATES:capMode(body?.capabilities?.RATES,endpoint?'API':'DISABLED'),
@@ -102,7 +110,7 @@ export class RateProcurementService {
     const payload={
       providerCode,name,carrier:this.text(body?.carrier||name),carrierOrgId,authMode,
       username:this.text(body?.username)||null,secretEnv:secretEnv||null,apiKeyHeader:this.text(body?.apiKeyHeader||'x-api-key')||'x-api-key',
-      endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,amendmentEndpoint:amendmentEndpoint||null,cancellationEndpoint:cancellationEndpoint||null,vgmEndpoint:vgmEndpoint||null,shippingInstructionsEndpoint:shippingInstructionsEndpoint||null,blDraftEndpoint:blDraftEndpoint||null,trackingEndpoint:trackingEndpoint||null,capabilities,optionalCapabilities,responseArrayPath:this.text(body?.responseArrayPath)||null,fieldMap,surchargeFieldMap,bookingFieldMap:{carrierBookingNo:this.text(body?.carrierBookingNoPath)||null},
+      endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,amendmentEndpoint:amendmentEndpoint||null,cancellationEndpoint:cancellationEndpoint||null,vgmEndpoint:vgmEndpoint||null,shippingInstructionsEndpoint:shippingInstructionsEndpoint||null,blDraftEndpoint:blDraftEndpoint||null,trackingEndpoint:trackingEndpoint||null,capabilities,optionalCapabilities,carrierIdentity,dataProtection,responseArrayPath:this.text(body?.responseArrayPath)||null,fieldMap,surchargeFieldMap,bookingFieldMap:{carrierBookingNo:this.text(body?.carrierBookingNoPath)||null},
       rateBasis,buyIncludesSurcharges:Boolean(body?.buyIncludesSurcharges),
       defaultPricingMethod,defaultPricingValue,defaultMarginPct:defaultPricingMethod==='MARKUP_PCT'?defaultPricingValue:0,minimumMarkupPct,
       paymentTermsDays:Math.round(paymentTermsDays),paymentMethod:this.text(body?.paymentMethod||'BANK_TRANSFER').toUpperCase(),
@@ -110,7 +118,7 @@ export class RateProcurementService {
       active:body?.active!==false,notes:this.text(body?.notes)||null,updatedBy:user.sub
     };
     await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'PROVIDER_PROFILE_SET',externalId:providerCode,objectType:PROVIDER_OBJECT,objectId:providerCode,status:'COMPLETED',payload,completedAt:new Date()}});
-    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_PROVIDER_SET',objectType:PROVIDER_OBJECT,objectId:providerCode,detail:{name,carrierOrgId,authMode,endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,capabilities,optionalCapabilities,rateBasis,defaultPricingMethod,defaultPricingValue,minimumMarkupPct,paymentTermsDays:payload.paymentTermsDays,active:payload.active}});
+    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_PROVIDER_SET',objectType:PROVIDER_OBJECT,objectId:providerCode,detail:{name,carrierOrgId,authMode,endpoint:endpoint||null,bookingEndpoint:bookingEndpoint||null,capabilities,optionalCapabilities,carrierIdentity,dataProtection,rateBasis,defaultPricingMethod,defaultPricingValue,minimumMarkupPct,paymentTermsDays:payload.paymentTermsDays,active:payload.active}});
     return {...payload,...this.readiness(payload)};
   }
 
@@ -188,7 +196,16 @@ export class RateProcurementService {
 
   private async onlineOffers(provider:any,booking:any){
     if(!provider.endpoint)return {offers:[],error:'No online endpoint configured'};
-    const request={bookingId:booking.id,bookingNo:booking.bookingNo,origin:this.text(booking.origin).toUpperCase(),destination:this.text(booking.destination).toUpperCase(),portOfLoading:this.text(booking.portOfLoading||booking.origin).toUpperCase(),portOfDischarge:this.text(booking.portOfDischarge||booking.destination).toUpperCase(),equipment:this.text(booking.equipment).toUpperCase(),quantity:Math.max(1,Number(booking.quantity||1)),commodity:booking.commodity||null,specialCargo:booking.specialCargo||null,grossWeight:booking.grossWeight||null,volumeCbm:booking.volumeCbm||null,requestedEtd:booking.etd||null,currency:booking.currency||'USD'};
+    const ancRef=this.text(booking.bookingNo||booking.requestId||booking.id).replace(/[^A-Za-z0-9_-]/g,'').slice(0,48);
+    const request={
+      requestReference:'ANC-RATE-'+ancRef,
+      bookingParty:{name:provider?.carrierIdentity?.accountName||'ANC',accountCode:provider?.carrierIdentity?.accountCode||null},
+      origin:this.text(booking.origin).toUpperCase(),destination:this.text(booking.destination).toUpperCase(),
+      portOfLoading:this.text(booking.portOfLoading||booking.origin).toUpperCase(),portOfDischarge:this.text(booking.portOfDischarge||booking.destination).toUpperCase(),
+      equipment:this.text(booking.equipment).toUpperCase(),quantity:Math.max(1,Number(booking.quantity||1)),
+      commodity:booking.commodity||null,specialCargo:booking.specialCargo||null,grossWeight:booking.grossWeight||null,volumeCbm:booking.volumeCbm||null,
+      requestedEtd:booking.etd||null,currency:booking.currency||'USD'
+    };
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000),started=Date.now();
     try{
       const response=await (globalThis as any).fetch(provider.endpoint,{method:'POST',headers:this.authHeaders(provider),body:JSON.stringify(request),signal:controller.signal});const text=await response.text();let data:any={};try{data=text?JSON.parse(text):{};}catch{data={message:text};}
