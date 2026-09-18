@@ -105,10 +105,11 @@ export class OrganizationsService {
     const reserved=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_DOCUMENT_UPLOAD_RESERVED',objectType:'KycDocument',objectId:row.id,externalId:key},orderBy:{createdAt:'desc'}});
     const meta:any=reserved?.payload||{};if(!reserved||!meta.key)throw new BadRequestException('KYC upload reservation was not found');
     const verified=await this.storage.verifyObject(key);if(!verified.exists)throw new BadRequestException('Uploaded KYC object could not be verified');
-    if(verified.contentLength<=0||verified.contentLength>15*1024*1024)throw new BadRequestException('Uploaded KYC file size is invalid');
-    if(meta.size&&Number(meta.size)!==Number(verified.contentLength))throw new BadRequestException('Uploaded KYC file size does not match the reserved file');
+    const verifiedSize=Number(verified.contentLength||0);
+    if(verifiedSize<=0||verifiedSize>15*1024*1024)throw new BadRequestException('Uploaded KYC file size is invalid');
+    if(meta.size&&Number(meta.size)!==verifiedSize)throw new BadRequestException('Uploaded KYC file size does not match the reserved file');
     const kyc:any=row.kycData||{},docs=Array.isArray(kyc.documents)?kyc.documents:[];
-    const doc={documentType:meta.documentType,filename:meta.filename,contentType:verified.contentType||meta.contentType,size:verified.contentLength,key,etag:verified.etag||null,uploadedAt:new Date().toISOString()};
+    const doc={documentType:meta.documentType,filename:meta.filename,contentType:verified.contentType||meta.contentType,size:verifiedSize,key,etag:verified.etag||null,uploadedAt:new Date().toISOString()};
     const next=[...docs.filter((x:any)=>x.documentType!==doc.documentType),doc];
     await this.prisma.organization.update({where:{id:row.id},data:{kycData:{...kyc,documents:next}}});
     await this.prisma.integrationEvent.create({data:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_DOCUMENT_UPLOADED',externalId:key,objectType:'KycDocument',objectId:row.id,status:'COMPLETED',payload:{...doc,registrationRef:ref},completedAt:new Date()}});
