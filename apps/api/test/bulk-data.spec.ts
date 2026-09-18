@@ -86,28 +86,31 @@ describe('BulkDataService safety and privacy',()=>{
     }]},admin)).committed).toBe(true);
 
     const provider=state.events.find(x=>x.objectType==='CarrierRateProvider');
-    expect(provider.payload.dataProtection).toEqual({
+    expect(provider).toBeDefined();
+    expect(provider!.payload.dataProtection).toEqual({
       customerKycOutbound:false,
       customerReferenceOutbound:false,
       houseBlOutbound:false,
       housePartiesOutbound:false
     });
-    const providerJson=JSON.stringify(provider.payload);
+    const providerJson=JSON.stringify(provider!.payload);
     expect(providerJson).not.toContain('ANC-CUST-SECRET');
     expect(providerJson).not.toContain('CUSTOMER-PRIVATE-REF');
     expect(providerJson).not.toContain('ANC-PRIVATE-HBL');
     expect(providerJson).not.toContain('Private Person');
 
     const rate=state.rates.find(x=>x.quoteNo==='Q-01');
-    expect(rate.carrierOfferData.customerKycOutbound).toBe(false);
-    expect(rate.carrierOfferData.customerReferenceOutbound).toBe(false);
-    expect(rate.carrierOfferData.houseBlOutbound).toBe(false);
-    expect(rate.carrierOfferData.housePartiesOutbound).toBe(false);
-    expect(JSON.stringify(rate.carrierOfferData)).not.toContain('ANC-CUST-SECRET');
+    expect(rate).toBeDefined();
+    expect(rate!.carrierOfferData.customerKycOutbound).toBe(false);
+    expect(rate!.carrierOfferData.customerReferenceOutbound).toBe(false);
+    expect(rate!.carrierOfferData.houseBlOutbound).toBe(false);
+    expect(rate!.carrierOfferData.housePartiesOutbound).toBe(false);
+    expect(JSON.stringify(rate!.carrierOfferData)).not.toContain('ANC-CUST-SECRET');
 
     const booking=state.bookings.find(x=>x.bookingNo==='BKG-01');
-    expect(booking.customerReference).toBe('CUSTOMER-PRIVATE-REF');
-    expect(booking.houseBL).toBe('ANC-PRIVATE-HBL');
+    expect(booking).toBeDefined();
+    expect(booking!.customerReference).toBe('CUSTOMER-PRIVATE-REF');
+    expect(booking!.houseBL).toBe('ANC-PRIVATE-HBL');
 
     const bulkEvents=state.events.filter(x=>x.objectType==='BulkDataImport');
     expect(bulkEvents).toHaveLength(4);
