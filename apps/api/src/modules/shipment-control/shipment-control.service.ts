@@ -24,6 +24,16 @@ export class ShipmentControlService {
     return {};
   }
 
+  private loadedOrBeyond(status:any){return ['LOADED','DEPARTED','IN_TRANSIT','TRANSSHIPMENT','ARRIVED','DISCHARGED','GATED_OUT','DELIVERED','EMPTY_RETURNED'].includes(String(status||'').toUpperCase());}
+  private arrivedOrBeyond(status:any){return ['ARRIVED','DISCHARGED','GATED_OUT','DELIVERED','EMPTY_RETURNED'].includes(String(status||'').toUpperCase());}
+  private departureReadiness(consol:any){
+    const shipments=Array.isArray(consol?.shipments)?consol.shipments:[];
+    const containers=shipments.flatMap((s:any)=>Array.isArray(s.containers)?s.containers:[]);
+    const missingFcl=shipments.filter((s:any)=>String(s.bookingType||'').toUpperCase()==='FCL'&&Number(s.quantity||0)>0&&(s.containers?.length||0)<Number(s.quantity||0));
+    const notLoaded=containers.filter((x:any)=>!this.loadedOrBeyond(x.status));
+    return {ready:missingFcl.length===0&&notLoaded.length===0,containerCount:containers.length,loadedCount:containers.length-notLoaded.length,missingFcl:missingFcl.map((s:any)=>s.shipmentNo||s.bookingNo),notLoaded:notLoaded.map((x:any)=>x.containerNo)};
+  }
+
   async shipments(user:ScopeUser){
     this.scope.assertInternal(user);
     return this.prisma.booking.findMany({
@@ -44,7 +54,7 @@ export class ShipmentControlService {
     const where=this.consolScope(user);
     return this.prisma.consol.findMany({
       where,
-      include:{shipments:{select:{id:true,bookingNo:true,shipmentNo:true,shipmentStatus:true,houseBL:true,customerReference:true,customer:{select:{name:true}}}}},
+      include:{shipments:{select:{id:true,bookingNo:true,shipmentNo:true,shipmentStatus:true,bookingType:true,quantity:true,houseBL:true,customerReference:true,customer:{select:{name:true}},containers:{select:{id:true,containerNo:true,status:true,type:true}}}}},
       orderBy:[{etd:'asc'},{createdAt:'desc'}]
     });
   }
@@ -56,7 +66,8 @@ export class ShipmentControlService {
       unconsolidated:shipments.filter((s:any)=>!s.consolId).length,
       activeConsols:consols.filter((c:any)=>c.status!=='CLOSED').length,
       inTransit:consols.filter((c:any)=>c.status==='DEPARTED').length,
-      arrived:consols.filter((c:any)=>c.status==='ARRIVED').length
+      arrived:consols.filter((c:any)=>c.status==='ARRIVED').length,
+      departureBlocked:consols.filter((c:any)=>c.status==='CONFIRMED'&&!this.departureReadiness(c).ready).length
     };
   }
 
@@ -158,12 +169,21 @@ export class ShipmentControlService {
 
   async transition(consolId:string,next:string,user:ScopeUser){
     this.scope.assertInternal(user);
-    const consol=await this.prisma.consol.findUnique({where:{id:consolId},include:{shipments:{select:{id:true,bookingNo:true,shipmentNo:true,status:true}}}});
+    const consol=await this.prisma.consol.findUnique({where:{id:consolId},include:{shipments:{select:{id:true,bookingNo:true,shipmentNo:true,status:true,bookingType:true,quantity:true,containers:{select:{id:true,containerNo:true,status:true}}}}}});
     if(!consol) throw new BadRequestException('Consol not found');
     if(user.role==='BRANCH_OPS'&&consol.owningBranchId!==user.branchId) throw new BadRequestException('Consol is outside your branch scope');
     const allowed:Record<string,string[]>={PLANNED:['CONFIRMED'],CONFIRMED:['DEPARTED'],DEPARTED:['ARRIVED'],ARRIVED:['CLOSED'],CLOSED:[]};
     if(!(allowed[consol.status]||[]).includes(next)) throw new BadRequestException(`Consol cannot move from ${consol.status} to ${next}`);
     if(next==='DEPARTED'&&consol.shipments.length===0) throw new BadRequestException('Cannot depart an empty consol');
+    if(next==='DEPARTED'){
+      const readiness=this.departureReadiness(consol);
+      if(!readiness.ready){
+        const parts:string[]=[];
+        if(readiness.missingFcl.length)parts.push(`FCL equipment incomplete for ${readiness.missingFcl.join(', ')}`);
+        if(readiness.notLoaded.length)parts.push(`containers not loaded: ${readiness.notLoaded.join(', ')}`);
+        throw new BadRequestException(`Cannot depart consol: ${parts.join('; ')}`);
+      }
+    }
     const now=new Date();
 
     const result=await this.prisma.$transaction(async tx=>{
@@ -179,6 +199,24 @@ export class ShipmentControlService {
         }
         if(next==='ARRIVED') bookingData.ata=now;
         await tx.booking.update({where:{id:shipment.id},data:bookingData});
+        const containers=Array.isArray((shipment as any).containers)?(shipment as any).containers:[];
+        if(next==='DEPARTED'){
+          for(const container of containers){
+            if(this.loadedOrBeyond(container.status)&&!['DEPARTED','IN_TRANSIT','TRANSSHIPMENT','ARRIVED','DISCHARGED','GATED_OUT','DELIVERED','EMPTY_RETURNED'].includes(String(container.status||'').toUpperCase())){
+              await tx.containerMovement.create({data:{containerId:container.id,eventCode:'DEPARTED',eventLabel:'Vessel Departed',status:'DEPARTED',location:consol.portOfLoading,occurredAt:now,source:'CONSOL',reference:consol.consolNo,remarks:'Synchronized from master consol departure',actorId:user.sub}});
+              await tx.container.update({where:{id:container.id},data:{status:'DEPARTED',location:consol.portOfLoading}});
+            }
+          }
+        }
+        if(next==='ARRIVED'){
+          for(const container of containers){
+            if(!this.arrivedOrBeyond(container.status)){
+              const existingMovement=await tx.containerMovement.findFirst({where:{containerId:container.id,eventCode:'ARRIVED',reference:consol.consolNo}});
+              if(!existingMovement)await tx.containerMovement.create({data:{containerId:container.id,eventCode:'ARRIVED',eventLabel:'Vessel Arrived',status:'ARRIVED',location:consol.portOfDischarge,occurredAt:now,source:'CONSOL',reference:consol.consolNo,remarks:'Synchronized from master consol arrival',actorId:user.sub}});
+              await tx.container.update({where:{id:container.id},data:{status:'ARRIVED',location:consol.portOfDischarge}});
+            }
+          }
+        }
         if(next==='DEPARTED'||next==='ARRIVED'){
           const code=next==='DEPARTED'?'DEPARTED':'ARRIVED';
           const label=next==='DEPARTED'?'Departed':'Arrived';
