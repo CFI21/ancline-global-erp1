@@ -49,7 +49,7 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
     try{
       const result=await api('/rate-procurement/forwarding/select/'+requestId+'/'+o.offerId,token,{method:'POST',body:'{}'});
       setSelectedQuote(result.quote);setTermsAccepted(false);
-      setMessage('ANC quote '+result.quote.quoteNo+' issued and matched to carrier '+result.quote.carrierCode+' / '+result.quote.carrierQuoteRef+'. Accept the quoted terms before ANCLINE creates a booking.');
+      setMessage('ANC quote '+result.quote.quoteNo+' issued. Accept the ANC quoted terms before ANCLINE creates the ANC booking.'+(role==='GLOBAL_ADMIN'&&result.quote.carrierCode?' Internal carrier match: '+result.quote.carrierCode+' / '+result.quote.carrierQuoteRef+'.':''));
       await loadBase();
     }catch(e:any){setMessage(e?.message||'Could not issue ANC Forwarding quote');}
     finally{setBusy(false);}
@@ -113,13 +113,13 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
 
     {selectedQuote&&selectedQuote.status!=='Customer Accepted'&&<div style={{marginTop:12,padding:12,border:'1px solid #dce5ec',borderRadius:8}}>
       <div><b>ANC Quote {selectedQuote.quoteNo}</b> · {fmtMoney(selectedQuote.sellRate,selectedQuote.currency)} <span className="status">{selectedQuote.status}</span></div>
-      <div className="sub" style={{marginTop:5}}>Carrier match: {selectedQuote.carrierCode} / {selectedQuote.carrierQuoteRef} · Terms: {selectedQuote.termsVersion} · Valid to {fmtDate(selectedQuote.validTo)}</div>
+      <div className="sub" style={{marginTop:5}}>{role==='GLOBAL_ADMIN'&&selectedQuote.carrierCode?<>Internal carrier match: {selectedQuote.carrierCode} / {selectedQuote.carrierQuoteRef} · </>:null}Terms: {selectedQuote.termsVersion} · Valid to {fmtDate(selectedQuote.validTo)}</div>
       <label style={{display:'flex',gap:8,alignItems:'flex-start',marginTop:12}}><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)}/><span>I accept the ANC Forwarding quote and all booking terms for quote {selectedQuote.quoteNo}. I understand that booking starts only after this acceptance.</span></label>
       <button className="btn" style={{marginTop:10}} disabled={busy||!termsAccepted} onClick={accept}>{busy?'Starting booking...':'Accept ANC Quote & Start Booking'}</button>
     </div>}
 
     {security&&<div style={{marginTop:10}}><b>Release security:</b> <span className="status">{security.clear?'CLEAR':'HOLD'}</span> · {security.mode}{!security.clear&&<span> · {security.blockers?.join('; ')}</span>}</div>}
 
-    {quotes.length>0&&<div style={{marginTop:16}}><h3 style={{marginBottom:8}}>My ANC Forwarding Quotes</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>ANC Quote</th><th>Carrier Ref</th><th>Trade</th><th>Equipment</th><th>Sell</th><th>Validity</th><th>Status</th></tr></thead><tbody>{quotes.slice(0,20).map(q=><tr key={q.id}><td><b>{q.quoteNo}</b><div className="sub">{q.customerRef}</div></td><td>{q.carrierCode} / {q.carrierQuoteRef}</td><td>{q.trade||'-'}</td><td>{q.equipment||'-'}</td><td>{fmtMoney(q.sellRate,q.currency)}</td><td>{fmtDate(q.validTo)}</td><td><span className="status">{q.status}</span></td></tr>)}</tbody></table></div></div>}
+    {quotes.length>0&&<div style={{marginTop:16}}><h3 style={{marginBottom:8}}>My ANC Forwarding Quotes</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>ANC Quote</th>{role==='GLOBAL_ADMIN'&&<th>Internal Carrier Ref</th>}<th>Trade</th><th>Equipment</th><th>Sell</th><th>Validity</th><th>Status</th></tr></thead><tbody>{quotes.slice(0,20).map(q=><tr key={q.id}><td><b>{q.quoteNo}</b><div className="sub">{q.customerRef}</div></td>{role==='GLOBAL_ADMIN'&&<td>{q.carrierCode||'-'} / {q.carrierQuoteRef||'-'}</td>}<td>{q.trade||'-'}</td><td>{q.equipment||'-'}</td><td>{fmtMoney(q.sellRate,q.currency)}</td><td>{fmtDate(q.validTo)}</td><td><span className="status">{q.status}</span></td></tr>)}</tbody></table></div></div>}
   </div>;
 }
