@@ -24,8 +24,8 @@ export class PortalService {
     }
     if(role==='AGENT'){
       if(!user.agentId)return [];
-      const rows=await this.prisma.booking.findMany({where:{producingAgentId:user.agentId},select:{customer:{select:{id:true,code:true,name:true,active:true}}},distinct:['customerId'],take:200});
-      return rows.map(x=>x.customer).filter((x:any)=>x?.active).sort((a:any,b:any)=>a.name.localeCompare(b.name));
+      const [agent,rows]=await Promise.all([this.prisma.organization.findUnique({where:{id:user.agentId},select:{id:true,code:true,name:true,active:true}}),this.prisma.booking.findMany({where:{producingAgentId:user.agentId},select:{customer:{select:{id:true,code:true,name:true,active:true}}},distinct:['customerId'],take:200})]);
+      const all=[agent,...rows.map(x=>x.customer)].filter((x:any)=>x?.active),seen=new Set<string>();return all.filter((x:any)=>!seen.has(x.id)&&Boolean(seen.add(x.id))).sort((a:any,b:any)=>a.name.localeCompare(b.name));
     }
     return this.prisma.organization.findMany({where:{active:true,roles:{has:'CUSTOMER'}},select:{id:true,code:true,name:true,active:true},orderBy:{name:'asc'},take:500});
   }
@@ -37,15 +37,13 @@ export class PortalService {
     if(origin===destination)throw new BadRequestException('Origin and destination must be different');
     let customerId=String(body?.customerId||'').trim(),producingAgentId:string|null=null,owningBranchId:string|null=null;
     if(role==='CUSTOMER'){if(!user.customerId)throw new ForbiddenException('Customer account is not linked');customerId=user.customerId;}
-    else if(role==='AGENT'){if(!user.agentId)throw new ForbiddenException('Agent account is not linked');producingAgentId=user.agentId;}
+    else if(role==='AGENT'){if(!user.agentId)throw new ForbiddenException('Agent account is not linked');producingAgentId=user.agentId;if(!customerId)customerId=user.agentId;}
     else if(role==='BRANCH_OPS'){if(!user.branchId)throw new ForbiddenException('Branch account is not linked');owningBranchId=user.branchId;}
     if(!customerId)throw new BadRequestException('Customer is required');
     const customer=await this.prisma.organization.findUnique({where:{id:customerId}});
-    if(!customer||!customer.active||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER'))throw new BadRequestException('Customer must be an active customer organization');
-    if(role==='AGENT'){
-      const allowed=(await this.customers(user)).some((x:any)=>x.id===customerId);
-      if(!allowed)throw new ForbiddenException('Agent can only book for customers already assigned to the agent');
-    }
+    const agentSelf=role==='AGENT'&&customerId===user.agentId&&Array.isArray(customer?.roles)&&customer.roles.includes('AGENT');
+    if(!customer||!customer.active||(!agentSelf&&(!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER'))))throw new BadRequestException('Contracting party must be an active customer or the logged-in agent organization');
+    if(role==='AGENT'&&!agentSelf){const allowed=(await this.customers(user)).some((x:any)=>x.id===customerId);if(!allowed)throw new ForbiddenException('Agent can only book for itself or customers already assigned to the agent');}
     const quantity=Math.max(1,Math.min(999,Math.floor(Number(body?.quantity||1))));
     const bookingNo='WEB-'+Date.now().toString().slice(-10);
     const row=await this.prisma.booking.create({data:{
