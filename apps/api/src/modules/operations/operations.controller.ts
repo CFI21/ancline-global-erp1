@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class OperationsController {
   constructor(private s:OperationsService){}
+  @Get('access-catalog') accessCatalog(@Req() req:any){return this.s.accessCatalog(req.user);}
   @Get('branches') branches(@Req() req:any){return this.s.listBranches(req.user);}
   @Post('branches') createBranch(@Body() body:any,@Req() req:any){return this.s.createBranch(body,req.user);}
   @Get('users') users(@Req() req:any){return this.s.listUsers(req.user);}
