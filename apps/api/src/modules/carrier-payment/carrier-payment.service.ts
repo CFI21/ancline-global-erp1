@@ -27,11 +27,12 @@ export class CarrierPaymentService {
   private async officeData(){
     const masterEvents=await this.db.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_GLOBAL_COMMERCE',objectType:'AncOfficeProfile',eventType:'ANC_OFFICE_PROFILE_SET'},orderBy:{createdAt:'asc'}});
     const latest=new Map<string,any>();for(const e of masterEvents)latest.set(e.objectId,{...(e.payload||{}),id:e.objectId});
-    const masterOffices=[...latest.values()].filter((x:any)=>x.active!==false&&x.registeredOffice!==false&&x.carrierPayerEligible===true&&x.countryCode)
+    const configuredMasterOffices=[...latest.values()].filter((x:any)=>x.active!==false&&x.registeredOffice!==false&&x.countryCode);
+    const masterOffices=configuredMasterOffices.filter((x:any)=>x.carrierPayerEligible===true)
       .map((x:any)=>({officeKey:'GLOBAL:'+x.officeId,source:'GLOBAL_COMMERCE_MASTER',id:x.officeId,code:x.officeCode,name:x.officeName,countryCode:this.country(x.countryCode),address:x.address||null,city:x.city||null,legalEntityName:x.legalEntityName||null}));
-    if(masterOffices.length){
+    if(masterEvents.length){
       const countries=[...new Set(masterOffices.map((x:any)=>x.countryCode))].sort();
-      return {offices:masterOffices,countries,source:'GLOBAL_COMMERCE_MASTER',legacyFallback:false};
+      return {offices:masterOffices,countries,source:'GLOBAL_COMMERCE_MASTER',legacyFallback:false,configuredOfficeCount:configuredMasterOffices.length};
     }
     const [branches,orgs]=await Promise.all([
       this.db.branch.findMany({where:{active:true},select:{id:true,code:true,name:true,countryCode:true},orderBy:[{countryCode:'asc'},{name:'asc'}]}),
