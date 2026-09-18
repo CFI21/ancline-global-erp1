@@ -47,6 +47,7 @@ const links=[
   ['/month-end','Month-End Control'],
   ['/revenue-close','Revenue Recognition / Finance Close'],
   ['/finance-close-control','Finance Close Control Board'],
+  ['/finance-close-execution','Finance Close Execution'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
