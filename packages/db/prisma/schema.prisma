@@ -94,6 +94,16 @@ model Organization {
   name           String
   roles          OrgRole[]
   countryCode    String?
+  customerRef    String?   @unique
+  registrationRef String?  @unique
+  kycStatus      String    @default("NOT_STARTED")
+  kycData        Json?
+  kycSubmittedAt DateTime?
+  kycApprovedAt  DateTime?
+  kycApprovedBy  String?
+  kycRejectedAt  DateTime?
+  kycRejectedBy  String?
+  kycRejectionReason String?
   active         Boolean   @default(true)
   customersOwned Booking[] @relation("CustomerBookings")
   agentBookings  Booking[] @relation("AgentBookings")
@@ -102,19 +112,24 @@ model Organization {
 }
 
 model RateQuote {
-  id         String    @id @default(cuid())
-  quoteNo    String    @unique
-  customerId String
-  trade      String
-  equipment  String
-  buyRate    Decimal   @db.Decimal(18,2)
-  sellRate   Decimal   @db.Decimal(18,2)
-  currency   String
-  validFrom  DateTime
-  validTo    DateTime
-  status     String
-  source     String?
-  bookings   Booking[]
+  id               String    @id @default(cuid())
+  quoteNo          String    @unique
+  customerId       String
+  trade            String
+  equipment        String
+  buyRate          Decimal   @db.Decimal(18,2)
+  sellRate         Decimal   @db.Decimal(18,2)
+  currency         String
+  validFrom        DateTime
+  validTo          DateTime
+  status           String
+  source           String?
+  carrierCode      String?
+  carrierQuoteRef  String?
+  termsVersion     String?
+  termsAcceptedAt  DateTime?
+  termsAcceptedBy  String?
+  bookings         Booking[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -129,6 +144,7 @@ model Booking {
   shipmentStatus       String?       @default("BOOKED")
   consolId             String?
   customerId           String
+  customerRef          String?
   producingAgentId     String?
   rateQuoteId          String?
   salesOwner           String?
@@ -220,6 +236,7 @@ model Booking {
 
   @@index([businessModel, bookingChannel])
   @@index([rateQuoteId])
+  @@index([customerRef])
   @@index([salesOwner])
   @@index([operator])
   @@index([consolId])
