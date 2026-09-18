@@ -37,11 +37,12 @@ export default function CarrierPaymentPage(){
       const instructions:any={};
       for(const [group] of GROUPS)instructions[group]=rows[group];
       await api('/carrier-payment/booking/'+bookingId,token,{method:'POST',body:JSON.stringify({instructions})});
-      setMessage('ANC carrier payment and payer instructions validated and saved.');await load();
+      const submit=await api('/portal/bookings/'+bookingId+'/submit-carrier-booking',token,{method:'POST'});
+      setMessage('ANC carrier payment and payer instructions validated. Carrier booking workflow: '+String(submit?.status||'SUBMITTED')+'.');await load();
     }catch(e:any){setMessage(e?.message||'Could not save carrier payer instructions');}finally{setBusy(false);}
   }
   const offices:Office[]=ctx?.offices||[],countries:string[]=ctx?.registeredCountries||[];
-  return <WorkspaceShell title="Carrier Payment / Payer Control" subtitle="FORWARDING ONLY · ANC-to-carrier settlement · customer commercial terms remain private to ANC" active="/carrier-payment" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={save}>{busy?'Saving...':'Validate & Save'}</button></>}>
+  return <WorkspaceShell title="Carrier Payment / Payer Control" subtitle="FORWARDING ONLY · ANC-to-carrier settlement · customer commercial terms remain private to ANC" active="/carrier-payment" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={save} >{busy?'Saving...':'Validate & Submit Carrier Booking'}</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
     {!bookingId&&<div className="card">Open Carrier Payment / Payer Control from a Forwarding booking.</div>}
     {ctx&&<>
