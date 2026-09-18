@@ -6,6 +6,7 @@ import { FinanceCloseOrchestrationService } from './finance-close-orchestration.
 @Module({
   imports:[RevenueCloseModule],
   controllers:[FinanceCloseOrchestrationController],
-  providers:[FinanceCloseOrchestrationService]
+  providers:[FinanceCloseOrchestrationService],
+  exports:[FinanceCloseOrchestrationService]
 })
 export class FinanceCloseOrchestrationModule {}
