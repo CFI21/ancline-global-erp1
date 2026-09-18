@@ -69,7 +69,7 @@ export default function NvoccPortal(){
   const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
 
   return <main style={{padding:18,maxWidth:1380,margin:'0 auto'}}>
-    <div className="top"><div><div className="sub">ANCLINE NVOCC PORTAL</div><h1 style={{margin:'2px 0'}}>NVOCC Rates, Bookings & Documents</h1><div className="sub">Agent · Branch Office · Global Admin only · {user?.email||''}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{role==='GLOBAL_ADMIN'&&<a className="btn" href="/" style={{textDecoration:'none'}}>Admin ERP</a>}<button className="btn" onClick={()=>void load()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
+    <div className="top"><div><div className="sub">ANCLINE NVOCC PORTAL</div><h1 style={{margin:'2px 0'}}>NVOCC Rates, Bookings & Documents</h1><div className="sub">Agent · Branch Office · Global Admin only · {user?.email||''}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{role==='GLOBAL_ADMIN'&&<><a className="btn" href="/" style={{textDecoration:'none'}}>Admin ERP</a><a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Global Forwarding</a></>}<button className="btn" onClick={()=>void load()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
 
     <div className="grid" style={{marginBottom:12}}>
