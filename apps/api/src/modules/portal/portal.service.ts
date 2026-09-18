@@ -46,8 +46,9 @@ export class PortalService {
     if(role==='AGENT'&&!agentSelf){const allowed=(await this.customers(user)).some((x:any)=>x.id===customerId);if(!allowed)throw new ForbiddenException('Agent can only book for itself or customers already assigned to the agent');}
     const quantity=Math.max(1,Math.min(999,Math.floor(Number(body?.quantity||1))));
     const bookingNo='WEB-'+Date.now().toString().slice(-10);
+    const bookingChannel=role==='CUSTOMER'?'CUSTOMER_PORTAL':role==='AGENT'?'AGENT_PORTAL':role==='BRANCH_OPS'?'BRANCH_PORTAL':'INTERNAL';
     const row=await this.prisma.booking.create({data:{
-      bookingNo,customerId,producingAgentId,owningBranchId,salesOwner:user.email,
+      bookingNo,businessModel:'FORWARDING',bookingChannel,customerId,producingAgentId,owningBranchId,salesOwner:user.email,
       bookingType:String(body?.bookingType||'FCL').toUpperCase(),transportMode:String(body?.transportMode||'SEA').toUpperCase(),serviceType:String(body?.serviceType||'PORT_TO_PORT').toUpperCase(),
       bookingDate:new Date(),customerReference:body?.customerReference?String(body.customerReference):null,
       shipper:body?.shipper?String(body.shipper):null,consignee:body?.consignee?String(body.consignee):null,
@@ -58,7 +59,7 @@ export class PortalService {
       freightTerms:String(body?.freightTerms||'PREPAID').toUpperCase(),currency:String(body?.currency||'USD').toUpperCase(),
       etd:body?.etd?new Date(body.etd):null,status:'DRAFT',notes:'Created through ANCLINE online forwarding channel'
     }});
-    await this.audit.log({actorId:user.sub,action:'PORTAL_DIRECT_BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{role,bookingNo:row.bookingNo,customerId,producingAgentId,owningBranchId,origin,destination,equipment,quantity}});
+    await this.audit.log({actorId:user.sub,action:'PORTAL_DIRECT_BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{role,businessModel:'FORWARDING',bookingChannel,bookingNo:row.bookingNo,customerId,producingAgentId,owningBranchId,origin,destination,equipment,quantity}});
     return row;
   }
 
@@ -66,6 +67,7 @@ export class PortalService {
     this.allowedPortalRole(user);await this.scope.assertBookingAccess(user,bookingId);
     const booking=await this.prisma.booking.findUnique({where:{id:bookingId},include:{rateQuote:true}});
     if(!booking)throw new BadRequestException('Booking not found');
+    if(String((booking as any).businessModel||'NVOCC').toUpperCase()!=='FORWARDING')throw new BadRequestException('Online portal quote acceptance is available only for FORWARDING bookings');
     const quote=booking.rateQuote;if(!quote)throw new BadRequestException('No quoted rate is linked to this booking');
     if(new Date(quote.validTo).getTime()<Date.now())throw new BadRequestException('The quoted rate has expired');
     const status=String(quote.status||'').toUpperCase().replace(/[\s_-]+/g,'');
@@ -84,8 +86,9 @@ export class PortalService {
   async bookings(user:ScopeUser){
     const customerView=user.role==='CUSTOMER';
     const rows=await this.prisma.booking.findMany({
-      where:bookingScope(user),
+      where:{AND:[bookingScope(user),{businessModel:'FORWARDING'}]},
       select:{
+        businessModel:true,bookingChannel:true,
         id:true,bookingNo:true,status:true,origin:true,destination:true,portOfLoading:true,portOfDischarge:true,terminal:true,
         etd:true,eta:true,atd:true,ata:true,carrier:true,vesselVoyage:true,houseBL:true,masterBL:true,
         customer:{select:{id:true,name:true}},
