@@ -159,7 +159,7 @@ export class BulkDataService {
     return {type,total:rows.length,valid:results.filter((x:any)=>x.valid).length,invalid:results.filter((x:any)=>!x.valid).length,results};
   }
 
-  private async upsertCustomer(r:any,db:any=db){
+  private async upsertCustomer(r:any,db:any=this.db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
     const existing=await db.organization.findUnique({where:{code}});
@@ -179,7 +179,7 @@ export class BulkDataService {
     return {id:row.id,code:row.code,name:row.name,role:'CUSTOMER',kycStatus:row.kycStatus};
   }
 
-  private async upsertCarrier(r:any,db:any=db){
+  private async upsertCarrier(r:any,db:any=this.db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
     const existing=await db.organization.findUnique({where:{code}});
@@ -197,7 +197,7 @@ export class BulkDataService {
     return {id:row.id,code:row.code,name:row.name,role:'CARRIER',providerCode:providerCode||null};
   }
 
-  private async upsertRate(r:any,db:any=db){
+  private async upsertRate(r:any,db:any=this.db){
     const quoteNo=this.upper(r.quoteNo),customerCode=this.upper(r.customerCode);
     const customer=await db.organization.findUnique({where:{code:customerCode}});
     if(!customer||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
@@ -213,7 +213,7 @@ export class BulkDataService {
     return {id:row.id,quoteNo:row.quoteNo,customerCode,carrierCode:carrierCode||null,status:row.status};
   }
 
-  private async upsertBooking(r:any,db:any=db){
+  private async upsertBooking(r:any,db:any=this.db){
     const bookingNo=this.upper(r.bookingNo),customerCode=this.upper(r.customerCode),businessModel=this.upper(r.businessModel)||'NVOCC';
     const customer=await db.organization.findUnique({where:{code:customerCode}});
     if(!customer||!customer.roles?.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
