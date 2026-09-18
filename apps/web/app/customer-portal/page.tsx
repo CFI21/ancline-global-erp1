@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {api,currentUser,fmtDate,requireToken,signOut} from '../../lib/api';
 import PortalRateBooking from '../../components/PortalRateBooking';
+import ForwardingBookingChanges from '../../components/ForwardingBookingChanges';
 
 type Movement={id:string;eventCode:string;eventLabel:string;status?:string;location?:string;occurredAt:string;source?:string;containerNo?:string};
 type Milestone={id:string;code:string;label:string;location?:string;plannedAt?:string;actualAt?:string;status:string;source?:string};
@@ -34,6 +35,7 @@ export default function CustomerPortal(){
       <h3>Shipment Timeline</h3><div style={{display:'grid',gap:8}}>{selectedBooking.milestones?.map(m=><div key={m.id} style={{border:'1px solid #e1e7ed',borderRadius:8,padding:10}}><div style={{display:'flex',justifyContent:'space-between',gap:10}}><div><b>{m.label}</b><div className="sub">{m.location||'-'} · {m.actualAt?`Actual ${fmtDate(m.actualAt)}`:m.plannedAt?`Planned ${fmtDate(m.plannedAt)}`:'Date pending'}</div></div><span className="status">{m.status}</span></div></div>)}{!selectedBooking.milestones?.length&&<div>No shipment milestones available yet.</div>}</div>
       <h3 style={{marginTop:16}}>Containers</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Container</th><th>Type</th><th>Seal</th><th>Status</th><th>Current Location</th><th>Latest Movement</th></tr></thead><tbody>{selectedBooking.containers?.map(c=><tr key={c.id}><td><b>{c.containerNo}</b></td><td>{c.type}</td><td>{c.sealNo||'-'}</td><td><span className="status">{c.status}</span></td><td>{c.location||'-'}</td><td>{c.movements?.[0]?.eventLabel||'-'}<div className="sub">{fmtDate(c.movements?.[0]?.occurredAt)}</div></td></tr>)}{!selectedBooking.containers?.length&&<tr><td colSpan={6}>No containers assigned yet.</td></tr>}</tbody></table></div>
       <h3 style={{marginTop:16}}>Released Documents</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Status</th></tr></thead><tbody>{selectedBooking.documents?.map(d=><tr key={d.id}><td><b>{d.documentNo||'-'}</b></td><td>{d.type}</td><td>{d.version||1}</td><td><span className="status">{d.status}</span></td></tr>)}{!selectedBooking.documents?.length&&<tr><td colSpan={4}>No released customer documents available yet.</td></tr>}</tbody></table></div>
+      <ForwardingBookingChanges bookingId={selectedBooking.id} token={requireToken()||''} onChanged={()=>location.reload()}/>
     </div>}
   </main>;
 }
