@@ -1,66 +1,166 @@
 'use client';
 
+import {useState} from 'react';
 import type {ReactNode} from 'react';
 import {signOut} from '../lib/api';
 
-const links=[
-  ['/', 'Control Tower'],
-  ['/bookings','Bookings'],
-  ['/global-commerce','Global Commerce / Demo'],
-  ['/testing-lab','Testing Lab'],
-  ['/bulk-data','Bulk Data Upload'],
-  ['/booking-control','Booking Control'],
-  ['/shipment-control','Shipment / Consol Control'],
-  ['/carrier-operations','Carrier Booking / Space Control'],
-  ['/carrier-payment','Carrier Payment / Payer Control'],
-  ['/forwarding-amendments','Forwarding Amendments'],
-  ['/schedules','Vessel / Voyage Schedules'],
-  ['/container-control','Container Control'],
-  ['/transport','Land Transport / Delivery'],
-  ['/customs','Customs Clearance'],
-  ['/exceptions','Exceptions / Action Board'],
-  ['/routing','Routing / Voyage Plan'],
-  ['/tracking','Shipment Tracking'],
-  ['/integrations','Integration Control'],
-  ['/connectivity','External Connectivity / EDI'],
-  ['/workflow-automation','Workflow Automation'],
-  ['/background-automation','Scheduled Automation'],
-  ['/data-quality','Data Quality / Validation'],
-  ['/organizations','Organizations'],
-  ['/sales-crm','Sales CRM / Pipeline'],
-  ['/customer-service','Customer Service / Claims'],
-  ['/enterprise-risk','Enterprise Risk / Insurance'],
-  ['/quality-management','Quality Management / CAPA'],
-  ['/workforce','Workforce / Resource Control'],
-  ['/commercial','Contracts / Tariffs'],
-  ['/rates','Commercial / Quotes'],
-  ['/carrier-rates','Carrier Buy Rates'],
-  ['/commercial-guardrails','Commercial Guardrails'],
-  ['/documents','Documents'],
-  ['/document-automation','Document Automation / Comms'],
-  ['/procurement','Procurement / Vendor Spend'],
-  ['/vendor-control','Margin / Vendor Control'],
-  ['/commercial-profitability','Commercial Profitability'],
-  ['/finance','Finance / Job Costing'],
-  ['/accounting','AR / AP & Invoicing'],
-  ['/credit-control','Credit / Collections / Cash'],
-  ['/general-ledger','General Ledger / Tax'],
-  ['/finance-reporting','Financial Posting / Reporting'],
-  ['/enterprise-reporting','Enterprise Reporting / BI'],
-  ['/group-finance','Group Finance / Consolidation'],
-  ['/statutory-finance','Statutory Finance / Entity Close'],
-  ['/treasury','Treasury / Liquidity'],
-  ['/month-end','Month-End Control'],
-  ['/approvals','Approvals'],
-  ['/tasks','My Work'],
-  ['/closeout','Job Closeout'],
-  ['/notifications','Notifications'],
-  ['/governance','Master Data / Rules Governance'],
-  ['/administration','Administration'],
+const menuGroups=[
+  {
+    id:'customer',
+    step:'01',
+    label:'Customer & Sales',
+    items:[
+      ['/organizations','Organizations'],
+      ['/sales-crm','Sales Pipeline'],
+      ['/customer-service','Customer Service'],
+    ],
+  },
+  {
+    id:'commercial',
+    step:'02',
+    label:'Rates & Quotes',
+    items:[
+      ['/commercial','Contracts & Tariffs'],
+      ['/carrier-rates','Carrier Buy Rates'],
+      ['/rates','ANC Quotes'],
+      ['/commercial-guardrails','Commercial Controls'],
+      ['/global-commerce','Global Commerce'],
+    ],
+  },
+  {
+    id:'booking',
+    step:'03',
+    label:'Booking & Carrier',
+    items:[
+      ['/bookings','Bookings'],
+      ['/booking-control','Booking Control'],
+      ['/carrier-operations','Carrier Space'],
+      ['/carrier-payment','Carrier Payer Control'],
+    ],
+  },
+  {
+    id:'operations',
+    step:'04',
+    label:'Shipment Execution',
+    items:[
+      ['/shipment-control','Shipment Control'],
+      ['/schedules','Vessel Schedules'],
+      ['/routing','Routing Plan'],
+      ['/container-control','Container Control'],
+      ['/transport','Land Transport'],
+      ['/customs','Customs'],
+      ['/tracking','Tracking'],
+      ['/exceptions','Exceptions'],
+      ['/forwarding-amendments','Amendments'],
+    ],
+  },
+  {
+    id:'documents',
+    step:'05',
+    label:'Docs & Compliance',
+    items:[
+      ['/documents','Documents'],
+      ['/document-automation','Document Automation'],
+      ['/data-quality','Data Validation'],
+      ['/enterprise-risk','Risk & Insurance'],
+      ['/quality-management','Quality / CAPA'],
+    ],
+  },
+  {
+    id:'finance',
+    step:'06',
+    label:'Finance & Closeout',
+    items:[
+      ['/procurement','Procurement'],
+      ['/vendor-control','Vendor / Margin Control'],
+      ['/commercial-profitability','Profitability'],
+      ['/finance','Job Costing'],
+      ['/accounting','AR / AP & Invoicing'],
+      ['/credit-control','Credit & Collections'],
+      ['/general-ledger','General Ledger / Tax'],
+      ['/finance-reporting','Financial Reporting'],
+      ['/group-finance','Group Finance'],
+      ['/statutory-finance','Statutory Finance'],
+      ['/treasury','Treasury'],
+      ['/month-end','Month-End'],
+      ['/closeout','Job Closeout'],
+    ],
+  },
+  {
+    id:'automation',
+    step:'07',
+    label:'Work & Automation',
+    items:[
+      ['/tasks','My Work'],
+      ['/approvals','Approvals'],
+      ['/notifications','Notifications'],
+      ['/workflow-automation','Workflow Automation'],
+      ['/background-automation','Scheduled Automation'],
+      ['/integrations','Integrations'],
+      ['/connectivity','EDI / Connectivity'],
+      ['/enterprise-reporting','Enterprise BI'],
+    ],
+  },
+  {
+    id:'admin',
+    step:'08',
+    label:'Admin & Testing',
+    items:[
+      ['/workforce','Workforce'],
+      ['/governance','Master Data / Rules'],
+      ['/administration','Administration'],
+      ['/testing-lab','Testing Lab'],
+      ['/bulk-data','Bulk Data Upload'],
+    ],
+  },
 ] as const;
 
 export default function WorkspaceShell({title,subtitle,active,children,actions}:{title:string;subtitle:string;active:string;children:ReactNode;actions?:ReactNode}){
-  return <div className="shell"><aside className="side"><div className="brand">ANCLINE WORLDWIDE</div>{links.map(([href,label])=><a key={href} href={href} style={active===href?{background:'#183a5c'}:undefined}>{label}</a>)}</aside><main className="main"><div className="top"><div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div></div>{children}</main></div>;
+  const activeGroup=menuGroups.find(group=>group.items.some(([href])=>href===active))?.id??null;
+  const [openGroup,setOpenGroup]=useState<string|null>(activeGroup);
+
+  return <div className="shell">
+    <aside className="side">
+      <div className="brand">ANCLINE <span>WORLDWIDE</span></div>
+      <div className="menu-caption">WORKFLOW NAVIGATION</div>
+      <a className="menu-home" href="/" aria-current={active==='/'?'page':undefined}>
+        <span className="menu-step">00</span><span>Control Tower</span>
+      </a>
+      <nav className="menu-nav" aria-label="ANCLINE workflow navigation">
+        {menuGroups.map(group=>{
+          const expanded=openGroup===group.id;
+          const current=group.id===activeGroup;
+          return <div className="menu-section" key={group.id}>
+            <button
+              type="button"
+              className={'menu-group'+(current?' current':'')}
+              aria-expanded={expanded}
+              onClick={()=>setOpenGroup(expanded?null:group.id)}
+            >
+              <span className="menu-step">{group.step}</span>
+              <span className="menu-group-label">{group.label}</span>
+              <span className="menu-chevron" aria-hidden="true">{expanded?'−':'+'}</span>
+            </button>
+            {expanded&&<div className="submenu">
+              {group.items.map(([href,label])=><a
+                key={href}
+                href={href}
+                className={active===href?'active':''}
+                aria-current={active===href?'page':undefined}
+              >{label}</a>)}
+            </div>}
+          </div>;
+        })}
+      </nav>
+    </aside>
+    <main className="main">
+      <div className="top">
+        <div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
+      </div>
+      {children}
+    </main>
+  </div>;
 }
 
 export const fieldStyle:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
