@@ -5,7 +5,7 @@ import {api,currentUser,fmtDate,fmtMoney,requireToken,signOut} from '../../lib/a
 
 type Party={id:string;code:string;name:string;roles?:string[]};
 type Booking={id:string;bookingNo:string;businessModel:string;bookingChannel:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;etd?:string;eta?:string;houseBL?:string;masterBL?:string;customer?:Party;producingAgent?:Party;rateQuote?:any;documents?:any[];containers?:any[];creditStatus?:string;slotStatus?:string;equipmentStatus?:string};
-type Offer={offerId:string;carrier:string;serviceName?:string;equipment:string;quantity:number;currency:string;sellRate?:number;buyRate?:number;allInBuyRate?:number;etd?:string;eta?:string;validTo?:string;vessel?:string;voyage?:string};
+type Offer={rateId:string;quoteNo:string;trade:string;equipment:string;currency:string;sellRate:number;buyRate?:number;validFrom?:string;validTo?:string;source?:string};
 type Doc={id:string;documentNo?:string;type:string;status:string;releaseControl?:string;version?:number;updatedAt?:string;booking?:any};
 
 const emptyForm={partyId:'',origin:'',destination:'',equipment:'40HC',quantity:'1',commodity:'',grossWeight:'',volumeCbm:'',etd:'',freightTerms:'PREPAID',currency:'USD',customerReference:'',shipper:'',consignee:''};
@@ -16,7 +16,7 @@ export default function NvoccPortal(){
   const internalRateView=role==='GLOBAL_ADMIN';
   const [token,setToken]=useState(''),[parties,setParties]=useState<Party[]>([]),[rows,setRows]=useState<Booking[]>([]),[docs,setDocs]=useState<Doc[]>([]);
   const [form,setForm]=useState(emptyForm),[bookingId,setBookingId]=useState(''),[bookingNo,setBookingNo]=useState(''),[offers,setOffers]=useState<Offer[]>([]);
-  const [pricingValue,setPricingValue]=useState('15'),[selected,setSelected]=useState<any>(null),[search,setSearch]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const [selected,setSelected]=useState<any>(null),[search,setSearch]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
 
   useEffect(()=>{const t=requireToken();if(!t)return;if(!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role)){location.replace('/');return;}setToken(t);void load(t);},[role]);
 
@@ -34,9 +34,9 @@ export default function NvoccPortal(){
       const body={...form,customerId:form.partyId||undefined,quantity:Number(form.quantity||1),grossWeight:form.grossWeight===''?null:Number(form.grossWeight),volumeCbm:form.volumeCbm===''?null:Number(form.volumeCbm),etd:form.etd?new Date(form.etd+'T00:00:00Z').toISOString():null};
       const booking=await api('/portal/nvocc/bookings',token,{method:'POST',body:JSON.stringify(body)});
       setBookingId(booking.id);setBookingNo(booking.bookingNo);
-      const result=await api('/rate-procurement/booking/'+booking.id+'/search',token,{method:'POST'});
-      setOffers(Array.isArray(result?.offers)?result.offers:[]);
-      setMessage((result?.offers?.length||0)+' NVOCC online / filed rate option(s) found.');
+      const result=await api('/portal/nvocc/bookings/'+booking.id+'/rates',token);
+      const rates=Array.isArray(result)?result:[];setOffers(rates);
+      setMessage(rates.length+' ANC NVOCC published rate option(s) found.');
       await load();
     }catch(e:any){setMessage(e?.message||'Could not create NVOCC rate request');}
     finally{setBusy(false);}
@@ -45,9 +45,8 @@ export default function NvoccPortal(){
   async function selectRate(o:Offer){
     setBusy(true);setMessage('');
     try{
-      const body=internalRateView?{pricingMethod:'MARKUP_PCT',pricingValue:Number(pricingValue||0)}:{};
-      const result=await api('/rate-procurement/booking/'+bookingId+'/select/'+o.offerId,token,{method:'POST',body:JSON.stringify(body)});
-      setSelected(result.quote);setMessage('NVOCC rate selected. Quote '+result.quote.quoteNo+' is ready for acceptance.');
+      const result=await api('/portal/nvocc/bookings/'+bookingId+'/select-rate/'+o.rateId,token,{method:'POST'});
+      setSelected(result.quote);setMessage('ANC NVOCC rate selected. Quote '+result.quote.quoteNo+' is ready for acceptance.');
     }catch(e:any){setMessage(e?.message||'Could not select NVOCC rate');}
     finally{setBusy(false);}
   }
@@ -80,7 +79,7 @@ export default function NvoccPortal(){
     </div>
 
     <div className="card" style={{marginBottom:12}}>
-      <div className="top"><div><div className="sub">NVOCC ONLINE RATE</div><h2 style={{margin:'2px 0'}}>Rate Search & Booking</h2><div className="sub">NVOCC rate access stays inside this portal only.</div></div>{bookingNo&&<span className="status">{bookingNo}</span>}</div>
+      <div className="top"><div><div className="sub">NVOCC ONLINE RATE</div><h2 style={{margin:'2px 0'}}>Rate Search & Booking</h2><div className="sub">ANC NVOCC published tariffs only · Global carrier procurement is kept separate under Forwarding.</div></div>{bookingNo&&<span className="status">{bookingNo}</span>}</div>
       {!bookingId&&<><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:10,marginTop:12}}>
         {role!=='AGENT'&&<label><span style={label}>Contracting Party *</span><select style={field} value={form.partyId} onChange={e=>setForm({...form,partyId:e.target.value})}><option value="">Select agent / party</option>{parties.map(p=><option key={p.id} value={p.id}>{p.code} - {p.name}</option>)}</select></label>}
         <label><span style={label}>Origin *</span><input style={field} value={form.origin} onChange={e=>setForm({...form,origin:e.target.value})} placeholder="NLRTM"/></label>
@@ -92,9 +91,8 @@ export default function NvoccPortal(){
         <label><span style={label}>Reference</span><input style={field} value={form.customerReference} onChange={e=>setForm({...form,customerReference:e.target.value})}/></label>
       </div><div style={{textAlign:'right',marginTop:12}}><button className="btn" disabled={busy||!form.partyId||!form.origin.trim()||!form.destination.trim()} onClick={createAndSearch}>{busy?'Searching...':'Get NVOCC Rates'}</button></div></>}
 
-      {bookingId&&internalRateView&&<div style={{marginTop:10,maxWidth:220}}><label><span style={label}>Sell Markup %</span><input type="number" style={field} value={pricingValue} onChange={e=>setPricingValue(e.target.value)}/></label></div>}
-      {bookingId&&offers.length>0&&<div style={{overflowX:'auto',marginTop:12}}><table className="table"><thead><tr><th>Carrier / Service</th><th>Schedule</th><th>Equipment</th>{internalRateView&&<th>Internal Buy</th>}<th>{internalRateView?'Estimated Sell':'NVOCC Rate'}</th><th>Validity</th><th></th></tr></thead><tbody>{offers.map(o=>{const buy=Number(o.allInBuyRate??o.buyRate??0),shown=internalRateView?buy*(1+Number(pricingValue||0)/100):Number(o.sellRate||0);return <tr key={o.offerId}><td><b>{o.carrier}</b><div className="sub">{o.serviceName||''}</div></td><td>ETD {fmtDate(o.etd)}<div className="sub">ETA {fmtDate(o.eta)} · {[o.vessel,o.voyage].filter(Boolean).join(' / ')||'-'}</div></td><td>{o.quantity||1} × {o.equipment}</td>{internalRateView&&<td>{fmtMoney(buy,o.currency)}</td>}<td><b>{fmtMoney(shown,o.currency)}</b></td><td>{fmtDate(o.validTo)}</td><td><button className="btn" disabled={busy||!!selected} onClick={()=>selectRate(o)}>Use Rate</button></td></tr>})}</tbody></table></div>}
-      {bookingId&&offers.length===0&&!busy&&<div style={{marginTop:12}}>No NVOCC rate options are currently available.</div>}
+      {bookingId&&offers.length>0&&<div style={{overflowX:'auto',marginTop:12}}><table className="table"><thead><tr><th>NVOCC Quote</th><th>Lane</th><th>Equipment</th>{internalRateView&&<th>Internal Cost</th>}<th>NVOCC Sell Rate</th><th>Validity</th><th></th></tr></thead><tbody>{offers.map(o=><tr key={o.rateId}><td><b>{o.quoteNo}</b><div className="sub">{o.source||'NVOCC'}</div></td><td>{o.trade}</td><td>{o.equipment}</td>{internalRateView&&<td>{fmtMoney(Number(o.buyRate||0),o.currency)}</td>}<td><b>{fmtMoney(Number(o.sellRate||0),o.currency)}</b></td><td>{fmtDate(o.validTo)}</td><td><button className="btn" disabled={busy||!!selected} onClick={()=>selectRate(o)}>Use Rate</button></td></tr>)}</tbody></table></div>}
+      {bookingId&&offers.length===0&&!busy&&<div style={{marginTop:12}}>No published ANC NVOCC tariff matches this party, lane and equipment.</div>}
       {selected&&<div style={{marginTop:12,padding:12,border:'1px solid #dce5ec',borderRadius:8}}><b>Selected quote {selected.quoteNo}</b> · {fmtMoney(selected.sellRate,selected.currency)} <span className="status">{selected.status}</span><button className="btn" style={{marginLeft:10}} disabled={busy} onClick={accept}>Accept & Submit NVOCC Booking</button></div>}
     </div>
 
