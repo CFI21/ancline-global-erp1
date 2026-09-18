@@ -17,10 +17,24 @@ const milestoneMap:Record<string,{code:string;label:string}>={
   DELIVERED:{code:'DELIVERED',label:'Delivered'},
   EMPTY_RETURNED:{code:'EMPTY_RETURNED',label:'Empty Returned'}
 };
+const movementStatus:Record<string,string>={
+  EMPTY_RELEASED:'RELEASED',PICKED_UP:'PICKED_UP',GATED_IN:'GATED_IN',VGM_SUBMITTED:'VGM_SUBMITTED',LOADED:'LOADED',
+  DEPARTED:'DEPARTED',TRANSSHIPMENT:'TRANSSHIPMENT',DISCHARGED:'DISCHARGED',GATED_OUT:'GATED_OUT',DELIVERED:'DELIVERED',EMPTY_RETURNED:'EMPTY_RETURNED'
+};
+const stageRank:Record<string,number>={
+  PLANNED:0,ALLOCATED:0,RELEASED:1,PICKED_UP:2,GATED_IN:3,VGM_SUBMITTED:4,LOADED:5,DEPARTED:6,IN_TRANSIT:6,TRANSSHIPMENT:7,DISCHARGED:8,GATED_OUT:9,DELIVERED:10,EMPTY_RETURNED:11
+};
+const stageLabel=['PLANNED','EQUIPMENT_RELEASED','PICKED_UP','GATED_IN','VGM_SUBMITTED','LOADED','DEPARTED','TRANSSHIPMENT','DISCHARGED','GATED_OUT','DELIVERED','EMPTY_RETURNED'];
 
 @Injectable()
 export class ContainerMovementsService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
+  private rank(status:any){return stageRank[String(status||'PLANNED').toUpperCase()]??0;}
+  private aggregate(containers:any[]){
+    if(!containers.length)return {shipmentStatus:null,minRank:0,maxRank:0};
+    const ranks=containers.map(c=>this.rank(c.status)),minRank=Math.min(...ranks),maxRank=Math.max(...ranks),label=stageLabel[maxRank]||'PLANNED';
+    return {shipmentStatus:minRank===maxRank?label:'PARTIAL_'+label,minRank,maxRank};
+  }
 
   private exposure(container:any){
     const now=new Date();
@@ -112,7 +126,7 @@ export class ContainerMovementsService {
         actorId:user.sub
       }});
       const update:any={};
-      if(body?.status) update.status=String(body.status);
+      update.status=body?.status?String(body.status):movementStatus[eventCode]||container.status;
       if(body?.location!==undefined) update.location=body.location?String(body.location):null;
       if(eventCode==='EMPTY_RELEASED') update.allocationStatus='RELEASED';
       if(eventCode==='PICKED_UP') update.pickupDate=occurredAt;
@@ -121,19 +135,23 @@ export class ContainerMovementsService {
       if(eventCode==='DISCHARGED') update.dischargeAt=occurredAt;
       if(eventCode==='DELIVERED') update.deliveryAt=occurredAt;
       if(eventCode==='EMPTY_RETURNED') update.emptyReturnedAt=occurredAt;
-      if(Object.keys(update).length) await tx.container.update({where:{id:containerId},data:update});
+      await tx.container.update({where:{id:containerId},data:update});
 
+      const allContainers=await tx.container.findMany({where:{bookingId},select:{id:true,status:true}});
+      const aggregate=this.aggregate(allContainers),eventRank=this.rank(movementStatus[eventCode]||eventCode),allReached=allContainers.length>0&&allContainers.every((x:any)=>this.rank(x.status)>=eventRank);
       const mapped=milestoneMap[eventCode];
       if(mapped){
         const existingMilestone=await tx.shipmentMilestone.findFirst({where:{bookingId,code:mapped.code},orderBy:{createdAt:'asc'}});
-        if(existingMilestone){
-          await tx.shipmentMilestone.update({where:{id:existingMilestone.id},data:{label:mapped.label,status:'COMPLETED',actualAt:occurredAt,location:body?.location?String(body.location):existingMilestone.location,source:String(body?.source||'CONTAINER'),remarks:body?.remarks?String(body.remarks):existingMilestone.remarks}});
-        }else{
-          await tx.shipmentMilestone.create({data:{bookingId,code:mapped.code,label:mapped.label,status:'COMPLETED',actualAt:occurredAt,location:body?.location?String(body.location):null,source:String(body?.source||'CONTAINER'),remarks:body?.remarks?String(body.remarks):null}});
-        }
+        const milestoneData:any={label:mapped.label,status:allReached?'COMPLETED':'PARTIAL',actualAt:allReached?occurredAt:null,location:body?.location?String(body.location):(existingMilestone?.location||null),source:String(body?.source||'CONTAINER'),remarks:body?.remarks?String(body.remarks):(allReached?existingMilestone?.remarks||null:'Waiting for remaining containers')};
+        if(existingMilestone)await tx.shipmentMilestone.update({where:{id:existingMilestone.id},data:milestoneData});
+        else await tx.shipmentMilestone.create({data:{bookingId,code:mapped.code,...milestoneData}});
       }
-      if(eventCode==='DEPARTED') await tx.booking.update({where:{id:bookingId},data:{atd:occurredAt,status:'OPERATIONAL'}});
-      if(eventCode==='DISCHARGED') await tx.booking.update({where:{id:bookingId},data:{ata:occurredAt}});
+      const bookingData:any={};
+      if(aggregate.shipmentStatus)bookingData.shipmentStatus=aggregate.shipmentStatus;
+      if(aggregate.maxRank>=5)bookingData.status='OPERATIONAL';
+      if(eventCode==='DEPARTED')bookingData.atd=occurredAt;
+      if(eventCode==='DISCHARGED')bookingData.ata=occurredAt;
+      if(Object.keys(bookingData).length)await tx.booking.update({where:{id:bookingId},data:bookingData});
       return movement;
     });
 
