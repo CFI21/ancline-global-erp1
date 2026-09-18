@@ -44,12 +44,23 @@ export default function GlobalCommercePage(){
   return <WorkspaceShell title="Global Commerce Master / Demo" subtitle="Worldwide e-commerce operating rules · ANC offices · controlled locations · synthetic customer journey" active="/global-commerce" actions={<button className="btn" disabled={busy} onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
     <div className="grid" style={{marginBottom:12}}>
-      <div className="card"><div className="sub">GLOBAL COMMERCE READINESS</div><div className="kpi">{readiness?.ready?'READY':'CONFIGURE'}</div><div className="sub">{readiness?.blockers?.length?readiness.blockers.join(' · '):'Core master configured'}</div></div>
+      <div className="card"><div className="sub">GLOBAL COMMERCE READINESS</div><div className="kpi">{readiness?.ready?'READY':'CONFIGURE'}</div><div className="sub">{readiness?.blockers?.length?readiness.blockers.join(' · '):'Worldwide e-commerce controls ready'}</div></div>
       <div className="card"><div className="sub">SERVICE COUNTRIES</div><div className="kpi">{readiness?.summary?.countries||0}</div></div>
       <div className="card"><div className="sub">REGISTERED ANC OFFICES</div><div className="kpi">{readiness?.summary?.registeredOffices||0}</div></div>
       <div className="card"><div className="sub">CARRIER PAYER OFFICES</div><div className="kpi">{readiness?.summary?.carrierPayerOffices||0}</div></div>
       <div className="card"><div className="sub">CONTROLLED LOCATIONS</div><div className="kpi">{readiness?.summary?.locations||0}</div></div>
     </div>
+
+    {readiness?.infrastructure&&<div className="card" style={{marginBottom:12}}>
+      <div className="sub">INFRASTRUCTURE READINESS</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8,marginTop:8}}>
+        {Object.entries(readiness.infrastructure).map(([key,value]:any)=><div key={key} style={{padding:10,border:'1px solid #dce5ec',borderRadius:7}}>
+          <b>{key.replaceAll('_',' ').toUpperCase()}</b>
+          <div style={{marginTop:5}}><span className="status">{typeof value==='object'&&value?.ready?'READY':'NOT READY'}</span></div>
+          {typeof value==='object'&&<div className="sub" style={{marginTop:5}}>{Object.entries(value).filter(([k])=>k!=='ready').map(([k,v])=>k+'='+String(v??'-')).join(' · ')}</div>}
+        </div>)}
+      </div>
+    </div>}
 
     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
       <button className="btn" disabled={tab==='demo'} onClick={()=>setTab('demo')}>E-commerce Demo</button>
