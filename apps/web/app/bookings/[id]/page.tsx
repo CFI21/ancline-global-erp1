@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import WorkspaceShell from '../../../components/WorkspaceShell';
 
 const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 type Org={id:string;code:string;name:string;roles:string[]};
@@ -126,10 +127,41 @@ export default function EditBookingPage(){
   const Select=({l,k,children}:{l:string;k:keyof typeof blank;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
   const Mini=({l,v,onChange,type='text'}:{l:string;v:string;onChange:(v:string)=>void;type?:string})=><label><span style={label}>{l}</span><input type={type} value={v} onChange={e=>onChange(e.target.value)} style={field}/></label>;
   const tabStyle=(active:boolean):React.CSSProperties=>({border:0,borderBottom:active?'3px solid #123b61':'3px solid transparent',background:active?'#eef3f8':'transparent',padding:'10px 13px',fontWeight:active?800:600,color:'#173754',cursor:'pointer',whiteSpace:'nowrap'});
-  if(!booking)return <div className="shell"><aside className="side"><div className="brand">ANCLINE WORLDWIDE</div></aside><main className="main"><div className="card">{message||'Loading booking...'}</div></main></div>;
+  if(!booking)return <WorkspaceShell title="Booking" subtitle="Loading booking / shipment workspace" active="/bookings"><div className="card">{message||'Loading booking...'}</div></WorkspaceShell>;
 
-  return <div className="shell"><aside className="side"><div className="brand">ANCLINE WORLDWIDE</div><a href="/">Control Tower</a><a href="/bookings" style={{background:'#183a5c'}}>Bookings</a><a href="/booking-control">Booking Control</a><a href="/carrier-operations">Carrier Booking / Space Control</a><a href="/shipment-control">Shipment / Consol Control</a><a href="/container-control">Container Control</a><a href="/routing">Routing / Voyage Plan</a><a href="/tracking">Shipment Tracking</a><a href="/exceptions">Exceptions / Action Board</a><a href="/organizations">Organizations</a><a href="/rates">Rates / Quotes</a><a href="/documents">Documents</a><a href="/finance">Finance</a><a href="/approvals">Approvals</a><a href="/tasks">My Work</a></aside><main className="main">
-    <div className="top"><div><div className="sub">BOOKING / SHIPMENT WORKSPACE</div><h1 style={{margin:'2px 0'}}>{booking.bookingNo}</h1><div style={{display:'flex',gap:7,flexWrap:'wrap'}}><span className="status">{booking.businessModel||'NVOCC'}</span><span className="status">{booking.bookingChannel||'INTERNAL'}</span><span className="status">{booking.status}</span>{booking.shipmentNo&&<span className="status">Shipment {booking.shipmentNo}</span>}<span className="status">Execution {booking.shipmentStatus||'BOOKED'}</span><span className="status">{booking.customer?.name||'No customer'}</span><span className="status">{booking.origin} → {booking.destination}</span><span className="status">ETD {fmt(booking.etd||undefined)}</span><span className="status">Containers {booking.containers?.length||0}</span><span className="status">Legs {booking.routingLegs?.length||0}</span><span className="status">Milestones {booking.milestones?.length||0}</span><span className="status">Docs {booking.documents?.length||0}</span><span className="status">Tasks {booking.tasks?.length||0}</span>{booking.specialCargo&&<span className="status">Cargo {booking.specialCargo}</span>}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><a className="btn" href="/bookings" style={{textDecoration:'none'}}>← Register</a><a className="btn" href="/carrier-operations" style={{textDecoration:'none'}}>Carrier Space</a>{String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'&&isAdmin&&<a className="btn" href={`/carrier-rates?bookingId=${id}`} style={{textDecoration:'none'}}>Forwarding Global Rates</a>}{String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'&&<a className="btn" href={`/carrier-payment?bookingId=${id}`} style={{textDecoration:'none'}}>Carrier Payment / Payer</a>}{String(booking.businessModel||'NVOCC').toUpperCase()==='NVOCC'&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>NVOCC Portal</a>}<a className="btn" href="/container-control" style={{textDecoration:'none'}}>Container Control</a><a className="btn" href="/shipment-control" style={{textDecoration:'none'}}>Shipment Control</a><button className="btn" onClick={()=>save(false)} disabled={busy}>{busy?'Working...':'Save Changes'}</button><button className="btn" onClick={()=>save(true)} disabled={busy}>Save & Close</button><button className="btn" onClick={advance} disabled={busy}>Save & Advance</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
+  return <WorkspaceShell
+    title={booking.bookingNo}
+    subtitle="BOOKING / SHIPMENT WORKSPACE"
+    active="/bookings"
+    actions={<>
+      <a className="btn" href="/bookings" style={{textDecoration:'none'}}>← Register</a>
+      <a className="btn" href="/carrier-operations" style={{textDecoration:'none'}}>Carrier Space</a>
+      {String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'&&isAdmin&&<a className="btn" href={`/carrier-rates?bookingId=${id}`} style={{textDecoration:'none'}}>Forwarding Global Rates</a>}
+      {String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'&&<a className="btn" href={`/carrier-payment?bookingId=${id}`} style={{textDecoration:'none'}}>Carrier Payment / Payer</a>}
+      {String(booking.businessModel||'NVOCC').toUpperCase()==='NVOCC'&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>NVOCC Portal</a>}
+      <a className="btn" href="/container-control" style={{textDecoration:'none'}}>Container Control</a>
+      <a className="btn" href="/shipment-control" style={{textDecoration:'none'}}>Shipment Control</a>
+      <button className="btn" onClick={()=>save(false)} disabled={busy}>{busy?'Working...':'Save Changes'}</button>
+      <button className="btn" onClick={()=>save(true)} disabled={busy}>Save & Close</button>
+      <button className="btn" onClick={advance} disabled={busy}>Save & Advance</button>
+    </>}
+  >
+    <div className="booking-context-bar">
+      <span className="status">{booking.businessModel||'NVOCC'}</span>
+      <span className="status">{booking.bookingChannel||'INTERNAL'}</span>
+      <span className="status">{booking.status}</span>
+      {booking.shipmentNo&&<span className="status">Shipment {booking.shipmentNo}</span>}
+      <span className="status">Execution {booking.shipmentStatus||'BOOKED'}</span>
+      <span className="status">{booking.customer?.name||'No customer'}</span>
+      <span className="status">{booking.origin} → {booking.destination}</span>
+      <span className="status">ETD {fmt(booking.etd||undefined)}</span>
+      <span className="status">Containers {booking.containers?.length||0}</span>
+      <span className="status">Legs {booking.routingLegs?.length||0}</span>
+      <span className="status">Milestones {booking.milestones?.length||0}</span>
+      <span className="status">Docs {booking.documents?.length||0}</span>
+      <span className="status">Tasks {booking.tasks?.length||0}</span>
+      {booking.specialCargo&&<span className="status">Cargo {booking.specialCargo}</span>}
+    </div>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
     <div className="card" style={{padding:0,marginBottom:12,overflowX:'auto'}}><div style={{display:'flex',minWidth:820}}>{tabs.map(t=><button key={t} onClick={()=>setTab(t)} style={tabStyle(tab===t)}>{t}{t==='Containers'?` (${booking.containers?.length||0})`:t==='Routing'?` (${booking.routingLegs?.length||0})`:t==='Documents'?` (${booking.documents?.length||0})`:t==='Charges'?` (${booking.financeLines?.length||0})`:t==='Tasks'?` (${booking.tasks?.length||0})`:t==='Approvals'?` (${booking.approvals?.length||0})`:''}</button>)}</div></div>
 
@@ -166,5 +198,5 @@ export default function EditBookingPage(){
     {tab==='Approvals'&&<><div className="card" style={{marginBottom:12}}><h3 style={title}>Request Approval</h3><div style={grid}><label><span style={label}>Approval Type</span><select value={approval.type} onChange={e=>setApproval(x=>({...x,type:e.target.value}))} style={field}><option>OPERATIONAL</option><option>RATE</option><option>CREDIT</option><option>FINANCE</option><option>DOCUMENT_RELEASE</option><option>EXCEPTION</option></select></label><Mini l="Approver" v={approval.approverId} onChange={v=>setApproval(x=>({...x,approverId:v}))}/><Mini l="Reason" v={approval.reason} onChange={v=>setApproval(x=>({...x,reason:v}))}/></div><div style={{textAlign:'right',marginTop:12}}><button className="btn" onClick={createApproval} disabled={busy}>Request Approval</button></div></div><div className="card"><h3 style={title}>Approval History</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Type</th><th>Requester</th><th>Approver</th><th>Status</th><th>Reason</th><th></th></tr></thead><tbody>{!booking.approvals?.length?<tr><td colSpan={6}>No approvals yet.</td></tr>:booking.approvals.map((x:any)=><tr key={x.id}><td>{x.type}</td><td>{x.requesterId}</td><td>{x.approverId}</td><td><span className="status">{x.status}</span></td><td>{x.reason||'-'}</td><td>{x.status==='Pending'&&<div style={{display:'flex',gap:6}}><button className="btn" onClick={()=>approvalAction(x.id,'approve')}>Approve</button><button className="btn" onClick={()=>approvalAction(x.id,'reject')}>Reject</button></div>}</td></tr>)}</tbody></table></div></div></>}
 
     {tab==='Audit'&&<div className="card"><h3 style={title}>Audit Trail</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Date / Time</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead><tbody>{!booking.auditEvents?.length?<tr><td colSpan={4}>No audit activity yet.</td></tr>:booking.auditEvents.slice().sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).map(a=><tr key={a.id}><td>{new Date(a.createdAt).toLocaleString()}</td><td><b>{a.action}</b></td><td>{a.actorId}</td><td style={{maxWidth:420,whiteSpace:'normal'}}>{a.detail?JSON.stringify(a.detail):'-'}</td></tr>)}</tbody></table></div></div>}
-  </main></div>;
+  </WorkspaceShell>;
 }
