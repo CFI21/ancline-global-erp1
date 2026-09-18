@@ -12,9 +12,9 @@ export class TestDataService implements OnModuleInit {
   private admin(user?:ScopeUser){if(user&&String(user?.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required');}
   private now(){return new Date();}
   private d(days:number,hour=12){const x=new Date();x.setUTCDate(x.getUTCDate()+days);x.setUTCHours(hour,0,0,0);return x;}
-  private async event(objectType:string,objectId:string,eventType:string,payload:any,status='COMPLETED'){
-    await this.db.integrationEvent.deleteMany({where:{sourceSystem:SOURCE,objectType,objectId,eventType}});
-    return this.db.integrationEvent.create({data:{sourceSystem:SOURCE,objectType,objectId,eventType,status,completedAt:status==='COMPLETED'?this.now():null,payload}});
+  private async event(objectType:string,objectId:string,eventType:string,payload:any,status='COMPLETED',sourceSystem=SOURCE){
+    await this.db.integrationEvent.deleteMany({where:{sourceSystem,objectType,objectId,eventType}});
+    return this.db.integrationEvent.create({data:{sourceSystem,objectType,objectId,eventType,status,completedAt:status==='COMPLETED'?this.now():null,payload}});
   }
   async onModuleInit(){
     if(String(process.env.ANCLINE_TEST_DATA_SEED||'false').toLowerCase()==='true'){
@@ -61,7 +61,7 @@ export class TestDataService implements OnModuleInit {
         update:{displayName:x.contact,role:'CUSTOMER',customerId:row.id,costCenterCode:x.costCenterCode,permissions:['FORWARDING_PORTAL','FORWARDING_QUOTES','FORWARDING_BOOKINGS'],active:true},
         create:{email:x.email,displayName:x.contact,role:'CUSTOMER',customerId:row.id,costCenterCode:x.costCenterCode,permissions:['FORWARDING_PORTAL','FORWARDING_QUOTES','FORWARDING_BOOKINGS'],active:true}
       });
-      await this.event('CreditProfile',row.id,'CREDIT_PROFILE_SET',{partyId:row.id,partyName:x.name,creditLimit:x.countryCode==='NL'?50000:25000,creditCurrency:'USD',paymentTermsDays:x.countryCode==='NL'?30:14,overdueHoldDays:45,riskRating:'LOW',creditHold:false,customerPaymentMode:x.countryCode==='AE'?'PREPAID':'CREDIT',prepaidPct:x.countryCode==='AE'?100:0,updatedBy:'SYSTEM_TEST_DATA'});
+      await this.event('CreditProfile',row.id,'CREDIT_PROFILE_SET',{partyId:row.id,partyName:x.name,creditLimit:x.countryCode==='NL'?50000:25000,creditCurrency:'USD',paymentTermsDays:x.countryCode==='NL'?30:14,overdueHoldDays:45,riskRating:'LOW',creditHold:false,customerPaymentMode:x.countryCode==='AE'?'PREPAID':'CREDIT',prepaidPct:x.countryCode==='AE'?100:0,updatedBy:'SYSTEM_TEST_DATA',testData:true},'COMPLETED','ANCLINE_CREDIT_CONTROL');
     }
 
     const agent=await this.db.organization.upsert({
@@ -153,8 +153,8 @@ export class TestDataService implements OnModuleInit {
         {chargeGroup:'DESTINATION_PORT',term:'COLLECT',applicable:true,payerType:'ANC_REGISTERED_OFFICE',payerName:'TEST ANC DESTINATION OFFICE',payerCountryCode:x.destination.slice(0,2),ancOfficeCountryValidated:true},
         {chargeGroup:'ORIGIN_HAULAGE',term:x.service==='DOOR_TO_DOOR'?'PREPAID_ORIGIN':'NOT_APPLICABLE',applicable:x.service==='DOOR_TO_DOOR'},
         {chargeGroup:'DESTINATION_HAULAGE',term:x.service==='DOOR_TO_DOOR'?'COLLECT':'NOT_APPLICABLE',applicable:x.service==='DOOR_TO_DOOR'}
-      ],customerDataOutbound:false,houseDataOutbound:false,testData:true});
-      await this.event('CarrierRateOffer',booking.id,'RATE_OFFER_SELECTED',{bookingId:booking.id,providerCode:x.carrier.providerCode,externalQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,buy:x.buy,currency:x.currency,testData:true});
+      ],customerDataOutbound:false,houseDataOutbound:false,testData:true},'COMPLETED','ANCLINE_CARRIER_PAYMENT');
+      await this.event('CarrierRateOffer',booking.id,'RATE_OFFER_SELECTED',{bookingId:booking.id,providerCode:x.carrier.providerCode,externalQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,buy:x.buy,currency:x.currency,testData:true},'COMPLETED','ANCLINE_RATE_PROCUREMENT');
     }
 
     const nvCustomer=customerRows[0],nvBookingNo='ANC-TEST-NVOCC-BKG-001';
