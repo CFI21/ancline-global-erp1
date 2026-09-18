@@ -42,7 +42,7 @@ export default function RatesPage(){
   const [lastBooking,setLastBooking]=useState<{id:string;bookingNo:string}|null>(null);
   const [form,setForm]=useState({
     quoteNo:'',customerId:'',trade:'',equipment:'40HC',buyRate:'',sellRate:'',
-    currency:'USD',validFrom:new Date().toISOString().slice(0,10),validTo:'',source:'COMMERCIAL_DESK'
+    currency:'USD',validFrom:new Date().toISOString().slice(0,10),validTo:'',source:'NVOCC_COMMERCIAL_DESK'
   });
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
@@ -145,8 +145,8 @@ export default function RatesPage(){
   ];
 
   return <WorkspaceShell
-    title="Commercial / Quotes"
-    subtitle="Quote-to-booking control, margin governance, validity and sales pipeline"
+    title="NVOCC Commercial / Tariffs"
+    subtitle="ANC NVOCC tariff publication, quote-to-booking control, margin governance and validity"
     active="/rates"
     actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}
   >
@@ -179,7 +179,7 @@ export default function RatesPage(){
     </div>}
 
     <div className="card" style={{marginBottom:12}}>
-      <h3 style={sectionTitle}>New commercial quote</h3>
+      <h3 style={sectionTitle}>New ANC NVOCC tariff / quote</h3>
       <div style={formGrid}>
         <label><span style={labelStyle}>Quote No.</span><input style={fieldStyle} value={form.quoteNo} onChange={e=>setForm({...form,quoteNo:e.target.value})} placeholder="Auto if blank"/></label>
         <label><span style={labelStyle}>Customer *</span><select style={fieldStyle} value={form.customerId} onChange={e=>setForm({...form,customerId:e.target.value})}><option value="">Select customer</option>{customers.map(c=><option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}</select></label>
