@@ -5,14 +5,14 @@ import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../
 import {api,fmtDate,fmtMoney,requireToken} from '../../lib/api';
 
 type Dashboard={customerCount:number;creditHoldCount:number;reviewCount:number;collectionCount:number;criticalCollectionCount:number;promiseBreachedCount:number;unreconciledBankCount:number;cashByCurrency:Array<{currency:string;unmatchedCredits:number;unmatchedDebits:number}>};
-type Profile={creditLimit?:number|null;creditCurrency?:string;paymentTermsDays?:number;overdueHoldDays?:number;riskRating?:string;creditHold?:boolean;holdReason?:string|null;collectorId?:string|null;notes?:string|null};
+type Profile={creditLimit?:number|null;creditCurrency?:string;paymentTermsDays?:number;overdueHoldDays?:number;riskRating?:string;creditHold?:boolean;holdReason?:string|null;customerPaymentMode?:string;prepaidPct?:number;collectorId?:string|null;notes?:string|null};
 type Customer={partyId:string;code:string;name:string;countryCode?:string|null;profile?:Profile|null;decision:string;creditCurrency:string;creditLimit?:number|null;exposure:number;availableCredit?:number|null;maxDaysOverdue:number;openInvoiceCount:number;disputedCount:number;exposures:Array<{currency:string;outstanding:number;overdue:number}>};
 type Collection={invoiceNo:string;bookingNo:string;partyId?:string;partyName?:string;currency:string;balanceAmount:number;status:string;daysOverdue:number;priority:string;dueDate?:string|null;promiseBreached:boolean;lastAction?:any};
 type Match={id:string;invoiceNo:string;amount:number;currency:string;bankReference:string;createdAt:string};
 type BankTx={transactionId:string;bankReference:string;direction:'CREDIT'|'DEBIT';amount:number;currency:string;bookedAt:string;counterparty?:string|null;description?:string|null;account?:string|null;matchedAmount:number;remainingAmount:number;status:string;matches:Match[]};
 type Invoice={invoiceNo:string;invoiceType:'AR'|'AP';partyName?:string;currency:string;balanceAmount:number;status:string;bookingNo?:string};
 
-const profileDefault={creditLimit:'',creditCurrency:'USD',paymentTermsDays:'30',overdueHoldDays:'60',riskRating:'MEDIUM',creditHold:false,holdReason:'',collectorId:'',notes:''};
+const profileDefault={creditLimit:'',creditCurrency:'USD',paymentTermsDays:'30',overdueHoldDays:'60',riskRating:'MEDIUM',creditHold:false,holdReason:'',customerPaymentMode:'CREDIT',prepaidPct:'0',collectorId:'',notes:''};
 const collectionDefault={action:'CONTACTED',promiseDate:'',promisedAmount:'',nextActionDate:'',note:''};
 const bankDefault={bankReference:'',direction:'CREDIT',amount:'',currency:'USD',bookedAt:new Date().toISOString().slice(0,10),counterparty:'',description:'',account:''};
 
@@ -55,7 +55,7 @@ export default function CreditControlPage(){
     setProfile({
       creditLimit:p.creditLimit==null?'':String(p.creditLimit),creditCurrency:p.creditCurrency||row.creditCurrency||'USD',
       paymentTermsDays:String(p.paymentTermsDays??30),overdueHoldDays:String(p.overdueHoldDays??60),riskRating:p.riskRating||'MEDIUM',
-      creditHold:Boolean(p.creditHold),holdReason:p.holdReason||'',collectorId:p.collectorId||'',notes:p.notes||''
+      creditHold:Boolean(p.creditHold),holdReason:p.holdReason||'',customerPaymentMode:p.customerPaymentMode||'CREDIT',prepaidPct:String(p.prepaidPct??(p.customerPaymentMode==='PREPAID'?100:0)),collectorId:p.collectorId||'',notes:p.notes||''
     });
   }
 
@@ -70,7 +70,7 @@ export default function CreditControlPage(){
   async function saveProfile(){
     if(!selectedCustomer){setMessage('Select a customer.');return;}
     await run(`/credit-control/customers/${selectedCustomer}/profile`,{
-      ...profile,creditLimit:profile.creditLimit===''?null:Number(profile.creditLimit),paymentTermsDays:Number(profile.paymentTermsDays),overdueHoldDays:Number(profile.overdueHoldDays)
+      ...profile,creditLimit:profile.creditLimit===''?null:Number(profile.creditLimit),paymentTermsDays:Number(profile.paymentTermsDays),overdueHoldDays:Number(profile.overdueHoldDays),prepaidPct:Number(profile.prepaidPct||0)
     },'Credit profile saved.');
   }
 
@@ -148,6 +148,8 @@ export default function CreditControlPage(){
           <label><span style={labelStyle}>Credit Limit</span><input type="number" step="0.01" style={fieldStyle} value={profile.creditLimit} onChange={e=>setProfile({...profile,creditLimit:e.target.value})} placeholder="Leave blank for review"/></label>
           <label><span style={labelStyle}>Credit Currency</span><select style={fieldStyle} value={profile.creditCurrency} onChange={e=>setProfile({...profile,creditCurrency:e.target.value})}>{['USD','EUR','GBP','AED'].map(x=><option key={x}>{x}</option>)}</select></label>
           <label><span style={labelStyle}>Payment Terms (days)</span><input type="number" style={fieldStyle} value={profile.paymentTermsDays} onChange={e=>setProfile({...profile,paymentTermsDays:e.target.value})}/></label>
+          <label><span style={labelStyle}>Customer Payment Mode</span><select style={fieldStyle} value={profile.customerPaymentMode} onChange={e=>setProfile({...profile,customerPaymentMode:e.target.value,prepaidPct:e.target.value==='PREPAID'?'100':e.target.value==='CREDIT'?'0':profile.prepaidPct})}><option value="CREDIT">CREDIT</option><option value="PREPAID">PREPAID 100%</option><option value="PARTIAL_PREPAID">PARTIAL PREPAID</option></select></label>
+          <label><span style={labelStyle}>Customer Prepaid %</span><input type="number" min="0" max="100" style={fieldStyle} value={profile.prepaidPct} onChange={e=>setProfile({...profile,prepaidPct:e.target.value})} disabled={profile.customerPaymentMode!=='PARTIAL_PREPAID'}/></label>
           <label><span style={labelStyle}>Overdue Hold Threshold</span><input type="number" style={fieldStyle} value={profile.overdueHoldDays} onChange={e=>setProfile({...profile,overdueHoldDays:e.target.value})}/></label>
           <label><span style={labelStyle}>Risk Rating</span><select style={fieldStyle} value={profile.riskRating} onChange={e=>setProfile({...profile,riskRating:e.target.value})}>{['LOW','MEDIUM','HIGH','RESTRICTED'].map(x=><option key={x}>{x}</option>)}</select></label>
           <label><span style={labelStyle}>Collector / Owner</span><input style={fieldStyle} value={profile.collectorId} onChange={e=>setProfile({...profile,collectorId:e.target.value})} placeholder="Finance owner"/></label>
@@ -171,7 +173,7 @@ export default function CreditControlPage(){
       </div></div>}
 
       <div className="card"><h3 style={sectionTitle}>Customer Credit Register</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Customer</th><th>Decision</th><th>Limit / Exposure</th><th>Available</th><th>Open AR</th><th>Overdue</th><th>Currency Exposure</th><th>Action</th></tr></thead><tbody>
-        {customers.map(c=><tr key={c.partyId}><td><b>{c.code}</b><div>{c.name}</div><div className="sub">{c.countryCode||'-'}</div></td><td><span className="status">{c.decision}</span><div className="sub">Risk {c.profile?.riskRating||'Not rated'}</div></td><td>{c.creditLimit==null?'No limit':fmtMoney(c.creditLimit,c.creditCurrency)}<div className="sub">Exposure {fmtMoney(c.exposure,c.creditCurrency)}</div></td><td>{c.availableCredit==null?'-':fmtMoney(c.availableCredit,c.creditCurrency)}</td><td>{c.openInvoiceCount}<div className="sub">{c.disputedCount} disputed</div></td><td>{c.maxDaysOverdue}d</td><td>{c.exposures.length?c.exposures.map(x=><div key={x.currency}>{x.currency}: {fmtMoney(x.outstanding,x.currency)} <span className="sub">({fmtMoney(x.overdue,x.currency)} overdue)</span></div>):'-'}</td><td><button className="btn" onClick={()=>chooseCustomer(c)}>Open</button></td></tr>)}
+        {customers.map(c=><tr key={c.partyId}><td><b>{c.code}</b><div>{c.name}</div><div className="sub">{c.countryCode||'-'}</div></td><td><span className="status">{c.decision}</span><div className="sub">Risk {c.profile?.riskRating||'Not rated'} · {c.profile?.customerPaymentMode||'CREDIT'}{c.profile?.prepaidPct?` ${c.profile.prepaidPct}%`:''}</div></td><td>{c.creditLimit==null?'No limit':fmtMoney(c.creditLimit,c.creditCurrency)}<div className="sub">Exposure {fmtMoney(c.exposure,c.creditCurrency)}</div></td><td>{c.availableCredit==null?'-':fmtMoney(c.availableCredit,c.creditCurrency)}</td><td>{c.openInvoiceCount}<div className="sub">{c.disputedCount} disputed</div></td><td>{c.maxDaysOverdue}d</td><td>{c.exposures.length?c.exposures.map(x=><div key={x.currency}>{x.currency}: {fmtMoney(x.outstanding,x.currency)} <span className="sub">({fmtMoney(x.overdue,x.currency)} overdue)</span></div>):'-'}</td><td><button className="btn" onClick={()=>chooseCustomer(c)}>Open</button></td></tr>)}
         {customers.length===0&&<tr><td colSpan={8}>No customer organizations found.</td></tr>}
       </tbody></table></div></div>
     </>}
