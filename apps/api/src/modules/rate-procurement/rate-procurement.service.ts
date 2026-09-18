@@ -360,7 +360,9 @@ export class RateProcurementService {
     }});
     await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'FORWARDING_ANC_QUOTE_ISSUED',externalId:requestId,objectType:'RateQuote',objectId:quote.id,status:'COMPLETED',payload:{quoteId:quote.id,quoteNo,customerRef:access.customerRef,costCenterCode:access.costCenterCode,providerCode,carrierQuoteRef,sellRate,currency:quote.currency,termsVersion},completedAt:new Date()}});
     await this.audit.log({actorId:user.sub,action:'FORWARDING_ANC_QUOTE_ISSUED',objectType:'RateQuote',objectId:quote.id,detail:{requestId,quoteNo,customerRef:access.customerRef,costCenterCode:access.costCenterCode,carrierCode:providerCode,carrierQuoteRef,termsVersion}});
-    return {quote:{id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,carrierCode:quote.carrierCode,carrierQuoteRef:quote.carrierQuoteRef,sellRate:quote.sellRate,currency:quote.currency,validTo:quote.validTo,status:quote.status,termsVersion:quote.termsVersion},requestId};
+    const publicQuote:any={id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,sellRate:quote.sellRate,currency:quote.currency,validTo:quote.validTo,status:quote.status,termsVersion:quote.termsVersion};
+    if(access.role==='GLOBAL_ADMIN'){publicQuote.carrierCode=quote.carrierCode;publicQuote.carrierQuoteRef=quote.carrierQuoteRef;}
+    return {quote:publicQuote,requestId};
   }
 
 }
