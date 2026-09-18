@@ -6,6 +6,7 @@ import { FinanceCloseExecutionService } from './finance-close-execution.service'
 @Module({
   imports:[FinanceCloseOrchestrationModule],
   controllers:[FinanceCloseExecutionController],
-  providers:[FinanceCloseExecutionService]
+  providers:[FinanceCloseExecutionService],
+  exports:[FinanceCloseExecutionService]
 })
 export class FinanceCloseExecutionModule {}
