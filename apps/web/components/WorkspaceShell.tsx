@@ -44,6 +44,7 @@ const links=[
   ['/statutory-finance','Statutory Finance / Entity Close'],
   ['/treasury','Treasury / Liquidity'],
   ['/month-end','Month-End Control'],
+  ['/revenue-close','Revenue Recognition / Finance Close'],
   ['/approvals','Approvals'],
   ['/tasks','My Work'],
   ['/closeout','Job Closeout'],
