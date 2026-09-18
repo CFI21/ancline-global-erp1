@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../lib/api';
 
 type Org={id:string;code:string;name:string;roles:string[]};
-type Booking={id:string;bookingNo:string;carrierBookingNo?:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;equipment?:string;etd?:string;eta?:string;specialCargo?:string;customer?:{name:string}};
+type Booking={id:string;bookingNo:string;carrierBookingNo?:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;equipment?:string;etd?:string;eta?:string;atd?:string;specialCargo?:string;creditStatus?:string;slotStatus?:string;equipmentStatus?:string;cyClosing?:string;siCutoff?:string;vgmCutoff?:string;docCutoff?:string;portCutoff?:string;customer?:{name:string}};
 
 const initialForm={
   bookingNo:'',bookingDate:'',customerReference:'',shipperReference:'',carrierBookingNo:'',houseBL:'',masterBL:'',
@@ -18,6 +18,23 @@ const initialForm={
 const toIso=(v:string)=>v?new Date(`${v}T00:00:00Z`).toISOString():null;
 const num=(v:string)=>v.trim()===''?null:Number(v);
 const csv=(v:any)=>`"${String(v??'').replace(/"/g,'""')}"`;
+const workflowOrder=['DRAFT','RATE_REQUESTED','RATE_RECEIVED','RATE_APPROVED','QUOTE_SENT','CUSTOMER_ACCEPTED','BOOKING_REQUESTED','CREDIT_CHECK','EQUIPMENT_CHECK','SLOT_CHECK','AGENT_ACCEPTANCE','CARRIER_CONFIRMATION','FINAL_APPROVAL','CONFIRMED','OPERATIONAL','COMPLETED','FINANCIALLY_CLOSED'];
+const operationalState=(b:Booking)=>{
+  const now=Date.now(),rank=workflowOrder.indexOf(b.status),atd=Boolean(b.atd);
+  const cutoffs=[['CY',b.cyClosing],['SI',b.siCutoff],['VGM',b.vgmCutoff],['DOC',b.docCutoff],['PORT',b.portCutoff]]
+    .filter((x):x is [string,string]=>Boolean(x[1]))
+    .map(([label,value])=>({label,value,t:new Date(value).getTime()}))
+    .filter(x=>Number.isFinite(x.t));
+  const overdue=!atd?cutoffs.filter(x=>x.t<now).sort((a,b)=>b.t-a.t)[0]:undefined;
+  const next=!atd?cutoffs.filter(x=>x.t>=now).sort((a,b)=>a.t-b.t)[0]:undefined;
+  const cutoff=overdue?{...overdue,state:'OVERDUE',hours:Math.round((overdue.t-now)/3600000)}:next?{...next,state:(next.t-now)<=48*3600000?'DUE <48H':(next.t-now)<=120*3600000?'DUE <5D':'CLEAR',hours:Math.round((next.t-now)/3600000)}:null;
+  const issues:string[]=[];
+  if(rank>=workflowOrder.indexOf('CREDIT_CHECK')&&b.creditStatus!=='Passed')issues.push('Credit '+(b.creditStatus||'unchecked'));
+  if(rank>=workflowOrder.indexOf('SLOT_CHECK')&&!['Protected','ALLOCATED'].includes(String(b.slotStatus||'')))issues.push('Slot '+(b.slotStatus||'unchecked'));
+  if(rank>=workflowOrder.indexOf('EQUIPMENT_CHECK')&&!['Available','RELEASED'].includes(String(b.equipmentStatus||'')))issues.push('Equipment '+(b.equipmentStatus||'unchecked'));
+  const cutoffRisk=cutoff?.state==='OVERDUE'||cutoff?.state==='DUE <48H';
+  return {cutoff,issues,needsAction:Boolean(cutoffRisk||issues.length),special:Boolean(b.specialCargo)};
+};
 
 export default function BookingsPage(){
   const [token,setToken]=useState('');
@@ -31,6 +48,7 @@ export default function BookingsPage(){
   const [statusFilter,setStatusFilter]=useState('ALL');
   const [customerFilter,setCustomerFilter]=useState('ALL');
   const [carrierFilter,setCarrierFilter]=useState('ALL');
+  const [attentionFilter,setAttentionFilter]=useState('ALL');
   const [etdFrom,setEtdFrom]=useState('');
   const [etdTo,setEtdTo]=useState('');
 
@@ -50,10 +68,13 @@ export default function BookingsPage(){
       const etd=b.etd?new Date(b.etd).getTime():null;
       const fromOk=from===null||(etd!==null&&etd>=from);
       const toOk=to===null||(etd!==null&&etd<=to);
-      const searchOk=!q||[b.bookingNo,b.carrierBookingNo,b.status,b.origin,b.destination,b.customer?.name,b.carrier,b.vesselVoyage,b.specialCargo].some(v=>String(v||'').toLowerCase().includes(q));
-      return statusOk&&customerOk&&carrierOk&&fromOk&&toOk&&searchOk;
+      const op=operationalState(b);
+      const attentionOk=attentionFilter==='ALL'||(attentionFilter==='ACTION'&&op.needsAction)||(attentionFilter==='CUTOFF'&&Boolean(op.cutoff&&op.cutoff.state!=='CLEAR'))||(attentionFilter==='CONTROLS'&&op.issues.length>0)||(attentionFilter==='SPECIAL'&&op.special);
+      const searchOk=!q||[b.bookingNo,b.carrierBookingNo,b.status,b.origin,b.destination,b.customer?.name,b.carrier,b.vesselVoyage,b.specialCargo,b.creditStatus,b.slotStatus,b.equipmentStatus].some(v=>String(v||'').toLowerCase().includes(q));
+      return statusOk&&customerOk&&carrierOk&&attentionOk&&fromOk&&toOk&&searchOk;
     });
-  },[bookings,search,statusFilter,customerFilter,carrierFilter,etdFrom,etdTo]);
+  },[bookings,search,statusFilter,customerFilter,carrierFilter,attentionFilter,etdFrom,etdTo]);
+  const opsSummary=useMemo(()=>bookings.reduce((a,b)=>{const op=operationalState(b);if(!['CANCELLED','COMPLETED','FINANCIALLY_CLOSED'].includes(b.status))a.active++;if(op.needsAction)a.action++;if(op.cutoff?.state==='OVERDUE'||op.cutoff?.state==='DUE <48H')a.cutoff++;if(op.issues.length)a.controls++;if(op.special)a.special++;return a;},{active:0,action:0,cutoff:0,controls:0,special:0}),[bookings]);
 
   useEffect(()=>{const t=localStorage.getItem('ancline_token')||'';if(!t){location.href='/login';return;}setToken(t);void load(t);},[]);
 
@@ -97,7 +118,7 @@ export default function BookingsPage(){
     const rows=[['Booking No.','Carrier Ref.','Status','Customer','Origin','Destination','Carrier','Vessel / Voyage','Equipment','Special Cargo','ETD','ETA'],...visible.map(b=>[b.bookingNo,b.carrierBookingNo||'',b.status,b.customer?.name||'',b.origin,b.destination,b.carrier||'',b.vesselVoyage||'',b.equipment||'',b.specialCargo||'',b.etd?new Date(b.etd).toISOString().slice(0,10):'',b.eta?new Date(b.eta).toISOString().slice(0,10):''])];
     const blob=new Blob([rows.map(r=>r.map(csv).join(',')).join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`ancline-bookings-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);
   }
-  function clearFilters(){setSearch('');setStatusFilter('ALL');setCustomerFilter('ALL');setCarrierFilter('ALL');setEtdFrom('');setEtdTo('');}
+  function clearFilters(){setSearch('');setStatusFilter('ALL');setCustomerFilter('ALL');setCarrierFilter('ALL');setAttentionFilter('ALL');setEtdFrom('');setEtdTo('');}
   function signOut(){localStorage.removeItem('ancline_token');localStorage.removeItem('ancline_user');location.href='/login';}
   const field:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
   const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
@@ -106,8 +127,8 @@ export default function BookingsPage(){
   const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof initialForm;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
   const Select=({l,k,children}:{l:string;k:keyof typeof initialForm;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
 
-  return <div className="shell"><aside className="side"><div className="brand">ANCLINE WORLDWIDE</div><a href="/">Control Tower</a><a href="/bookings" style={{background:'#183a5c'}}>Bookings</a><a href="/routing">Routing / Voyage Plan</a><a href="/tracking">Shipment Tracking</a><a href="/exceptions">Exceptions / Action Board</a><a href="/organizations">Organizations</a><a href="/rates">Rates / Quotes</a><a href="/documents">Documents</a><a href="/finance">Finance</a><a href="/approvals">Approvals</a><a href="/tasks">My Work</a></aside><main className="main">
-    <div className="top"><div><h1 style={{margin:0}}>Bookings</h1><div className="sub">Ocean Booking & Shipment Workspace</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button className="btn" onClick={()=>setShowForm(v=>!v)}>{showForm?'Booking Register':'New Booking'}</button><button className="btn" onClick={newBooking}>+ New Booking</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
+  return <div className="shell"><aside className="side"><div className="brand">ANCLINE WORLDWIDE</div><a href="/">Control Tower</a><a href="/bookings" style={{background:'#183a5c'}}>Bookings</a><a href="/booking-control">Booking Control</a><a href="/carrier-operations">Carrier Booking / Space Control</a><a href="/schedules">Vessel / Voyage Schedules</a><a href="/routing">Routing / Voyage Plan</a><a href="/tracking">Shipment Tracking</a><a href="/exceptions">Exceptions / Action Board</a><a href="/organizations">Organizations</a><a href="/rates">Rates / Quotes</a><a href="/documents">Documents</a><a href="/finance">Finance</a><a href="/approvals">Approvals</a><a href="/tasks">My Work</a></aside><main className="main">
+    <div className="top"><div><h1 style={{margin:0}}>Bookings</h1><div className="sub">Ocean Booking Intake, Readiness & Exception Control</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><a className="btn" href="/carrier-operations" style={{textDecoration:'none'}}>Carrier Space Control</a><button className="btn" onClick={()=>setShowForm(v=>!v)}>{showForm?'Booking Register':'New Booking'}</button><button className="btn" onClick={newBooking}>+ New Booking</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
     {message&&<div className="card" style={{marginBottom:14}}>{message}</div>}
     {showForm&&<>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Booking Details & References</h3><div style={grid}>
@@ -124,8 +145,15 @@ export default function BookingsPage(){
       </div>
       <div className="card" style={{marginBottom:14}}><h3 style={title}>Operational Notes</h3><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} style={{...field,minHeight:80,resize:'vertical'}}/><div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:12}}><button className="btn" onClick={()=>setForm(initialForm)} disabled={busy}>Clear</button><button className="btn" onClick={saveBooking} disabled={busy}>{busy?'Saving...':'Save Booking'}</button></div></div>
     </>}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:12}}>
+      <div className="card"><div className="sub">Active bookings</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.active}</div></div>
+      <div className="card"><div className="sub">Needs action</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.action}</div></div>
+      <div className="card"><div className="sub">Cutoff risk</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.cutoff}</div></div>
+      <div className="card"><div className="sub">Control gaps</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.controls}</div></div>
+      <div className="card"><div className="sub">Special cargo</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.special}</div></div>
+    </div>
     <div className="card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:10,flexWrap:'wrap'}}><div><h3 style={{margin:0}}>Booking Register</h3><span className="sub">Search, filter, export and open bookings for operations.</span></div><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className="btn" onClick={clearFilters}>Clear Filters</button><button className="btn" onClick={exportCsv} disabled={!visible.length}>Export CSV</button><span className="status">{visible.length} bookings</span></div></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8,marginBottom:12}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bookings..." style={field}/><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={field}><option value="ALL">All statuses</option>{statuses.map(s=><option key={s}>{s}</option>)}</select><select value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} style={field}><option value="ALL">All customers</option>{customerNames.map(s=><option key={s}>{s}</option>)}</select><select value={carrierFilter} onChange={e=>setCarrierFilter(e.target.value)} style={field}><option value="ALL">All carriers</option>{carriers.map(s=><option key={s}>{s}</option>)}</select><label><span style={label}>ETD From</span><input type="date" value={etdFrom} onChange={e=>setEtdFrom(e.target.value)} style={field}/></label><label><span style={label}>ETD To</span><input type="date" value={etdTo} onChange={e=>setEtdTo(e.target.value)} style={field}/></label></div>
-      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking No.</th><th>Carrier Ref.</th><th>Status</th><th>Customer</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>Equipment</th><th>Cargo</th><th>ETD</th><th>ETA</th><th>Action</th></tr></thead><tbody>{visible.length===0?<tr><td colSpan={13}>No bookings found.</td></tr>:visible.map(b=><tr key={b.id}><td><a href={`/bookings/${b.id}`} style={{fontWeight:800,color:'#123b61'}}>{b.bookingNo}</a></td><td>{b.carrierBookingNo||'-'}</td><td><span className="status">{b.status}</span></td><td>{b.customer?.name||'-'}</td><td>{b.origin}</td><td>{b.destination}</td><td>{b.carrier||'-'}</td><td>{b.vesselVoyage||'-'}</td><td>{b.equipment||'-'}</td><td>{b.specialCargo||'GENERAL'}</td><td>{b.etd?new Date(b.etd).toLocaleDateString():'-'}</td><td>{b.eta?new Date(b.eta).toLocaleDateString():'-'}</td><td><a className="btn" href={`/bookings/${b.id}`} style={{textDecoration:'none',display:'inline-block'}}>Open / Edit</a></td></tr>)}</tbody></table></div></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8,marginBottom:12}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bookings..." style={field}/><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={field}><option value="ALL">All statuses</option>{statuses.map(s=><option key={s}>{s}</option>)}</select><select value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} style={field}><option value="ALL">All customers</option>{customerNames.map(s=><option key={s}>{s}</option>)}</select><select value={carrierFilter} onChange={e=>setCarrierFilter(e.target.value)} style={field}><option value="ALL">All carriers</option>{carriers.map(s=><option key={s}>{s}</option>)}</select><select value={attentionFilter} onChange={e=>setAttentionFilter(e.target.value)} style={field}><option value="ALL">All attention states</option><option value="ACTION">Needs action</option><option value="CUTOFF">Cutoff risk</option><option value="CONTROLS">Control gaps</option><option value="SPECIAL">Special cargo</option></select><label><span style={label}>ETD From</span><input type="date" value={etdFrom} onChange={e=>setEtdFrom(e.target.value)} style={field}/></label><label><span style={label}>ETD To</span><input type="date" value={etdTo} onChange={e=>setEtdTo(e.target.value)} style={field}/></label></div>
+      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking No.</th><th>Carrier Ref.</th><th>Status</th><th>Customer</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>Equipment</th><th>Cargo</th><th>Controls</th><th>Next Cutoff</th><th>Attention</th><th>ETD</th><th>ETA</th><th>Action</th></tr></thead><tbody>{visible.length===0?<tr><td colSpan={16}>No bookings found.</td></tr>:visible.map(b=>{const op=operationalState(b);return <tr key={b.id}><td><a href={`/bookings/${b.id}`} style={{fontWeight:800,color:'#123b61'}}>{b.bookingNo}</a></td><td>{b.carrierBookingNo||'-'}</td><td><span className="status">{b.status}</span></td><td>{b.customer?.name||'-'}</td><td>{b.origin}</td><td>{b.destination}</td><td>{b.carrier||'-'}</td><td>{b.vesselVoyage||'-'}</td><td>{b.equipment||'-'}</td><td>{b.specialCargo||'GENERAL'}</td><td><div style={{minWidth:135,fontSize:12}}>Credit: {b.creditStatus||'-'}<br/>Slot: {b.slotStatus||'-'}<br/>Equipment: {b.equipmentStatus||'-'}</div></td><td>{op.cutoff?<><b>{op.cutoff.label}</b><div className="sub">{new Date(op.cutoff.value).toLocaleString()}</div><div className="sub">{op.cutoff.state}{op.cutoff.hours!=null?` · ${op.cutoff.hours}h`:''}</div></>:'-'}</td><td>{op.needsAction?<><span className="status">ACTION</span><div className="sub" style={{marginTop:4,maxWidth:190}}>{op.issues.join(', ')||op.cutoff?.state}</div></>:<span className="status">CLEAR</span>}</td><td>{b.etd?new Date(b.etd).toLocaleDateString():'-'}</td><td>{b.eta?new Date(b.eta).toLocaleDateString():'-'}</td><td><a className="btn" href={`/bookings/${b.id}`} style={{textDecoration:'none',display:'inline-block'}}>Open / Edit</a></td></tr>})}</tbody></table></div></div>
   </main></div>;
 }
