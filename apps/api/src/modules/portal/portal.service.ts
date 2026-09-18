@@ -227,6 +227,24 @@ export class PortalService {
     }
     const providerEvent=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',eventType:'PROVIDER_PROFILE_SET',objectId:providerCode},orderBy:{createdAt:'desc'}});
     const provider:any=providerEvent?.payload||{};
+    const carrierOperationNo='CBR-FWD-'+String(booking.bookingNo);
+    const carrierOpsExisting=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',objectType:'CarrierBooking',objectId:carrierOperationNo,eventType:'CARRIER_BOOKING_REQUESTED'}});
+    if(!carrierOpsExisting){
+      const requestedPayload={
+        carrierOperationNo,bookingId:booking.id,bookingNo:booking.bookingNo,shipmentNo:booking.shipmentNo||null,
+        businessModel:'FORWARDING',bookingChannel:booking.bookingChannel,costCenterCode:booking.costCenterCode||null,customerRef:booking.customerRef||null,
+        jobType:booking.jobType||'FORWARDING',forwardingTradeType:booking.forwardingTradeType||'STANDARD',
+        rateQuoteNo:quote.quoteNo,carrierQuoteRef:quote.carrierQuoteRef||null,
+        carrierId:provider.carrierOrgId||null,carrierCode:providerCode,carrierName:quoteOffer.carrier||booking.carrier||provider.carrier||provider.name||providerCode,
+        scheduleId:null,scheduleNo:quoteOffer.serviceName||null,scheduleCarrier:quoteOffer.carrier||null,serviceName:quoteOffer.serviceName||null,
+        vessel:quoteOffer.vessel||null,voyage:quoteOffer.voyage||null,portOfLoading:booking.portOfLoading||booking.origin,portOfDischarge:booking.portOfDischarge||booking.destination,
+        terminal:booking.terminal||null,etd:booking.etd||quoteOffer.etd||null,eta:booking.eta||quoteOffer.eta||null,cyClosing:booking.cyClosing||null,siCutoff:booking.siCutoff||null,vgmCutoff:booking.vgmCutoff||null,docCutoff:booking.docCutoff||null,
+        equipmentType:booking.equipment||null,quantity:booking.quantity||1,spaceTeu:(String(booking.equipment||'').includes('40')||String(booking.equipment||'').includes('45')?2:1)*Math.max(1,Number(booking.quantity||1)),
+        carrierBookingNo:null,confirmationStatus:'REQUESTED',allocationStatus:'UNALLOCATED',allocationRef:null,equipmentReleaseStatus:'PENDING',releaseOrderNo:null,emptyDepot:null,releaseValidUntil:null,
+        notes:'Automatically created from accepted ANC Forwarding quote '+quote.quoteNo,requestedBy:user.sub,automation:true
+      };
+      await this.prisma.integrationEvent.create({data:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_REQUESTED',externalId:carrierOperationNo,objectType:'CarrierBooking',objectId:carrierOperationNo,status:'COMPLETED',payload:requestedPayload,completedAt:new Date()}});
+    }
     const bookingEndpoint=String(provider.bookingEndpoint||'').trim();
     if(!bookingEndpoint){
       await this.prisma.integrationEvent.create({data:{sourceSystem:source,eventType:'CARRIER_BOOKING_AUTOMATION_PENDING',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'PENDING',payload:{bookingId:booking.id,providerCode,carrier:quoteOffer.carrier||selection.carrier||booking.carrier||null,reason:'Carrier booking API endpoint is not configured',createdBy:user.sub}}});
@@ -250,6 +268,7 @@ export class PortalService {
       const confirmation=String(data?.status||data?.confirmationStatus||(carrierBookingNo?'CONFIRMED':'SUBMITTED')).toUpperCase();
       await this.prisma.$transaction(async(tx:any)=>{
         await tx.integrationEvent.create({data:{sourceSystem:source,eventType:carrierBookingNo?'FORWARDING_CARRIER_BOOKING_CONFIRMED':'FORWARDING_CARRIER_BOOKING_SUBMITTED',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'COMPLETED',payload:{bookingId:booking.id,providerCode,carrier:quoteOffer.carrier||selection.carrier||booking.carrier||null,carrierBookingNo,confirmation,responseMeta:data?.meta||null,submittedBy:user.sub},completedAt:new Date()}});
+        if(carrierBookingNo)await tx.integrationEvent.create({data:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_CONFIRMED',externalId:carrierOperationNo,objectType:'CarrierBooking',objectId:carrierOperationNo,status:'COMPLETED',payload:{carrierBookingNo,confirmationStatus:'CONFIRMED',confirmedAt:new Date().toISOString(),confirmedBy:user.sub,automation:true},completedAt:new Date()}});
         await tx.booking.update({where:{id:booking.id},data:{carrier:quoteOffer.carrier||selection.carrier||booking.carrier||null,carrierBookingNo,slotStatus:carrierBookingNo?'CONFIRMED':'REQUESTED',shipmentStatus:carrierBookingNo?'CARRIER_CONFIRMED':'CARRIER_BOOKING_SUBMITTED'}});
       });
       return {status:carrierBookingNo?'CONFIRMED':'SUBMITTED',providerCode,carrierBookingNo};
@@ -257,6 +276,7 @@ export class PortalService {
       const reason=e?.name==='AbortError'?'Carrier booking API timed out':String(e?.message||'Carrier booking submission failed');
       await this.prisma.$transaction(async(tx:any)=>{
         await tx.integrationEvent.create({data:{sourceSystem:source,eventType:'FORWARDING_CARRIER_BOOKING_FAILED',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'FAILED',payload:{bookingId:booking.id,providerCode,reason,failedBy:user.sub}}});
+        await tx.integrationEvent.create({data:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_AUTOMATION_EXCEPTION',externalId:carrierOperationNo,objectType:'CarrierBooking',objectId:carrierOperationNo,status:'FAILED',payload:{automationException:reason,automationExceptionAt:new Date().toISOString()},completedAt:new Date()}});
         await tx.booking.update({where:{id:booking.id},data:{shipmentStatus:'CARRIER_BOOKING_EXCEPTION'}});
       });
       return {status:'EXCEPTION',providerCode,reason};
