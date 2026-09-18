@@ -6,8 +6,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PortalController {
   constructor(private s:PortalService){}
   @Get('bookings') bookings(@Req() req:any){return this.s.bookings(req.user);}
+  @Get('nvocc/bookings') nvoccBookings(@Req() req:any){return this.s.nvoccBookings(req.user);}
+  @Get('nvocc/parties') nvoccParties(@Req() req:any){return this.s.nvoccParties(req.user);}
+  @Get('nvocc/documents') nvoccDocuments(@Req() req:any){return this.s.nvoccDocuments(req.user);}
   @Get('customers') customers(@Req() req:any){return this.s.customers(req.user);}
   @Post('bookings') createBooking(@Body() body:any,@Req() req:any){return this.s.directBooking(body,req.user);}
+  @Post('nvocc/bookings') createNvoccBooking(@Body() body:any,@Req() req:any){return this.s.nvoccDirectBooking(body,req.user);}
   @Post('bookings/:id/accept-quote') acceptQuote(@Param('id') id:string,@Req() req:any){return this.s.acceptQuote(id,req.user);}
+  @Post('nvocc/bookings/:id/accept-quote') acceptNvoccQuote(@Param('id') id:string,@Req() req:any){return this.s.nvoccAcceptQuote(id,req.user);}
   @Get('bookings/:id/release-security') releaseSecurity(@Param('id') id:string,@Req() req:any){return this.s.releaseSecurity(id,req.user);}
 }
