@@ -252,11 +252,12 @@ export class PortalService {
       return {status:'PENDING_CONFIGURATION',providerCode};
     }
     const request={
-      bookingId:booking.id,bookingNo:booking.bookingNo,customerReference:booking.customerReference||null,
-      carrierQuoteReference:quote?.carrierQuoteRef||selection.externalQuoteRef||quoteOffer.carrierQuoteRef||null,quoteNo:quote.quoteNo,
+      requestReference:'ANC-BOOK-'+String(booking.bookingNo||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,48),
+      bookingParty:{name:provider?.carrierIdentity?.accountName||'ANC',accountCode:provider?.carrierIdentity?.accountCode||null},
+      carrierQuoteReference:quote?.carrierQuoteRef||selection.externalQuoteRef||quoteOffer.carrierQuoteRef||null,
       origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading||booking.origin,portOfDischarge:booking.portOfDischarge||booking.destination,
       equipment:booking.equipment,quantity:booking.quantity||1,commodity:booking.commodity||null,grossWeight:booking.grossWeight||null,volumeCbm:booking.volumeCbm||null,
-      requestedEtd:booking.etd||null,shipper:booking.shipper||null,consignee:booking.consignee||null,freightTerms:booking.freightTerms||null
+      requestedEtd:booking.etd||null,freightTerms:booking.freightTerms||null
     };
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
     try{
