@@ -107,7 +107,12 @@ export class CreditControlService {
     const overdueHoldDays=Math.max(1,Math.min(365,Math.floor(Number(body?.overdueHoldDays??60))));
     const riskRating=String(body?.riskRating||'MEDIUM').toUpperCase();if(!['LOW','MEDIUM','HIGH','RESTRICTED'].includes(riskRating))throw new BadRequestException('Risk rating must be LOW, MEDIUM, HIGH or RESTRICTED');
     const creditHold=Boolean(body?.creditHold);const holdReason=creditHold?this.required(body?.holdReason||'Manual credit hold','Hold reason'):null;
-    const payload={partyId,partyName:org.name,creditLimit:limit,creditCurrency:String(body?.creditCurrency||'USD').toUpperCase(),paymentTermsDays,overdueHoldDays,riskRating,creditHold,holdReason,collectorId:body?.collectorId?String(body.collectorId):null,notes:body?.notes?String(body.notes):null,updatedBy:user.sub};
+    const customerPaymentMode=String(body?.customerPaymentMode||'CREDIT').toUpperCase();
+    if(!['CREDIT','PREPAID','PARTIAL_PREPAID'].includes(customerPaymentMode))throw new BadRequestException('Customer payment mode must be CREDIT, PREPAID or PARTIAL_PREPAID');
+    let prepaidPct=customerPaymentMode==='PREPAID'?100:customerPaymentMode==='CREDIT'?0:Number(body?.prepaidPct||0);
+    if(!Number.isFinite(prepaidPct)||prepaidPct<0||prepaidPct>100)throw new BadRequestException('Prepaid % must be between 0 and 100');
+    if(customerPaymentMode==='PARTIAL_PREPAID'&&(prepaidPct<=0||prepaidPct>=100))throw new BadRequestException('Partial prepaid % must be greater than 0 and below 100');
+    const payload={partyId,partyName:org.name,creditLimit:limit,creditCurrency:String(body?.creditCurrency||'USD').toUpperCase(),paymentTermsDays,overdueHoldDays,riskRating,creditHold,holdReason,customerPaymentMode,prepaidPct,collectorId:body?.collectorId?String(body.collectorId):null,notes:body?.notes?String(body.notes):null,updatedBy:user.sub};
     const event=await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'CREDIT_PROFILE_SET',externalId:partyId,objectType:'CreditProfile',objectId:partyId,status:'COMPLETED',payload,completedAt:new Date()}});
     await this.audit.log({actorId:user.sub,action:'CREDIT_PROFILE_SET',objectType:'Organization',objectId:partyId,detail:{eventId:event.id,...payload}});return this.customer(partyId,user);
   }
