@@ -14,8 +14,8 @@ export default function CustomerRegistrationPage(){
     sanctionsDeclaration:false,termsAccepted:false,privacyAccepted:false
   });
   const [ubos,setUbos]=useState<Person[]>([{...blankPerson}]),[directors,setDirectors]=useState<Person[]>([{...blankPerson}]);
-  const [documents,setDocuments]=useState<string[]>([]);
   const [registrationRef,setRegistrationRef]=useState(''),[statusRef,setStatusRef]=useState(''),[status,setStatus]=useState<any>(null);
+  const [uploadToken,setUploadToken]=useState(''),[files,setFiles]=useState<Record<string,File|null>>({}),[uploadingDoc,setUploadingDoc]=useState('');
   const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
   const input:React.CSSProperties={width:'100%',padding:9,border:'1px solid #cfd9e2',borderRadius:6,background:'#fff'};
   const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
@@ -40,12 +40,29 @@ export default function CustomerRegistrationPage(){
         bankDetails:{bankName:form.bankName.trim(),bankCountry:form.bankCountry.trim().toUpperCase(),accountName:form.bankAccountName.trim(),accountReference:form.bankAccountRef.trim()},
         expectedTradeLanes:form.expectedTradeLanes.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean),
         expectedMonthlyShipments:Number(form.expectedMonthlyShipments||0)||null,
-        documents
+        documents:requiredDocs
       };
       const r=await api('/organizations/register-customer',undefined,{method:'POST',body:JSON.stringify(payload)});
-      setRegistrationRef(r.registrationRef);setStatusRef(r.registrationRef);setStatus(r);setMessage('KYC application submitted. Keep your ANC registration reference for status tracking.');
+      setRegistrationRef(r.registrationRef);setStatusRef(r.registrationRef);setStatus(r);setUploadToken(r.kycUploadToken||'');if(r.kycUploadToken)sessionStorage.setItem('ancline_kyc_upload_'+r.registrationRef,r.kycUploadToken);setMessage(r.storage?.configured?'KYC application submitted. Upload the required KYC documents below.':'KYC application submitted. Secure document storage is not configured yet; ANC will request documents once storage is enabled.');
     }catch(e:any){setMessage(e.message||'Customer registration could not be submitted.');}
     finally{setBusy(false);}
+  }
+
+  async function uploadDocument(documentType:string){
+    const file=files[documentType];if(!file||!registrationRef)return;
+    const token=uploadToken||sessionStorage.getItem('ancline_kyc_upload_'+registrationRef)||'';
+    if(!token){setMessage('This browser no longer has the KYC upload authorization. Please contact ANC to renew secure upload access.');return;}
+    setUploadingDoc(documentType);setMessage('');
+    try{
+      const reservation=await api('/organizations/registration/'+encodeURIComponent(registrationRef)+'/documents/upload-url',undefined,{method:'POST',body:JSON.stringify({uploadToken:token,documentType,filename:file.name,contentType:file.type,size:file.size})});
+      if(!reservation?.uploadUrl)throw new Error('Secure object storage is not ready for KYC uploads.');
+      const put=await fetch(reservation.uploadUrl,{method:'PUT',headers:{'content-type':file.type||'application/octet-stream'},body:file});
+      if(!put.ok)throw new Error('Secure file upload failed ('+put.status+').');
+      await api('/organizations/registration/'+encodeURIComponent(registrationRef)+'/documents/complete',undefined,{method:'POST',body:JSON.stringify({uploadToken:token,key:reservation.key})});
+      const current=await api('/organizations/registration/'+encodeURIComponent(registrationRef));setStatus(current);
+      setFiles(x=>({...x,[documentType]:null}));setMessage(documentType+' uploaded securely.');
+    }catch(e:any){setMessage(e.message||'KYC document upload failed.');}
+    finally{setUploadingDoc('');}
   }
 
   async function checkStatus(){
@@ -66,6 +83,22 @@ export default function CustomerRegistrationPage(){
         <div><span className="sub">COMPANY</span><div>{status.companyName||form.legalName}</div></div>
       </div>
       {status.rejectionReason&&<div style={{marginTop:10}}><b>Review note:</b> {status.rejectionReason}</div>}
+    </div>}
+
+    {registrationRef&&<div className="card" style={{marginBottom:12}}>
+      <h3 style={{marginTop:0}}>Secure KYC Document Upload</h3>
+      <div className="sub" style={{marginBottom:10}}>Files are uploaded directly to ANC private object storage using a short-lived signed URL. Storage credentials are never exposed to the browser and KYC documents are never sent to carriers.</div>
+      <div style={{display:'grid',gap:9}}>
+        {requiredDocs.map(d=>{
+          const done=(status?.documentsUploaded||[]).find((x:any)=>x.documentType===d);
+          return <div key={d} style={{display:'grid',gridTemplateColumns:'minmax(220px,1fr) minmax(220px,1fr) auto',gap:8,alignItems:'center',padding:9,border:'1px solid #e2e8ee',borderRadius:7}}>
+            <div><b>{d}</b>{done&&<div className="sub">Uploaded: {done.filename}</div>}</div>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={Boolean(done)||Boolean(uploadingDoc)} onChange={e=>setFiles(x=>({...x,[d]:e.target.files?.[0]||null}))}/>
+            <button className="btn" disabled={Boolean(done)||!files[d]||Boolean(uploadingDoc)} onClick={()=>uploadDocument(d)}>{done?'Uploaded ✓':uploadingDoc===d?'Uploading...':'Upload Securely'}</button>
+          </div>;
+        })}
+      </div>
+      <div className="sub" style={{marginTop:10}}>Maximum 15 MB per file. Accepted: PDF, JPG, PNG. Keep your ANC Registration Ref for status tracking.</div>
     </div>}
 
     {!registrationRef&&<div className="card" style={{marginBottom:12}}>
@@ -119,11 +152,11 @@ export default function CustomerRegistrationPage(){
       </div>
       <label style={{display:'flex',gap:8,marginTop:10}}><input type="checkbox" checked={form.dangerousGoods} onChange={e=>setForm({...form,dangerousGoods:e.target.checked})}/> We expect to ship dangerous goods / regulated cargo.</label>
 
-      <h3>6. KYC document checklist</h3>
+      <h3>6. Required KYC documents</h3>
       <div style={{display:'grid',gap:7}}>
-        {requiredDocs.map(d=><label key={d} style={{display:'flex',gap:8,alignItems:'center'}}><input type="checkbox" checked={documents.includes(d)} onChange={e=>setDocuments(x=>e.target.checked?[...x,d]:x.filter(v=>v!==d))}/>{d}</label>)}
+        {requiredDocs.map(d=><div key={d} style={{padding:8,border:'1px solid #e2e8ee',borderRadius:6}}>{d}</div>)}
       </div>
-      <div className="sub" style={{marginTop:7}}>This registration records the KYC document checklist. Secure document-file upload can be attached to the ANC document-storage workflow separately.</div>
+      <div className="sub" style={{marginTop:7}}>Submit the company registration first. ANCLINE then creates a private, time-limited upload authorization for the actual PDF/JPG/PNG files.</div>
 
       <h3>7. Declarations & terms</h3>
       <div style={{display:'grid',gap:8}}>
