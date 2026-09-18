@@ -17,6 +17,7 @@ export default function Home(){
     const user=currentUser();
     if(user?.role==='CUSTOMER'){location.replace('/customer-portal');return;}
     if(user?.role==='AGENT'){location.replace('/agent-portal');return;}
+    if(user?.role==='BRANCH_OPS'){location.replace('/branch-portal');return;}
     void load(token);
   },[]);
 
