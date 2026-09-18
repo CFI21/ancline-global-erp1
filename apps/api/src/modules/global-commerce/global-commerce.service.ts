@@ -32,7 +32,7 @@ export class GlobalCommerceService {
   async setCountry(codeInput:string,body:any,user:ScopeUser){
     this.admin(user);const countryCode=this.countryCode(codeInput||body?.countryCode);const countryName=this.text(body?.countryName||body?.name);
     if(!countryName)throw new BadRequestException('Country name is required');
-    const localCurrency=this.currency(body?.localCurrency||'USD'),timezone=this.timezone(body?.timezone||'UTC/Etc');
+    const localCurrency=this.currency(body?.localCurrency||'USD'),timezone=this.timezone(body?.timezone||'Etc/UTC');
     const supportedLanguages=Array.isArray(body?.supportedLanguages)?body.supportedLanguages.map((x:any)=>this.text(x)).filter(Boolean):['en'];
     const customerPaymentMethods=Array.isArray(body?.customerPaymentMethods)?body.customerPaymentMethods.map((x:any)=>this.upper(x)).filter(Boolean):[];
     const payload={countryCode,countryName,serviceEnabled:body?.serviceEnabled!==false,customerRegistrationEnabled:body?.customerRegistrationEnabled!==false,forwardingEnabled:body?.forwardingEnabled!==false,nvoccEnabled:Boolean(body?.nvoccEnabled),customsEnabled:Boolean(body?.customsEnabled),haulageEnabled:Boolean(body?.haulageEnabled),carrierPayerAllowed:Boolean(body?.carrierPayerAllowed),localCurrency,timezone,supportedLanguages,defaultLanguage:this.text(body?.defaultLanguage||supportedLanguages[0]||'en'),customerPaymentMethods,taxRegime:this.upper(body?.taxRegime||'CONFIG_REQUIRED'),eInvoiceMode:this.upper(body?.eInvoiceMode||'CONFIG_REQUIRED'),dataRegion:this.upper(body?.dataRegion||'EU'),active:body?.active!==false,notes:this.text(body?.notes)||null};
