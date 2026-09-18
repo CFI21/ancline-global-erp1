@@ -12,6 +12,12 @@ export class OrganizationsController {
   @Get('registration/:registrationRef')
   registrationStatus(@Param('registrationRef') registrationRef:string){ return this.service.registrationStatus(registrationRef); }
 
+  @Post('registration/:registrationRef/documents/upload-url')
+  createKycDocumentUpload(@Param('registrationRef') registrationRef:string,@Body() body:any){ return this.service.createKycDocumentUpload(registrationRef,body); }
+
+  @Post('registration/:registrationRef/documents/complete')
+  completeKycDocumentUpload(@Param('registrationRef') registrationRef:string,@Body() body:any){ return this.service.completeKycDocumentUpload(registrationRef,body); }
+
   @Get('kyc/queue')
   @UseGuards(JwtAuthGuard)
   kycQueue(@Req() req:any){ return this.service.kycQueue(req.user); }
