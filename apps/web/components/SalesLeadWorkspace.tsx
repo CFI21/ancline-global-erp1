@@ -44,7 +44,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
         api(`/sales-crm/leads/${leadId}/logs`,t)
       ]);
       setLead(l);setForm({...l,originalCall:l.originalCall?String(l.originalCall).slice(0,10):''});
-      setComms(Array.isArray(c)?c:[]);setLogs(g||{events:[],audit:[]});setComm(x=>({...x,contact:l.contactName||''}));
+      setComms(Array.isArray(c)?c:[]);setLogs(g||{events:[],audit:[]});setComm((x:any)=>({...x,contact:l.contactName||''}));
     }catch(e:any){setMessage(e?.message||'Unable to load inquiry');}
   }
 
