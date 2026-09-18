@@ -34,15 +34,15 @@ export class AuthService {
     const email=String(body.email).trim().toLowerCase();
     const account=await this.prisma.userAccount.findUnique({where:{email}});
 
+    const devAllowed=String(process.env.ALLOW_DEV_LOGIN||'true').toLowerCase()!=='false';
     if(account){
       if(!account.active) throw new UnauthorizedException('This ANCLINE account is inactive');
-      return this.issueManaged(account,'MANAGED');
+      if(!devAllowed) throw new UnauthorizedException('Email-only ANCLINE login is disabled. Use secure identity sign-in.');
+      return this.issueManaged(account,'TRANSITIONAL_MANAGED');
     }
 
-    // Transitional development access remains available only while explicitly allowed.
-    // Production OIDC can be enabled without changing the UI; set ALLOW_DEV_LOGIN=false
-    // after all required users are provisioned to disable this path completely.
-    const devAllowed=String(process.env.ALLOW_DEV_LOGIN||'true').toLowerCase()!=='false';
+    // Transitional access remains available only while explicitly allowed.
+    // Set ALLOW_DEV_LOGIN=false after secure identity is configured and all users are provisioned.
     if(!devAllowed) throw new UnauthorizedException('No active ANCLINE account is provisioned for this email');
 
     const role=String(body.role||'GLOBAL_ADMIN').toUpperCase();
