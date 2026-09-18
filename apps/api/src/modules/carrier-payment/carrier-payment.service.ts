@@ -25,16 +25,24 @@ export class CarrierPaymentService {
     return b;
   }
   private async officeData(){
+    const masterEvents=await this.db.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_GLOBAL_COMMERCE',objectType:'AncOfficeProfile',eventType:'ANC_OFFICE_PROFILE_SET'},orderBy:{createdAt:'asc'}});
+    const latest=new Map<string,any>();for(const e of masterEvents)latest.set(e.objectId,{...(e.payload||{}),id:e.objectId});
+    const masterOffices=[...latest.values()].filter((x:any)=>x.active!==false&&x.registeredOffice!==false&&x.carrierPayerEligible===true&&x.countryCode)
+      .map((x:any)=>({officeKey:'GLOBAL:'+x.officeId,source:'GLOBAL_COMMERCE_MASTER',id:x.officeId,code:x.officeCode,name:x.officeName,countryCode:this.country(x.countryCode),address:x.address||null,city:x.city||null,legalEntityName:x.legalEntityName||null}));
+    if(masterOffices.length){
+      const countries=[...new Set(masterOffices.map((x:any)=>x.countryCode))].sort();
+      return {offices:masterOffices,countries,source:'GLOBAL_COMMERCE_MASTER',legacyFallback:false};
+    }
     const [branches,orgs]=await Promise.all([
       this.db.branch.findMany({where:{active:true},select:{id:true,code:true,name:true,countryCode:true},orderBy:[{countryCode:'asc'},{name:'asc'}]}),
       this.db.organization.findMany({where:{active:true,roles:{has:'ANCLINE_BRANCH'}},select:{id:true,code:true,name:true,countryCode:true},orderBy:[{countryCode:'asc'},{name:'asc'}]})
     ]);
     const offices:any[]=[
-      ...branches.map((x:any)=>({officeKey:'BRANCH:'+x.id,source:'BRANCH',id:x.id,code:x.code,name:x.name,countryCode:this.country(x.countryCode)})),
-      ...orgs.map((x:any)=>({officeKey:'ORG:'+x.id,source:'ORGANIZATION',id:x.id,code:x.code,name:x.name,countryCode:this.country(x.countryCode)}))
+      ...branches.map((x:any)=>({officeKey:'BRANCH:'+x.id,source:'LEGACY_BRANCH',id:x.id,code:x.code,name:x.name,countryCode:this.country(x.countryCode)})),
+      ...orgs.map((x:any)=>({officeKey:'ORG:'+x.id,source:'LEGACY_ORGANIZATION',id:x.id,code:x.code,name:x.name,countryCode:this.country(x.countryCode)}))
     ].filter((x:any)=>x.countryCode);
     const countries=[...new Set(offices.map((x:any)=>x.countryCode))].sort();
-    return {offices,countries};
+    return {offices,countries,source:'LEGACY_FALLBACK',legacyFallback:true};
   }
   async offices(user:ScopeUser){
     this.scope.assertInternal(user);
@@ -71,8 +79,9 @@ export class CarrierPaymentService {
   }
   async get(bookingId:string,user:ScopeUser){
     const booking=await this.booking(bookingId,user);
-    const [{offices,countries},current]=await Promise.all([this.officeData(),this.latest(bookingId)]);
-    return {booking:{id:booking.id,bookingNo:booking.bookingNo,carrier:booking.carrier,carrierBookingNo:booking.carrierBookingNo,currency:booking.currency,status:booking.status},chargeGroups:GROUPS,terms:['PREPAID_ORIGIN','COLLECT','PREPAID_ELSEWHERE','NOT_APPLICABLE'],registeredCountries:countries,offices,current};
+    const [meta,current]=await Promise.all([this.officeData(),this.latest(bookingId)]);
+    const {offices,countries}=meta;
+    return {booking:{id:booking.id,bookingNo:booking.bookingNo,carrier:booking.carrier,carrierBookingNo:booking.carrierBookingNo,currency:booking.currency,status:booking.status},chargeGroups:GROUPS,terms:['PREPAID_ORIGIN','COLLECT','PREPAID_ELSEWHERE','NOT_APPLICABLE'],registeredCountries:countries,offices,current,officeSource:meta.source,legacyFallback:meta.legacyFallback};
   }
   async set(bookingId:string,body:any,user:ScopeUser){
     const booking=await this.booking(bookingId,user);
