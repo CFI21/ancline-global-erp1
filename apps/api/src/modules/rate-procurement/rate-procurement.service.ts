@@ -16,6 +16,12 @@ export class RateProcurementService {
   private get db():any{return this.prisma as any;}
   private internal(user:ScopeUser){this.scope.assertInternal(user);}
   private external(user:ScopeUser){return ['CUSTOMER','AGENT'].includes(String(user.role||'').toUpperCase());}
+  private assertRateAccess(booking:any,user:ScopeUser){
+    const model=String(booking?.businessModel||'NVOCC').toUpperCase(),role=String(user?.role||'').toUpperCase();
+    if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN','CONTROL_TOWER'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Admin / Control Tower users');
+    if(model==='FORWARDING'&&!['CUSTOMER','AGENT','BRANCH_OPS','GLOBAL_ADMIN','CONTROL_TOWER'].includes(role))throw new BadRequestException('Forwarding online rate access denied for this role');
+    if(!['NVOCC','FORWARDING'].includes(model))throw new BadRequestException('Unsupported booking operating model');
+  }
   private text(v:any){return String(v??'').trim();}
   private money(v:any,name='Rate'){const n=Number(v);if(!Number.isFinite(n)||n<0)throw new BadRequestException(`${name} must be a valid positive amount`);return Math.round(n*100)/100;}
   private round(v:any){return Math.round((Number(v||0)+Number.EPSILON)*100)/100;}
@@ -90,7 +96,7 @@ export class RateProcurementService {
     await this.scope.assertBookingAccess(user,bookingId);
     const booking=await this.db.booking.findUnique({where:{id:bookingId},include:{customer:{select:{id:true,code:true,name:true}},rateQuote:true}});
     if(!booking)throw new NotFoundException('Booking not found');
-    if(String(booking.businessModel||'NVOCC').toUpperCase()!=='FORWARDING')throw new BadRequestException('Forwarding global rate procurement is available only for FORWARDING bookings; NVOCC pricing and space control remain separate');
+    this.assertRateAccess(booking,user);
     return booking;
   }
 
@@ -180,7 +186,7 @@ export class RateProcurementService {
       await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'RATE_SEARCH_COMPLETED',externalId:bookingId,objectType:SEARCH_OBJECT,objectId:searchId,status:providerErrors.length?'COMPLETED_WITH_WARNINGS':'COMPLETED',payload:{bookingId,searchId,contractOffers:contract.length,onlineOffers:external.length,totalOffers:offers.length,providerResults,providerErrors,searchedBy:user.sub},completedAt:new Date()}});
       if(offers.length&&!TERMINAL_BOOKING.has(current))await tx.booking.update({where:{id:bookingId},data:{status:'RATE_RECEIVED'}});
     });
-    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SEARCH',objectType:'Booking',objectId:bookingId,bookingId,detail:{providers:providers.map((p:any)=>p.providerCode),contractOffers:contract.length,onlineOffers:external.length,providerErrors}});
+    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SEARCH',objectType:'Booking',objectId:bookingId,bookingId,detail:{businessModel:booking.businessModel||'NVOCC',bookingChannel:booking.bookingChannel||'INTERNAL',providers:providers.map((p:any)=>p.providerCode),contractOffers:contract.length,onlineOffers:external.length,providerErrors}});
     if(this.external(user)){const byCode=new Map(allProfiles.map((p:any)=>[String(p.providerCode),p]));return {bookingId,offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))).filter(Boolean),providerErrors:providerErrors.map((x:any)=>({carrier:x.name||x.providerCode,error:'Rate source temporarily unavailable'})),providerResults:providerResults.map((x:any)=>({carrier:x.name,offers:x.offers,status:x.status}))};}
     return {bookingId,offers,providerErrors,providerResults};
   }
@@ -206,7 +212,7 @@ export class RateProcurementService {
       await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'RATE_OFFER_SELECTED',externalId:bookingId,objectType:OFFER_OBJECT,objectId:offerId,status:'COMPLETED',payload:{bookingId,offerId,quoteId:quote.id,quoteNo,providerCode:offer.providerCode||null,carrier:offer.carrier||null,externalQuoteRef:offer.externalQuoteRef||null,baseBuyRate:this.round(offer.baseBuyRate),surchargeTotal:this.round(offer.surchargeTotal),allInBuyRate:buyRate,buyRate,sellRate,quantity,totalBuyAmount:this.round(buyRate*quantity),totalSellAmount:this.round(sellRate*quantity),pricingMethod,pricingValue,markupPct,grossMarginPct,costLines,commercialTerms,selectedBy:user.sub},completedAt:new Date()}});
       return quote;
     });
-    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SELECTED',objectType:'Booking',objectId:bookingId,bookingId,detail:{offerId,providerCode:offer.providerCode,carrier:offer.carrier,externalQuoteRef:offer.externalQuoteRef||null,quoteNo:result.quoteNo,buyRate,sellRate,currency:result.currency,pricingMethod,pricingValue,markupPct,grossMarginPct,costLineCount:costLines.length,commercialTerms}});
+    await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SELECTED',objectType:'Booking',objectId:bookingId,bookingId,detail:{businessModel:booking.businessModel||'NVOCC',bookingChannel:booking.bookingChannel||'INTERNAL',offerId,providerCode:offer.providerCode,carrier:offer.carrier,externalQuoteRef:offer.externalQuoteRef||null,quoteNo:result.quoteNo,buyRate,sellRate,currency:result.currency,pricingMethod,pricingValue,markupPct,grossMarginPct,costLineCount:costLines.length,commercialTerms}});
     if(isExternal)return {ok:true,offer:this.publicOffer(offer,provider),quote:{id:result.id,quoteNo:result.quoteNo,sellRate:result.sellRate,currency:result.currency,validTo:result.validTo,status:result.status}};
     return {ok:true,offer,quote:result,pricing:{pricingMethod,pricingValue,markupPct,grossMarginPct,grossProfit:this.round(sellRate-buyRate)},commercialTerms,costLines};
   }
