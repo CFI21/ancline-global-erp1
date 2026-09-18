@@ -57,11 +57,11 @@ export class FinanceClosePackService {
   }
 
   private buildInvoice(rows:any[]){
-    const c=rows.find((x:any)=>x.eventType==='INVOICE_CREATED');if(!c)return null;const p=this.p(c),payments=rows.filter((x:any)=>x.eventType==='PAYMENT_RECORDED'),paid=this.r(payments.reduce((s:number,x:any)=>s+Number(this.p(x).amount||0),0)),total=this.r(p.totalAmount),balance=this.r(Math.max(0,total-paid)),issued=rows.some((x:any)=>x.eventType==='INVOICE_ISSUED'),voided=rows.some((x:any)=>x.eventType==='INVOICE_VOIDED');const due=p.dueDate?new Date(p.dueDate):null,days=due&&balance>0?Math.max(0,Math.floor((Date.now()-due.getTime())/DAY)):0;return {invoiceNo:c.objectId,invoiceType:String(p.invoiceType||'AR').toUpperCase(),partyName:p.partyName||null,currency:p.currency||'USD',balance,daysOverdue:days,status:voided?'VOID':issued?'ISSUED':'DRAFT',createdAt:c.createdAt};
+    const c=rows.find((x:any)=>x.eventType==='INVOICE_CREATED');if(!c)return null;const p=this.p(c),payments=rows.filter((x:any)=>x.eventType==='PAYMENT_RECORDED'),paid=this.r(payments.reduce((s:number,x:any)=>s+Number(this.p(x).amount||0),0)),total=this.r(p.totalAmount),balance=this.r(Math.max(0,total-paid)),issued=rows.some((x:any)=>x.eventType==='INVOICE_ISSUED'),voided=rows.some((x:any)=>x.eventType==='INVOICE_VOIDED');const due=p.dueDate?new Date(p.dueDate):null,days=due&&balance>0?Math.max(0,Math.floor((Date.now()-due.getTime())/DAY)):0;return {invoiceNo:c.objectId,invoiceType:String(p.invoiceType||'AR').toUpperCase(),bookingId:p.bookingId?String(p.bookingId):null,partyName:p.partyName||null,currency:p.currency||'USD',balance,daysOverdue:days,status:voided?'VOID':issued?'ISSUED':'DRAFT',createdAt:c.createdAt};
   }
-  private async agedAP(period:string){
+  private async agedAP(entityId:string,period:string){
     const ev:any[]=await this.db.integrationEvent.findMany({where:{sourceSystem:ACC,objectType:'FinanceInvoice'},orderBy:{createdAt:'asc'}}),g=new Map<string,any[]>();for(const x of ev){if(!g.has(x.objectId))g.set(x.objectId,[]);g.get(x.objectId)!.push(x);}
-    return Array.from(g.values()).map((x:any[])=>this.buildInvoice(x)).filter((x:any)=>x&&x.invoiceType==='AP'&&x.balance>0&&x.status!=='VOID'&&String(x.createdAt).slice(0,7)<=period&&x.daysOverdue>30).sort((a:any,b:any)=>b.daysOverdue-a.daysOverdue);
+    const bookingMap=await this.bookingEntityMap();return Array.from(g.values()).map((x:any[])=>this.buildInvoice(x)).filter((x:any)=>x&&x.invoiceType==='AP'&&x.balance>0&&x.status!=='VOID'&&String(x.createdAt).slice(0,7)<=period&&x.daysOverdue>30&&x.bookingId&&bookingMap.get(String(x.bookingId))===entityId).sort((a:any,b:any)=>b.daysOverdue-a.daysOverdue);
   }
 
   private async signoffState(entityId:string,period:string){
@@ -69,7 +69,7 @@ export class FinanceClosePackService {
   }
 
   async entityPack(entityId:string,periodInput:string,u:ScopeUser){
-    this.access(u);const period=this.period(periodInput),entity=await this.entity(entityId),[bs,recs,suspense,agedAP,signoff]=await Promise.all([this.balanceSheet(entityId,period),this.reconciliationMap(entityId,period),this.suspense(entityId,period),this.agedAP(period),this.signoffState(entityId,period)]);
+    this.access(u);const period=this.period(periodInput),entity=await this.entity(entityId),[bs,recs,suspense,agedAP,signoff]=await Promise.all([this.balanceSheet(entityId,period),this.reconciliationMap(entityId,period),this.suspense(entityId,period),this.agedAP(entityId,period),this.signoffState(entityId,period)]);
     const reconciliations=bs.map((x:any)=>({...x,reconciliation:recs.get(String(x.account))||null,status:recs.get(String(x.account))?.status||'UNRECONCILED'})),unreconciled=reconciliations.filter((x:any)=>x.status!=='RECONCILED'),openSuspense=suspense.filter((x:any)=>!x.resolved&&Math.abs(Number(x.balance||0))>0.005);
     const blockers=[...unreconciled.map((x:any)=>({type:'BALANCE_SHEET_UNRECONCILED',objectId:x.account,message:'Balance-sheet account is not reconciled'})),...openSuspense.map((x:any)=>({type:'SUSPENSE_OPEN',objectId:x.account,message:'Suspense account still has an unresolved balance'})),...agedAP.filter((x:any)=>x.daysOverdue>90).map((x:any)=>({type:'AGED_AP_90_PLUS',objectId:x.invoiceNo,message:`AP invoice is ${x.daysOverdue} days overdue`}))];
     return {entityId,entityCode:entity.entityCode,entityName:entity.entityName,period,reconciliations,suspense,agedAP,signoff,ready:blockers.length===0,blockers};
