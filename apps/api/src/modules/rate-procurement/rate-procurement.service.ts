@@ -218,4 +218,110 @@ export class RateProcurementService {
     if(isExternal)return {ok:true,offer:this.publicOffer(offer,provider),quote:{id:result.id,quoteNo:result.quoteNo,sellRate:result.sellRate,currency:result.currency,validTo:result.validTo,status:result.status}};
     return {ok:true,offer,quote:result,pricing:{pricingMethod,pricingValue,markupPct,grossMarginPct,grossProfit:this.round(sellRate-buyRate)},commercialTerms,costLines};
   }
+
+  private forwardingPortalRole(user:ScopeUser){
+    const role=String(user.role||'').toUpperCase();
+    if(['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))return role;
+    if(role==='AGENT'&&Array.isArray(user.permissions)&&user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE'))return role;
+    throw new ForbiddenException('Forwarding quote access is not granted for this user');
+  }
+
+  private async forwardingCustomer(body:any,user:ScopeUser){
+    const role=this.forwardingPortalRole(user);
+    let customerId=this.text(body?.customerId);
+    if(role==='CUSTOMER')customerId=this.text(user.customerId);
+    if(role==='SHIPPER'||role==='CONSIGNEE')customerId=this.text(user.partyId);
+    if(role==='AGENT')customerId=this.text(user.agentId);
+    if(!customerId)throw new BadRequestException('ANC registered customer is required for Forwarding quote');
+    const org=await this.db.organization.findUnique({where:{id:customerId}});
+    if(!org||!org.active||org.kycStatus!=='APPROVED'||!org.customerRef)throw new BadRequestException('Forwarding quote requires approved KYC and an ANC customer reference');
+    let costCenterCode=this.text(body?.costCenterCode||user.costCenterCode||org.costCenterCode).toUpperCase();
+    if(!costCenterCode)throw new BadRequestException('Forwarding cost center is required');
+    let forwardingTradeType=this.text(body?.forwardingTradeType||'STANDARD').toUpperCase();
+    if(!['STANDARD','DIRECT_COLOAD','CROSS_TRADE'].includes(forwardingTradeType))throw new BadRequestException('Forwarding trade type must be STANDARD, DIRECT_COLOAD or CROSS_TRADE');
+    if(role==='AGENT'){
+      if(!['DIRECT_COLOAD','CROSS_TRADE'].includes(forwardingTradeType))throw new ForbiddenException('Agent Forwarding access is limited to direct co-load or cross-trade jobs');
+      if(!Array.isArray(user.permissions)||!user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE'))throw new ForbiddenException('Agent Forwarding right is not assigned');
+      costCenterCode=this.text(user.costCenterCode).toUpperCase();
+      if(!costCenterCode)throw new BadRequestException('Agent Forwarding requires an assigned user cost center');
+    }
+    return {role,org,customerId,customerRef:org.customerRef,costCenterCode,forwardingTradeType};
+  }
+
+  async searchForwarding(body:any,user:ScopeUser){
+    const access=await this.forwardingCustomer(body,user);
+    const origin=this.text(body?.origin).toUpperCase(),destination=this.text(body?.destination).toUpperCase(),equipment=this.text(body?.equipment).toUpperCase();
+    if(!origin||!destination||!equipment)throw new BadRequestException('Origin, destination and equipment are required');
+    if(origin===destination)throw new BadRequestException('Origin and destination must be different');
+    const quantity=Math.max(1,Math.min(999,Math.floor(Number(body?.quantity||1))));
+    const requestId=this.id('FQR');
+    const requestData={
+      requestId,customerId:access.customerId,customerRef:access.customerRef,costCenterCode:access.costCenterCode,
+      forwardingTradeType:access.forwardingTradeType,origin,destination,
+      portOfLoading:this.text(body?.portOfLoading||origin).toUpperCase(),portOfDischarge:this.text(body?.portOfDischarge||destination).toUpperCase(),
+      placeOfReceipt:this.text(body?.placeOfReceipt)||null,placeOfDelivery:this.text(body?.placeOfDelivery)||null,
+      equipment,quantity,commodity:this.text(body?.commodity)||null,grossWeight:body?.grossWeight==null||body?.grossWeight===''?null:Number(body.grossWeight),
+      volumeCbm:body?.volumeCbm==null||body?.volumeCbm===''?null:Number(body.volumeCbm),specialCargo:this.text(body?.specialCargo||'NONE').toUpperCase(),
+      bookingType:this.text(body?.bookingType||'FCL').toUpperCase(),transportMode:this.text(body?.transportMode||'SEA').toUpperCase(),
+      serviceType:this.text(body?.serviceType||'PORT_TO_PORT').toUpperCase(),freightTerms:this.text(body?.freightTerms||'PREPAID').toUpperCase(),
+      currency:this.text(body?.currency||'USD').toUpperCase(),customerReference:this.text(body?.customerReference)||null,
+      shipper:this.text(body?.shipper)||null,consignee:this.text(body?.consignee)||null,etd:this.iso(body?.etd),
+      createdBy:user.sub
+    };
+    const shell:any={id:requestId,businessModel:'FORWARDING',bookingChannel:'FORWARDING_QUOTE_REQUEST',...requestData};
+    const allProfiles=await this.providerProfiles(),providers=allProfiles.filter((p:any)=>p.active!==false&&p.endpoint);
+    const contract=await this.contractOffers(shell),external:any[]=[],providerErrors:any[]=[],providerResults:any[]=[];
+    for(const p of providers){
+      const result=await this.onlineOffers(p,shell);external.push(...result.offers);
+      providerResults.push({providerCode:p.providerCode,name:p.name,offers:result.offers.length,latencyMs:result.latencyMs,status:result.error?'ERROR':'OK'});
+      if(result.error)providerErrors.push({providerCode:p.providerCode,name:p.name,error:result.error});
+    }
+    const offers=[...contract,...external];
+    await this.db.$transaction(async(tx:any)=>{
+      for(const offer of offers)await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'RATE_OFFER_RECEIVED',externalId:requestId,objectType:OFFER_OBJECT,objectId:offer.offerId,status:'COMPLETED',payload:{...offer,bookingId:requestId,requestId,customerId:access.customerId,customerRef:access.customerRef,costCenterCode:access.costCenterCode,forwardingTradeType:access.forwardingTradeType},completedAt:new Date()}});
+      await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'FORWARDING_QUOTE_SEARCH_COMPLETED',externalId:access.customerId,objectType:SEARCH_OBJECT,objectId:requestId,status:providerErrors.length?'COMPLETED_WITH_WARNINGS':'COMPLETED',payload:{...requestData,totalOffers:offers.length,contractOffers:contract.length,onlineOffers:external.length,providerResults,providerErrors},completedAt:new Date()}});
+    });
+    await this.audit.log({actorId:user.sub,action:'FORWARDING_QUOTE_RATE_SEARCH',objectType:'ForwardingQuoteRequest',objectId:requestId,detail:{customerRef:access.customerRef,costCenterCode:access.costCenterCode,forwardingTradeType:access.forwardingTradeType,origin,destination,equipment,quantity,totalOffers:offers.length}});
+    const byCode=new Map(allProfiles.map((p:any)=>[String(p.providerCode),p]));
+    return {requestId,customerRef:access.customerRef,costCenterCode:access.costCenterCode,forwardingTradeType:access.forwardingTradeType,offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))).filter(Boolean),providerErrors:providerErrors.map((x:any)=>({carrier:x.name||x.providerCode,error:'Rate source temporarily unavailable'})),providerResults:providerResults.map((x:any)=>({carrier:x.name,offers:x.offers,status:x.status}))};
+  }
+
+  async selectForwarding(requestId:string,offerId:string,body:any,user:ScopeUser){
+    const search=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:SEARCH_OBJECT,objectId:requestId,eventType:'FORWARDING_QUOTE_SEARCH_COMPLETED'},orderBy:{createdAt:'desc'}});
+    if(!search)throw new NotFoundException('Forwarding quote request not found');
+    const request:any=this.payload(search),access=await this.forwardingCustomer({customerId:request.customerId,costCenterCode:request.costCenterCode,forwardingTradeType:request.forwardingTradeType},user);
+    if(access.customerId!==request.customerId)throw new ForbiddenException('Forwarding quote request is outside your customer scope');
+    const row=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:OFFER_OBJECT,objectId:offerId,eventType:'RATE_OFFER_RECEIVED',externalId:requestId},orderBy:{createdAt:'desc'}});
+    if(!row)throw new NotFoundException('Carrier rate offer not found');
+    const offer:any=this.enrichOffer(this.payload(row));if(offer.validTo&&new Date(offer.validTo).getTime()<Date.now())throw new BadRequestException('Carrier rate offer has expired');
+    const provider=(await this.providerProfiles()).find((p:any)=>p.providerCode===offer.providerCode);
+    if(offer.filedSellRate==null&&!provider)throw new BadRequestException('This carrier rate is not approved for external selling');
+    const buyRate=this.money(offer.allInBuyRate??offer.buyRate,'All-in buy rate');
+    let pricingMethod=this.text(provider?.defaultPricingMethod||'MARKUP_PCT').toUpperCase(),pricingValue=Number(provider?.defaultPricingValue??provider?.defaultMarginPct??0);
+    if(access.role==='GLOBAL_ADMIN'&&body?.pricingMethod){pricingMethod=this.text(body.pricingMethod).toUpperCase();pricingValue=Number(body?.pricingValue??pricingValue);}
+    let sellRate=offer.filedSellRate!=null?this.round(offer.filedSellRate):buyRate;
+    if(offer.filedSellRate==null){
+      if(pricingMethod==='MARKUP_PCT')sellRate=this.round(buyRate*(1+pricingValue/100));
+      else if(pricingMethod==='GROSS_MARGIN_PCT'){if(pricingValue>=100)throw new BadRequestException('Gross margin % must be below 100');sellRate=this.round(buyRate/(1-pricingValue/100));}
+      else if(pricingMethod==='FIXED_AMOUNT')sellRate=this.round(buyRate+pricingValue);
+      else throw new BadRequestException('Invalid pricing method');
+    }
+    const providerCode=this.text(offer.providerCode||provider?.providerCode||offer.carrier).toUpperCase();
+    const carrierQuoteRef=this.text(offer.externalQuoteRef);
+    if(!providerCode||!carrierQuoteRef)throw new BadRequestException('Carrier code and carrier quote / contract reference are required before ANC can issue a Forwarding quote');
+    const quoteNo=`ANC-FWD-Q-${Date.now().toString().slice(-10)}`,validTo=offer.validTo?new Date(offer.validTo):new Date(Date.now()+7*86400000);
+    const trade=`${this.text(offer.origin||request.origin).toUpperCase()} -> ${this.text(offer.destination||request.destination).toUpperCase()}`;
+    const termsVersion='ANC-FWD-TERMS-2026.1';
+    const carrierOfferData={offerId,providerCode,carrier:offer.carrier||null,carrierQuoteRef,serviceName:offer.serviceName||null,vessel:offer.vessel||null,voyage:offer.voyage||null,etd:offer.etd||null,eta:offer.eta||null,baseBuyRate:this.round(offer.baseBuyRate),surchargeTotal:this.round(offer.surchargeTotal),allInBuyRate:buyRate,costLines:Array.isArray(offer.costLines)?offer.costLines:[]};
+    const quote=await this.db.rateQuote.create({data:{
+      quoteNo,customerId:access.customerId,customerRef:access.customerRef,costCenterCode:access.costCenterCode,trade,
+      equipment:String(offer.equipment||request.equipment||'').toUpperCase(),buyRate,sellRate,currency:String(offer.currency||request.currency||'USD').toUpperCase(),
+      validFrom:new Date(),validTo,status:'Quote Sent',source:`FORWARDING_CARRIER:${providerCode}`,carrierCode:providerCode,carrierQuoteRef,
+      termsVersion,requestData:request,carrierOfferData
+    }});
+    await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'FORWARDING_ANC_QUOTE_ISSUED',externalId:requestId,objectType:'RateQuote',objectId:quote.id,status:'COMPLETED',payload:{quoteId:quote.id,quoteNo,customerRef:access.customerRef,costCenterCode:access.costCenterCode,providerCode,carrierQuoteRef,sellRate,currency:quote.currency,termsVersion},completedAt:new Date()}});
+    await this.audit.log({actorId:user.sub,action:'FORWARDING_ANC_QUOTE_ISSUED',objectType:'RateQuote',objectId:quote.id,detail:{requestId,quoteNo,customerRef:access.customerRef,costCenterCode:access.costCenterCode,carrierCode:providerCode,carrierQuoteRef,termsVersion}});
+    return {quote:{id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,carrierCode:quote.carrierCode,carrierQuoteRef:quote.carrierQuoteRef,sellRate:quote.sellRate,currency:quote.currency,validTo:quote.validTo,status:quote.status,termsVersion:quote.termsVersion},requestId};
+  }
+
 }
