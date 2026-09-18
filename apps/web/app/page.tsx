@@ -33,7 +33,11 @@ export default function Home(){
     title="Global Control Tower"
     subtitle="ANCLINE operational command center"
     active="/"
-    actions={<div className="status">API: {health.status||'unknown'}</div>}
+    actions={<>
+      <a className="btn" href="/bookings?new=1" style={{textDecoration:'none'}}>+ New Booking</a>
+      <a className="btn" href="/shipment-control?new=1" style={{textDecoration:'none'}}>+ New Shipment</a>
+      <div className="status">API: {health.status||'unknown'}</div>
+    </>}
   >
       {error&&<div className="card" style={{marginBottom:16}}>Dashboard notice: {error}</div>}
       <div className="grid"><div className="card"><div className="sub">OPEN BOOKINGS</div><div className="kpi">{loading?'…':bookings.length}</div></div><div className="card"><div className="sub">IN TRANSIT</div><div className="kpi">{loading?'…':bookings.filter(x=>x.status==='IN_TRANSIT').length}</div></div><div className="card"><div className="sub">AWAITING CONFIRMATION</div><div className="kpi">{loading?'…':bookings.filter(x=>String(x.status).includes('CONFIRM')).length}</div></div><div className="card"><div className="sub">CLOSED</div><div className="kpi">{loading?'…':bookings.filter(x=>String(x.status).includes('CLOSED')).length}</div></div></div>

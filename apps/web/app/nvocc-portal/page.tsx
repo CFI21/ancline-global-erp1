@@ -74,6 +74,8 @@ export default function NvoccPortal(){
     subtitle={`ANCLINE NVOCC PORTAL · Agent / Branch Office / Global Admin · ${user?.email||''}`}
     active="/nvocc-portal"
     actions={<>
+      <a className="btn" href="#new-booking" style={{textDecoration:'none'}}>+ New NVOCC Booking</a>
+      {['GLOBAL_ADMIN','BRANCH_OPS'].includes(role)&&<a className="btn" href="/shipment-control?new=1" style={{textDecoration:'none'}}>+ New Shipment</a>}
       {role==='GLOBAL_ADMIN'&&<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Global Forwarding</a>}
       {agentForwarding&&<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Direct Co-load / Cross Trade</a>}
       <button className="btn" onClick={()=>void load()}>Refresh</button>
@@ -88,7 +90,7 @@ export default function NvoccPortal(){
       <div className="card"><div className="sub">DOCS NOT RELEASED</div><div className="kpi">{pendingDocs}</div></div>
     </div>
 
-    <div className="card" style={{marginBottom:12}}>
+    <div id="new-booking" className="card" style={{marginBottom:12}}>
       <div className="top"><div><div className="sub">NVOCC ONLINE RATE</div><h2 style={{margin:'2px 0'}}>Rate Search & Booking</h2><div className="sub">ANC NVOCC published tariffs only · Global carrier procurement is kept separate under Forwarding.</div></div>{bookingNo&&<span className="status">{bookingNo}</span>}</div>
       {!bookingId&&<><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(175px,1fr))',gap:10,marginTop:12}}>
         {role!=='AGENT'&&<label><span style={label}>Contracting Party *</span><select style={field} value={form.partyId} onChange={e=>setForm({...form,partyId:e.target.value})}><option value="">Select agent / party</option>{parties.map(p=><option key={p.id} value={p.id}>{p.code} - {p.name}</option>)}</select></label>}

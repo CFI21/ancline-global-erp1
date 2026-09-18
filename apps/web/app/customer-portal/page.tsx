@@ -28,13 +28,15 @@ export default function CustomerPortal(){
     subtitle={`GLOBAL ANCLINE FORWARDING · ${portalRole} · automated carrier booking · live operational visibility · ${user?.email||''}`}
     active="/customer-portal"
     actions={<>
+      <a className="btn" href="#new-booking" style={{textDecoration:'none'}}>+ New Forwarding Booking</a>
+      {portalRole==='GLOBAL_ADMIN'&&<a className="btn" href="/shipment-control?new=1" style={{textDecoration:'none'}}>+ New Shipment</a>}
       {portalRole==='GLOBAL_ADMIN'&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>NVOCC Portal</a>}
       {agentForwarding&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>Back to Liner Agency</a>}
       <button className="btn" onClick={()=>location.reload()}>Refresh</button>
     </>}
   >
     {err&&<div className="card" style={{marginBottom:12}}>Portal notice: {err}</div>}
-    <PortalRateBooking token={requireToken()||''} role={portalRole} onBooked={()=>location.reload()}/>
+    <div id="new-booking"><PortalRateBooking token={requireToken()||''} role={portalRole} onBooked={()=>location.reload()}/></div>
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">TOTAL SHIPMENTS</div><div className="kpi">{loading?'…':rows.length}</div></div><div className="card"><div className="sub">ACTIVE</div><div className="kpi">{loading?'…':active}</div></div><div className="card"><div className="sub">IN TRANSIT</div><div className="kpi">{loading?'…':inTransit}</div></div><div className="card"><div className="sub">RELEASED DOCUMENTS</div><div className="kpi">{loading?'…':releasedDocs}</div></div></div>
     <div className="card" style={{marginBottom:12}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search booking, B/L, vessel, route, status or container" style={{width:'100%',maxWidth:520,padding:9,border:'1px solid #cfd9e2',borderRadius:6}}/></div>
     <div className="card"><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Route</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Latest Event</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(b=><tr key={b.id}><td><b>{b.bookingNo}</b><div className="sub">{b.houseBL||b.masterBL||''}</div></td><td>{b.origin} → {b.destination}</td><td>{b.vesselVoyage||'-'}<div className="sub">{b.carrier||''}</div></td><td>{fmtDate(b.atd||b.etd)}</td><td>{fmtDate(b.ata||b.eta)}</td><td>{b.latestMovement?.eventLabel||'-'}<div className="sub">{b.latestMovement?.location||''}</div></td><td><span className="status">{b.status}</span></td><td><button className="btn" onClick={()=>setSelected(selected===b.id?'':b.id)}>{selected===b.id?'Close':'Track'}</button></td></tr>)}{!loading&&visible.length===0&&<tr><td colSpan={8}>No shipments found.</td></tr>}</tbody></table></div></div>

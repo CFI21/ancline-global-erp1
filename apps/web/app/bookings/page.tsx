@@ -79,7 +79,18 @@ export default function BookingsPage(){
   },[bookings,search,statusFilter,customerFilter,carrierFilter,attentionFilter,etdFrom,etdTo]);
   const opsSummary=useMemo(()=>bookings.reduce((a,b)=>{const op=operationalState(b);if(!['CANCELLED','COMPLETED','FINANCIALLY_CLOSED'].includes(b.status))a.active++;if(op.needsAction)a.action++;if(op.cutoff?.state==='OVERDUE'||op.cutoff?.state==='DUE <48H')a.cutoff++;if(op.issues.length)a.controls++;if(op.special)a.special++;return a;},{active:0,action:0,cutoff:0,controls:0,special:0}),[bookings]);
 
-  useEffect(()=>{const t=localStorage.getItem('ancline_token')||'';if(!t){location.href='/login';return;}setToken(t);setUserRole(String(currentUser()?.role||''));void load(t);},[]);
+  useEffect(()=>{
+    const t=localStorage.getItem('ancline_token')||'';
+    if(!t){location.href='/login';return;}
+    setToken(t);
+    setUserRole(String(currentUser()?.role||''));
+    const params=new URLSearchParams(location.search);
+    if(params.get('new')==='1'){
+      setForm({...initialForm,bookingNo:`ANL-${Date.now().toString().slice(-8)}`,bookingDate:new Date().toISOString().slice(0,10)});
+      setShowForm(true);
+    }
+    void load(t);
+  },[]);
 
   async function request(path:string,init:RequestInit={},auth=true,t=token){
     return api(path,auth?t:undefined,init);
@@ -143,7 +154,7 @@ export default function BookingsPage(){
   >
     {message&&<div className="card" style={{marginBottom:14}}>{message}</div>}
     {showForm&&<>
-      <div className="card" style={{marginBottom:12}}><h3 style={title}>Booking Details & References</h3><div style={grid}>
+      <div id="new-booking" className="card" style={{marginBottom:12}}><h3 style={title}>Booking Details & References</h3><div style={grid}>
         {isAdmin?<Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select>:<div><span style={label}>Operating Model</span><div className="status">NVOCC</div></div>}<Input l="Booking No." k="bookingNo" ph="Auto generated if blank"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/>
         <Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select><Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select><Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select><Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select><Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select><Input l="Incoterm" k="incoterm" ph="FOB / CIF / EXW"/>
       </div></div>

@@ -29,7 +29,13 @@ export default function ShipmentControlPage(){
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
 
-  useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
+  useEffect(()=>{
+    const t=requireToken();if(!t)return;
+    setToken(t);
+    const params=new URLSearchParams(location.search);
+    if(params.get('new')==='1')setShowShipmentForm(true);
+    void load(t);
+  },[]);
 
   async function load(t=token){
     try{
@@ -106,7 +112,7 @@ export default function ShipmentControlPage(){
       <Kpi l="House Shipments" v={dashboard.houseShipments}/><Kpi l="Unconsolidated" v={dashboard.unconsolidated}/><Kpi l="Active Consols" v={dashboard.activeConsols}/><Kpi l="Departure Blocked" v={dashboard.departureBlocked}/><Kpi l="In Transit" v={dashboard.inTransit}/><Kpi l="Arrived" v={dashboard.arrived}/>
     </div>
 
-    {showShipmentForm&&<div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Promote Booking to Shipment</h3><div style={formGrid}>
+    {showShipmentForm&&<div id="new-shipment" className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Promote Booking to Shipment</h3><div style={formGrid}>
       <label><span style={labelStyle}>Booking</span><select value={shipmentBookingId} onChange={e=>setShipmentBookingId(e.target.value)} style={fieldStyle}><option value="">-- Select booking --</option>{promotable.map(b=><option key={b.id} value={b.id}>{b.bookingNo} — {b.customer?.name||''} — {b.origin} → {b.destination}</option>)}</select></label>
       <label><span style={labelStyle}>Shipment No. (optional)</span><input value={shipmentNo} onChange={e=>setShipmentNo(e.target.value)} placeholder="Auto from booking if blank" style={fieldStyle}/></label>
     </div><div style={{textAlign:'right',marginTop:12}}><button className="btn" disabled={busy} onClick={promote}>{busy?'Working...':'Create Shipment'}</button></div></div>}
