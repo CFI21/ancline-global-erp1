@@ -4,6 +4,11 @@ import {useState} from 'react';
 import type {ReactNode} from 'react';
 import {signOut} from '../lib/api';
 
+const portalLinks=[
+  ['/nvocc-portal','NVOCC Portal'],
+  ['/customer-portal','Global Forwarding Portal'],
+] as const;
+
 const menuGroups=[
   {
     id:'customer',
@@ -118,24 +123,65 @@ const menuGroups=[
 export default function WorkspaceShell({title,subtitle,active,children,actions}:{title:string;subtitle:string;active:string;children:ReactNode;actions?:ReactNode}){
   const activeGroup=menuGroups.find(group=>group.items.some(([href])=>href===active))?.id??null;
   const [openGroup,setOpenGroup]=useState<string|null>(activeGroup);
+  const [menuQuery,setMenuQuery]=useState('');
+  const query=menuQuery.trim().toLowerCase();
+  const searching=query.length>0;
+
+  const visiblePortals=portalLinks.filter(([href,label])=>
+    !searching||label.toLowerCase().includes(query)||href.toLowerCase().includes(query)
+  );
+
+  const visibleGroups=menuGroups.map(group=>{
+    if(!searching)return group;
+    const groupMatch=group.label.toLowerCase().includes(query);
+    const items=groupMatch
+      ? group.items
+      : group.items.filter(([href,label])=>label.toLowerCase().includes(query)||href.toLowerCase().includes(query));
+    return {...group,items};
+  }).filter(group=>group.items.length>0);
+
+  const noResults=searching&&visiblePortals.length===0&&visibleGroups.length===0;
 
   return <div className="shell">
     <aside className="side">
       <div className="brand">ANCLINE <span>WORLDWIDE</span></div>
-      <div className="menu-caption">WORKFLOW NAVIGATION</div>
-      <a className="menu-home" href="/" aria-current={active==='/'?'page':undefined}>
+
+      <div className="menu-search-wrap">
+        <span className="menu-search-icon" aria-hidden="true">⌕</span>
+        <input
+          className="menu-search"
+          value={menuQuery}
+          onChange={e=>setMenuQuery(e.target.value)}
+          placeholder="Search menu..."
+          aria-label="Search ANCLINE menu"
+        />
+        {menuQuery&&<button type="button" className="menu-search-clear" onClick={()=>setMenuQuery('')} aria-label="Clear menu search">×</button>}
+      </div>
+
+      <div className="menu-caption">QUICK ACCESS</div>
+      {!searching&&<a className="menu-home" href="/" aria-current={active==='/'?'page':undefined}>
         <span className="menu-step">00</span><span>Control Tower</span>
-      </a>
+      </a>}
+      {visiblePortals.map(([href,label])=><a
+        key={href}
+        className={'menu-portal'+(active===href?' active':'')}
+        href={href}
+        aria-current={active===href?'page':undefined}
+      >
+        <span className="menu-portal-mark">↗</span><span>{label}</span>
+      </a>)}
+
+      <div className="menu-caption workflow-caption">WORKFLOW NAVIGATION</div>
       <nav className="menu-nav" aria-label="ANCLINE workflow navigation">
-        {menuGroups.map(group=>{
-          const expanded=openGroup===group.id;
+        {visibleGroups.map(group=>{
+          const expanded=searching||openGroup===group.id;
           const current=group.id===activeGroup;
           return <div className="menu-section" key={group.id}>
             <button
               type="button"
               className={'menu-group'+(current?' current':'')}
               aria-expanded={expanded}
-              onClick={()=>setOpenGroup(expanded?null:group.id)}
+              onClick={()=>{if(!searching)setOpenGroup(expanded?null:group.id);}}
             >
               <span className="menu-step">{group.step}</span>
               <span className="menu-group-label">{group.label}</span>
@@ -151,6 +197,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions}:
             </div>}
           </div>;
         })}
+        {noResults&&<div className="menu-no-results">No menu items found for “{menuQuery}”.</div>}
       </nav>
     </aside>
     <main className="main">
