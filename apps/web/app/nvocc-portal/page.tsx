@@ -13,7 +13,7 @@ const emptyForm={partyId:'',origin:'',destination:'',equipment:'40HC',quantity:'
 export default function NvoccPortal(){
   const user=currentUser();
   const role=String(user?.role||'').toUpperCase();
-  const internalRateView=role==='BRANCH_OPS'||role==='GLOBAL_ADMIN';
+  const internalRateView=role==='GLOBAL_ADMIN';
   const [token,setToken]=useState(''),[parties,setParties]=useState<Party[]>([]),[rows,setRows]=useState<Booking[]>([]),[docs,setDocs]=useState<Doc[]>([]);
   const [form,setForm]=useState(emptyForm),[bookingId,setBookingId]=useState(''),[bookingNo,setBookingNo]=useState(''),[offers,setOffers]=useState<Offer[]>([]);
   const [pricingValue,setPricingValue]=useState('15'),[selected,setSelected]=useState<any>(null),[search,setSearch]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
