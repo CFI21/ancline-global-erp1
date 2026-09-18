@@ -29,6 +29,7 @@ const links=[
   ['/workforce','Workforce / Resource Control'],
   ['/commercial','Contracts / Tariffs'],
   ['/rates','Commercial / Quotes'],
+  ['/carrier-rates','Carrier Buy Rates'],
   ['/commercial-guardrails','Commercial Guardrails'],
   ['/documents','Documents'],
   ['/document-automation','Document Automation / Comms'],

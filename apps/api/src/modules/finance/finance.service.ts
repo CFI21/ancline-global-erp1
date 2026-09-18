@@ -120,26 +120,54 @@ export class FinanceService {
     const quote=booking.rateQuote;
     if(!quote) throw new BadRequestException('No rate quote is linked to this booking');
     if(quote.status!=='Customer Accepted') throw new BadRequestException('The linked quote must be Customer Accepted before financial handover');
-    const reference=quote.quoteNo;
-    const source='RATE_QUOTE';
-    const quantity=Math.max(1,booking.quantity||1);
-    const items=[
-      {type:'REVENUE' as const,chargeCode:'OCEAN_FREIGHT',description:`Sell rate from ${quote.quoteNo}`,amount:Number(quote.sellRate)*quantity,unitRate:Number(quote.sellRate)},
-      {type:'COST' as const,chargeCode:'OCEAN_FREIGHT',description:`Buy rate from ${quote.quoteNo}`,amount:Number(quote.buyRate)*quantity,unitRate:Number(quote.buyRate)}
+
+    const selectionEvent:any=await this.prisma.integrationEvent.findFirst({
+      where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateOffer',eventType:'RATE_OFFER_SELECTED',externalId:bookingId},
+      orderBy:{createdAt:'desc'}
+    });
+    const selected:any=selectionEvent?.payload&&typeof selectionEvent.payload==='object'?selectionEvent.payload:null;
+    const useSelected=selected&&String(selected.quoteNo||'')===String(quote.quoteNo);
+    const commercialTerms=useSelected?(selected.commercialTerms||{}):{};
+    const carrierOrgId=commercialTerms.carrierOrgId?String(commercialTerms.carrierOrgId):null;
+    const reference=quote.quoteNo,source='RATE_QUOTE',quantity=Math.max(1,booking.quantity||1);
+
+    const aggregate=new Map<string,any>();
+    if(useSelected&&Array.isArray(selected.costLines)){
+      for(const row of selected.costLines){
+        const chargeCode=String(row?.chargeCode||'OCEAN_FREIGHT').trim().toUpperCase();
+        const unitRate=Number(row?.unitRate||0);
+        if(!chargeCode||!Number.isFinite(unitRate)||unitRate<0) continue;
+        if(!aggregate.has(chargeCode)) aggregate.set(chargeCode,{chargeCode,description:row?.description?String(row.description):chargeCode,unitRate:0});
+        const current=aggregate.get(chargeCode);current.unitRate=Math.round((Number(current.unitRate)+unitRate+Number.EPSILON)*100)/100;
+      }
+    }
+    if(!aggregate.size) aggregate.set('OCEAN_FREIGHT',{chargeCode:'OCEAN_FREIGHT',description:`Buy rate from ${quote.quoteNo}`,unitRate:Number(quote.buyRate)});
+    const costItems=[...aggregate.values()].map((x:any)=>({
+      type:'COST' as const,chargeCode:x.chargeCode,description:x.description||`Buy rate from ${quote.quoteNo}`,
+      amount:Math.round((Number(x.unitRate)*quantity+Number.EPSILON)*100)/100,unitRate:Number(x.unitRate),
+      partyId:carrierOrgId,serviceProviderId:carrierOrgId
+    }));
+    const items:any[]=[
+      {type:'REVENUE' as const,chargeCode:'OCEAN_FREIGHT',description:`Sell rate from ${quote.quoteNo}`,amount:Number(quote.sellRate)*quantity,unitRate:Number(quote.sellRate),partyId:booking.customerId,billingPartyId:booking.customerId},
+      ...costItems
     ];
+
     const rows=await this.prisma.$transaction(async tx=>{
       const out:any[]=[];
+      const desiredCostCodes=new Set(costItems.map((x:any)=>x.chargeCode));
+      const stale=await tx.financeLine.findMany({where:{bookingId,type:'COST',source,reference,status:{notIn:['FINAL','CLEARED','PAID']}}});
+      for(const old of stale) if(!desiredCostCodes.has(String(old.chargeCode))) await tx.financeLine.update({where:{id:old.id},data:{status:'CANCELLED'}});
       for(const item of items){
         const existing=await tx.financeLine.findFirst({where:{bookingId,type:item.type,source,reference,chargeCode:item.chargeCode}});
         if(existing&&['FINAL','CLEARED','PAID'].includes(existing.status)){out.push(existing);continue;}
-        const data={...item,bookingId,quantity,currency:quote.currency,status:'WIP' as any,source,reference,finalAmount:null,invoiceReady:false};
+        const data:any={...item,bookingId,quantity,currency:quote.currency,status:'WIP',source,reference,finalAmount:null,invoiceReady:false};
         out.push(existing?await tx.financeLine.update({where:{id:existing.id},data}):await tx.financeLine.create({data}));
       }
       await tx.booking.update({where:{id:bookingId},data:{currency:quote.currency}});
       return out;
     });
-    await this.audit.log({actorId:user.sub,action:'RATE_QUOTE_FINANCE_HANDOVER',objectType:'Booking',objectId:bookingId,bookingId,detail:{quoteNo:quote.quoteNo,currency:quote.currency,quantity,buyRate:String(quote.buyRate),sellRate:String(quote.sellRate)}});
-    return {ok:true,quoteNo:quote.quoteNo,rows};
+    await this.audit.log({actorId:user.sub,action:'RATE_QUOTE_FINANCE_HANDOVER',objectType:'Booking',objectId:bookingId,bookingId,detail:{quoteNo:quote.quoteNo,currency:quote.currency,quantity,buyRate:String(quote.buyRate),sellRate:String(quote.sellRate),carrierOrgId,costLineCount:costItems.length,paymentTermsDays:commercialTerms.paymentTermsDays??null,paymentMethod:commercialTerms.paymentMethod??null}});
+    return {ok:true,quoteNo:quote.quoteNo,carrierOrgId,commercialTerms,rows};
   }
 
   async status(id:string,status:any,user:ScopeUser){

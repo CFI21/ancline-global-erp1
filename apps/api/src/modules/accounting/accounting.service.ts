@@ -30,6 +30,15 @@ export class AccountingService {
     return `${type}-${ym}-${Date.now().toString().slice(-7)}`;
   }
 
+  private async carrierCommercialTerms(bookingId:string){
+    const event:any=await this.prisma.integrationEvent.findFirst({
+      where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateOffer',eventType:'RATE_OFFER_SELECTED',externalId:bookingId},
+      orderBy:{createdAt:'desc'}
+    });
+    const payload:any=event?.payload&&typeof event.payload==='object'?event.payload:{};
+    return payload?.commercialTerms&&typeof payload.commercialTerms==='object'?payload.commercialTerms:null;
+  }
+
   private buildInvoice(events:any[]){
     const created=events.find(e=>e.eventType==='INVOICE_CREATED');
     if(!created) return null;
@@ -77,6 +86,11 @@ export class AccountingService {
       daysOverdue,
       reference:base.reference||null,
       notes:base.notes||null,
+      paymentTermsDays:base.paymentTermsDays??null,
+      paymentMethod:base.paymentMethod??null,
+      prepaidPct:base.prepaidPct??null,
+      carrierCreditLimit:base.carrierCreditLimit??null,
+      carrierCreditCurrency:base.carrierCreditCurrency??null,
       lines:Array.isArray(base.lines)?base.lines:[],
       lineCount:Array.isArray(base.lines)?base.lines.length:0,
       payments,
@@ -193,7 +207,11 @@ export class AccountingService {
     const duplicateLine=await this.prisma.financeLine.findFirst({where:{invoiceNo}});
     if(duplicateEvent||duplicateLine) throw new BadRequestException(`Invoice ${invoiceNo} already exists`);
 
-    const dueDate=body?.dueDate?this.date(body.dueDate,'Due date'):new Date(Date.now()+30*DAY);
+    const carrierTermsCandidate=invoiceType==='AP'?await this.carrierCommercialTerms(bookingId):null;
+    const carrierOrgId=carrierTermsCandidate?.carrierOrgId?String(carrierTermsCandidate.carrierOrgId):null;
+    const carrierTerms=invoiceType==='AP'&&carrierTermsCandidate&&lines.every((l:any)=>String(l.source||'')==='RATE_QUOTE'&&(!carrierOrgId||String(l.serviceProviderId||l.partyId||'')===carrierOrgId))?carrierTermsCandidate:null;
+    const paymentTermsDays=Math.max(0,Math.min(365,Number(carrierTerms?.paymentTermsDays??30)));
+    const dueDate=body?.dueDate?this.date(body.dueDate,'Due date'):new Date(Date.now()+paymentTermsDays*DAY);
     const lineSnapshots=lines.map((line:any)=>{
       const amount=this.round(Number(line.finalAmount??line.amount));
       const taxRate=Number(line.taxRate||0);
@@ -206,7 +224,9 @@ export class AccountingService {
     const payload={
       invoiceNo,invoiceType,bookingId,bookingNo:booking.bookingNo,origin:booking.origin,destination:booking.destination,
       partyId,partyName:organization.name,currency,subtotal,taxAmount,totalAmount,dueDate:dueDate.toISOString(),
-      reference:body?.reference?String(body.reference):null,notes:body?.notes?String(body.notes):null,lines:lineSnapshots
+      reference:body?.reference?String(body.reference):null,notes:body?.notes?String(body.notes):null,lines:lineSnapshots,
+      paymentTermsDays:invoiceType==='AP'?paymentTermsDays:null,paymentMethod:invoiceType==='AP'?(carrierTerms?.paymentMethod||'BANK_TRANSFER'):null,
+      prepaidPct:invoiceType==='AP'?Number(carrierTerms?.prepaidPct||0):null,carrierCreditLimit:invoiceType==='AP'?(carrierTerms?.creditLimit??null):null,carrierCreditCurrency:invoiceType==='AP'?(carrierTerms?.creditCurrency||currency):null
     };
 
     await this.prisma.$transaction(async tx=>{
