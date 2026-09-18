@@ -14,6 +14,7 @@ export default function NvoccPortal(){
   const user=currentUser();
   const role=String(user?.role||'').toUpperCase();
   const internalRateView=role==='GLOBAL_ADMIN';
+  const agentForwarding=role==='AGENT'&&Array.isArray(user?.permissions)&&user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE');
   const [token,setToken]=useState(''),[parties,setParties]=useState<Party[]>([]),[rows,setRows]=useState<Booking[]>([]),[docs,setDocs]=useState<Doc[]>([]);
   const [form,setForm]=useState(emptyForm),[bookingId,setBookingId]=useState(''),[bookingNo,setBookingNo]=useState(''),[offers,setOffers]=useState<Offer[]>([]);
   const [selected,setSelected]=useState<any>(null),[search,setSearch]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
@@ -68,7 +69,7 @@ export default function NvoccPortal(){
   const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
 
   return <main style={{padding:18,maxWidth:1380,margin:'0 auto'}}>
-    <div className="top"><div><div className="sub">ANCLINE NVOCC PORTAL</div><h1 style={{margin:'2px 0'}}>NVOCC Rates, Bookings & Documents</h1><div className="sub">Agent · Branch Office · Global Admin only · {user?.email||''}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{role==='GLOBAL_ADMIN'&&<><a className="btn" href="/" style={{textDecoration:'none'}}>Admin ERP</a><a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Global Forwarding</a></>}<button className="btn" onClick={()=>void load()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
+    <div className="top"><div><div className="sub">ANCLINE NVOCC PORTAL</div><h1 style={{margin:'2px 0'}}>NVOCC Rates, Bookings & Documents</h1><div className="sub">Agent · Branch Office · Global Admin only · {user?.email||''}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{role==='GLOBAL_ADMIN'&&<><a className="btn" href="/" style={{textDecoration:'none'}}>Admin ERP</a><a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Global Forwarding</a></>}{agentForwarding&&<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Direct Co-load / Cross Trade</a>}<button className="btn" onClick={()=>void load()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
 
     <div className="grid" style={{marginBottom:12}}>
