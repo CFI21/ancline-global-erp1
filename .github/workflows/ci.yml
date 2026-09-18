@@ -40,5 +40,12 @@ jobs:
       - name: Build API
         run: npm run build -w apps/api
 
+      - name: Reject legacy page sidebars
+        run: |
+          if grep -RIl --include='page.tsx' '<aside className="side"' apps/web/app; then
+            echo "Legacy page-specific sidebar found. Use WorkspaceShell instead."
+            exit 1
+          fi
+
       - name: Build Web
         run: npm run build -w apps/web
