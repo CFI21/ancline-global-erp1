@@ -89,7 +89,7 @@ export class CarrierOperationsService {
 
   async bookings(u:ScopeUser){
     this.internal(u);
-    return this.db.booking.findMany({where:{...bookingScope(u),status:{not:'CANCELLED'}},select:{id:true,bookingNo:true,shipmentNo:true,origin:true,destination:true,portOfLoading:true,portOfDischarge:true,equipment:true,quantity:true,carrier:true,carrierBookingNo:true,slotStatus:true,equipmentStatus:true,status:true},orderBy:{createdAt:'desc'},take:300});
+    return this.db.booking.findMany({where:{...bookingScope(u),status:{not:'CANCELLED'}},select:{id:true,bookingNo:true,businessModel:true,bookingChannel:true,jobType:true,forwardingTradeType:true,costCenterCode:true,customerRef:true,shipmentNo:true,origin:true,destination:true,portOfLoading:true,portOfDischarge:true,equipment:true,quantity:true,carrier:true,carrierBookingNo:true,slotStatus:true,equipmentStatus:true,status:true,rateQuote:{select:{id:true,quoteNo:true,status:true,carrierCode:true,carrierQuoteRef:true,termsAcceptedAt:true}}},orderBy:{createdAt:'desc'},take:300});
   }
 
   async schedules(u:ScopeUser){
@@ -125,21 +125,27 @@ export class CarrierOperationsService {
     this.internal(u);
     const bookingId=this.req(b?.bookingId,'Booking');
     await this.scope.assertBookingAccess(u,bookingId);
-    const booking=await this.db.booking.findUnique({where:{id:bookingId}});
+    const booking=await this.db.booking.findUnique({where:{id:bookingId},include:{rateQuote:true}});
     if(!booking||String(booking.status)==='CANCELLED')throw new BadRequestException('Active booking not found');
+    if(String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'){
+      const q:any=booking.rateQuote;
+      if(!q||String(q.status||'').toUpperCase().replace(/[\s_-]+/g,'')!=='CUSTOMERACCEPTED'||!q.termsAcceptedAt||!q.carrierCode||!q.carrierQuoteRef)
+        throw new BadRequestException('Forwarding Carrier Booking / Space Control requires an accepted ANC quote linked to carrier code/reference and accepted terms');
+      if(!booking.customerRef||!booking.costCenterCode)throw new BadRequestException('Forwarding booking must carry ANC customer reference and cost center');
+    }
     const existing=(await this.allStates()).find((x:any)=>x.bookingId===bookingId&&x.status!=='CANCELLED');
     if(existing)throw new BadRequestException('Booking already has an active carrier booking control record');
     const carrierId=this.req(b?.carrierId,'Carrier'),carrier=await this.carrier(carrierId),scheduleId=this.req(b?.scheduleId,'Schedule'),schedule=await this.schedule(scheduleId);
     const quantity=Math.max(1,Math.trunc(Number(b?.quantity||booking.quantity||1)));
     if(!Number.isFinite(quantity)||quantity<=0)throw new BadRequestException('Quantity must be greater than zero');
     const equipmentType=String(b?.equipmentType||booking.equipment||'20GP').toUpperCase(),spaceTeu=this.teu(equipmentType,quantity),id=this.generatedNo();
-    const payload={carrierOperationNo:id,bookingId,bookingNo:booking.bookingNo,shipmentNo:booking.shipmentNo||null,carrierId,carrierCode:carrier.code,carrierName:carrier.name,scheduleId,scheduleNo:schedule.scheduleNo,scheduleCarrier:schedule.carrier,serviceName:schedule.serviceName||null,vessel:schedule.vessel,voyage:schedule.voyage,portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,terminal:schedule.terminal||null,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing||null,siCutoff:schedule.siCutoff||null,vgmCutoff:schedule.vgmCutoff||null,docCutoff:schedule.docCutoff||null,equipmentType,quantity,spaceTeu,carrierBookingNo:null,confirmationStatus:'REQUESTED',allocationStatus:'UNALLOCATED',allocationRef:null,equipmentReleaseStatus:'PENDING',releaseOrderNo:null,emptyDepot:null,releaseValidUntil:null,notes:b?.notes?String(b.notes):null,requestedBy:u.sub};
+    const payload={carrierOperationNo:id,bookingId,bookingNo:booking.bookingNo,shipmentNo:booking.shipmentNo||null,businessModel:booking.businessModel||'NVOCC',bookingChannel:booking.bookingChannel||'INTERNAL',jobType:booking.jobType||booking.businessModel||'NVOCC',forwardingTradeType:booking.forwardingTradeType||null,costCenterCode:booking.costCenterCode||null,customerRef:booking.customerRef||null,rateQuoteNo:booking.rateQuote?.quoteNo||null,carrierQuoteRef:booking.rateQuote?.carrierQuoteRef||null,carrierId,carrierCode:carrier.code,carrierName:carrier.name,scheduleId,scheduleNo:schedule.scheduleNo,scheduleCarrier:schedule.carrier,serviceName:schedule.serviceName||null,vessel:schedule.vessel,voyage:schedule.voyage,portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,terminal:schedule.terminal||null,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing||null,siCutoff:schedule.siCutoff||null,vgmCutoff:schedule.vgmCutoff||null,docCutoff:schedule.docCutoff||null,equipmentType,quantity,spaceTeu,carrierBookingNo:null,confirmationStatus:'REQUESTED',allocationStatus:'UNALLOCATED',allocationRef:null,equipmentReleaseStatus:'PENDING',releaseOrderNo:null,emptyDepot:null,releaseValidUntil:null,notes:b?.notes?String(b.notes):null,requestedBy:u.sub};
     await this.db.$transaction(async (tx:any)=>{
       await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_REQUESTED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}});
       await tx.booking.update({where:{id:bookingId},data:{carrier:carrier.name,vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'REQUESTED',equipmentStatus:'PENDING',shipmentStatus:'CARRIER_REQUESTED'}});
       await this.syncMainLeg(tx,bookingId,schedule);
     });
-    await this.audit.log({actorId:u.sub,action:'CARRIER_BOOKING_REQUESTED',objectType:'CarrierBooking',objectId:id,bookingId,detail:{carrierId,scheduleId,spaceTeu}});
+    await this.audit.log({actorId:u.sub,action:'CARRIER_BOOKING_REQUESTED',objectType:'CarrierBooking',objectId:id,bookingId,detail:{businessModel:booking.businessModel||'NVOCC',costCenterCode:booking.costCenterCode||null,customerRef:booking.customerRef||null,carrierId,scheduleId,spaceTeu}});
     return this.one(id,u);
   }
 
@@ -242,7 +248,7 @@ export class CarrierOperationsService {
       const sc=this.norm(s?.carrier),carrierNames=[this.norm(x.carrierName),this.norm(x.carrierCode)].filter(Boolean),carrierScheduleMismatch=Boolean(sc&&carrierNames.length&&!carrierNames.some((n:string)=>sc.includes(n)||n.includes(sc)));
       const urgent=hoursToCutoff!=null&&hoursToCutoff<=48&&missing.length>0;
       if(!urgent&&!carrierScheduleMismatch)continue;
-      out.push({carrierOperationNo:x.carrierOperationNo,bookingId:x.bookingId,bookingNo:x.bookingNo,carrierName:x.carrierName,scheduleNo:x.scheduleNo,vessel:x.vessel,voyage:x.voyage,etd:x.etd,nextCutoff:nextCutoff?new Date(nextCutoff).toISOString():null,hoursToCutoff,missing,carrierScheduleMismatch,severity:hoursToCutoff!=null&&hoursToCutoff<0?'BREACH':hoursToCutoff!=null&&hoursToCutoff<=24?'CRITICAL':'WARNING'});
+      out.push({carrierOperationNo:x.carrierOperationNo,bookingId:x.bookingId,bookingNo:x.bookingNo,businessModel:x.businessModel||'NVOCC',costCenterCode:x.costCenterCode||null,customerRef:x.customerRef||null,rateQuoteNo:x.rateQuoteNo||null,carrierQuoteRef:x.carrierQuoteRef||null,carrierName:x.carrierName,scheduleNo:x.scheduleNo,vessel:x.vessel,voyage:x.voyage,etd:x.etd,nextCutoff:nextCutoff?new Date(nextCutoff).toISOString():null,hoursToCutoff,missing,carrierScheduleMismatch,severity:hoursToCutoff!=null&&hoursToCutoff<0?'BREACH':hoursToCutoff!=null&&hoursToCutoff<=24?'CRITICAL':'WARNING'});
     }
     return out.sort((a:any,b:any)=>(a.hoursToCutoff??999999)-(b.hoursToCutoff??999999));
   }
@@ -250,6 +256,6 @@ export class CarrierOperationsService {
   async dashboard(u:ScopeUser){
     const [rows,exceptions,capacity]=await Promise.all([this.accessible(u),this.exceptions(u),this.capacity(u)]);
     const active=rows.filter((x:any)=>x.status!=='CANCELLED');
-    return {activeCarrierBookings:active.length,awaitingConfirmation:active.filter((x:any)=>x.confirmationStatus!=='CONFIRMED').length,awaitingAllocation:active.filter((x:any)=>x.confirmationStatus==='CONFIRMED'&&x.allocationStatus!=='ALLOCATED').length,awaitingEquipmentRelease:active.filter((x:any)=>x.allocationStatus==='ALLOCATED'&&x.equipmentReleaseStatus!=='RELEASED').length,cutoffAlerts:exceptions.length,criticalCutoffAlerts:exceptions.filter((x:any)=>['CRITICAL','BREACH'].includes(x.severity)).length,tightSailings:capacity.filter((x:any)=>x.status==='TIGHT'||x.status==='OVERBOOKED').length};
+    return {activeCarrierBookings:active.length,nvoccCarrierBookings:active.filter((x:any)=>String(x.businessModel||'NVOCC').toUpperCase()==='NVOCC').length,forwardingCarrierBookings:active.filter((x:any)=>String(x.businessModel||'NVOCC').toUpperCase()==='FORWARDING').length,awaitingConfirmation:active.filter((x:any)=>x.confirmationStatus!=='CONFIRMED').length,awaitingAllocation:active.filter((x:any)=>x.confirmationStatus==='CONFIRMED'&&x.allocationStatus!=='ALLOCATED').length,awaitingEquipmentRelease:active.filter((x:any)=>x.allocationStatus==='ALLOCATED'&&x.equipmentReleaseStatus!=='RELEASED').length,cutoffAlerts:exceptions.length,criticalCutoffAlerts:exceptions.filter((x:any)=>['CRITICAL','BREACH'].includes(x.severity)).length,tightSailings:capacity.filter((x:any)=>x.status==='TIGHT'||x.status==='OVERBOOKED').length};
   }
 }
