@@ -46,7 +46,7 @@ export default function Login(){
       localStorage.setItem('ancline_token',j.accessToken);
       localStorage.setItem('ancline_user',JSON.stringify(j.user));
       const r=j.user?.role;
-      location.href=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(r)?'/customer-portal':['AGENT','BRANCH_OPS'].includes(r)?'/nvocc-portal':'/';
+      location.href=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(r)?'/customer-portal':r==='AGENT'?'/agent-portal':r==='BRANCH_OPS'?'/nvocc-portal':'/';
     }catch(e:any){setMsg(e?.message||'Login failed');}finally{setBusy(false);}
   }
 
@@ -80,7 +80,7 @@ export default function Login(){
         <button className="btn" onClick={login} disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
       </>}
       {!oidc.devLoginAllowed&&!oidc.configured&&<div>ANCLINE sign-in is not configured. Contact your administrator.</div>}
-      {msg&&<div style={{marginTop:10}}>{msg}</div>}
+      {msg&&<div style={{marginTop:10}}>{msg}</div>}<div style={{marginTop:14,paddingTop:12,borderTop:'1px solid #e2e8ee'}}><b>New Forwarding customer?</b><div className="sub" style={{margin:'4px 0 8px'}}>Register company and complete KYC before requesting rates or quotes.</div><a className="btn" href="/customer-registration" style={{textDecoration:'none'}}>Register & Complete KYC</a></div>
     </div>
   </main>;
 }
