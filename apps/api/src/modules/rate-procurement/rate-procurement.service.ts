@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
@@ -15,7 +15,8 @@ export class RateProcurementService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
   private get db():any{return this.prisma as any;}
   private internal(user:ScopeUser){this.scope.assertInternal(user);}
-  private external(user:ScopeUser){return ['CUSTOMER','SHIPPER','CONSIGNEE','AGENT'].includes(String(user.role||'').toUpperCase());}
+  private external(user:ScopeUser){return ['CUSTOMER','SHIPPER','CONSIGNEE','AGENT','BRANCH_OPS'].includes(String(user.role||'').toUpperCase());}
+  private admin(user:ScopeUser){if(String(user.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required for carrier rate provider configuration');}
   private assertRateAccess(booking:any,user:ScopeUser){
     const model=String(booking?.businessModel||'NVOCC').toUpperCase(),role=String(user?.role||'').toUpperCase();
     if(model==='NVOCC'&&!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role))throw new BadRequestException('NVOCC online rates are available only through the NVOCC Portal for Agent, Branch Office and Admin / Control Tower users');
@@ -41,15 +42,15 @@ export class RateProcurementService {
     return [...latest.values()].sort((a:any,b:any)=>String(a.name||a.providerCode).localeCompare(String(b.name||b.providerCode)));
   }
 
-  async providers(user:ScopeUser){this.internal(user);return this.providerProfiles();}
+  async providers(user:ScopeUser){this.admin(user);return this.providerProfiles();}
 
   async carriers(user:ScopeUser){
-    this.internal(user);
+    this.admin(user);
     return this.db.organization.findMany({where:{active:true,roles:{has:'CARRIER'}},select:{id:true,code:true,name:true,countryCode:true},orderBy:{name:'asc'}});
   }
 
   async setProvider(body:any,user:ScopeUser){
-    this.internal(user);
+    this.admin(user);
     const providerCode=this.text(body?.providerCode).toUpperCase(),name=this.text(body?.name);
     if(!providerCode||!name)throw new BadRequestException('Provider code and name are required');
     const authMode=this.text(body?.authMode||'NONE').toUpperCase();
