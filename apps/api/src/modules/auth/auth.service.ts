@@ -46,6 +46,7 @@ export class AuthService {
     if(!allowed.includes(role)) throw new UnauthorizedException('Unsupported ANCLINE role');
     if(role==='CUSTOMER'&&!body.customerId) throw new UnauthorizedException('Customer organization is required');
     if(role==='AGENT'&&!body.agentId) throw new UnauthorizedException('Agent organization is required');
+    if(role==='BRANCH_OPS'&&!body.branchId) throw new UnauthorizedException('Branch organization is required');
 
     const payload={
       sub:body.userId||email,
