@@ -17,7 +17,7 @@ export function bookingScope(user:ScopeUser){
       return Array.isArray(user.permissions)&&user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE')
         ? {OR:[
             {producingAgentId:user.agentId,businessModel:'NVOCC'},
-            {customerId:user.agentId,businessModel:'FORWARDING',forwardingTradeType:'DIRECT_COLOAD_CROSS_TRADE'}
+            {customerId:user.agentId,businessModel:'FORWARDING',forwardingTradeType:{in:['DIRECT_COLOAD','CROSS_TRADE']}}
           ]}
         : {producingAgentId:user.agentId,businessModel:'NVOCC'};
     case 'CUSTOMER':
