@@ -111,7 +111,7 @@ export class RateProcurementService {
     if(offer?.filedSellRate==null&&!provider)return null;
     const sellRate=this.priceForOffer(offer,provider);
     if(!Number.isFinite(Number(sellRate))||Number(sellRate)<=0)return null;
-    return {offerId:offer.offerId,bookingId:offer.bookingId,source:offer.source,carrier:offer.carrier,serviceName:offer.serviceName||null,vessel:offer.vessel||null,voyage:offer.voyage||null,origin:offer.origin,destination:offer.destination,equipment:offer.equipment,quantity:offer.quantity,etd:offer.etd||null,eta:offer.eta||null,sellRate,currency:offer.currency,validTo:offer.validTo||null,externalQuoteRef:offer.externalQuoteRef||null,freeTimeOrigin:offer.freeTimeOrigin??null,freeTimeDestination:offer.freeTimeDestination??null};
+    return {offerId:offer.offerId,bookingId:offer.bookingId,source:offer.source,carrier:offer.carrier,serviceName:offer.serviceName||null,vessel:offer.vessel||null,voyage:offer.voyage||null,origin:offer.origin,destination:offer.destination,equipment:offer.equipment,quantity:offer.quantity,etd:offer.etd||null,eta:offer.eta||null,sellRate,currency:offer.currency,validTo:offer.validTo||null,freeTimeOrigin:offer.freeTimeOrigin??null,freeTimeDestination:offer.freeTimeDestination??null};
   }
 
   async booking(bookingId:string,user:ScopeUser){
