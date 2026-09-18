@@ -5,7 +5,7 @@ import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../
 import {api,requireToken} from '../../lib/api';
 
 type Org={id:string;code:string;name:string;roles:string[];countryCode?:string;active:boolean;createdAt?:string};
-const allRoles=['CUSTOMER','AGENT','CARRIER','SLOT_PROVIDER','DEPOT','TERMINAL','TRUCKER','BROKER','VENDOR','ANCLINE_BRANCH'];
+const allRoles=['CUSTOMER','SHIPPER','CONSIGNEE','AGENT','CARRIER','SLOT_PROVIDER','DEPOT','TERMINAL','TRUCKER','BROKER','VENDOR','ANCLINE_BRANCH'];
 
 export default function OrganizationsPage(){
   const [token,setToken]=useState('');
