@@ -62,10 +62,12 @@ export class CarrierPaymentService {
     if(term==='NOT_APPLICABLE')return {chargeGroup:group,term,applicable:false};
     const carrierPayerCode=this.text(input?.carrierPayerCode)||null;
     if(term==='PREPAID_ELSEWHERE'){
-      const payerName=this.text(input?.payerName),payerAddress=this.text(input?.payerAddress),payerCountryCode=this.country(input?.payerCountryCode||input?.countryCode);
-      if(!payerName||!payerAddress||!payerCountryCode)throw new BadRequestException(group+' Elsewhere requires payer name, address and country');
+      const payerName=this.text(input?.payerName),payerAddress=this.text(input?.payerAddress),payerCountryCode=this.country(input?.payerCountryCode||input?.countryCode),officeKey=this.text(input?.payerOfficeKey||input?.officeKey);
+      if(!payerName||!payerAddress||!payerCountryCode||!officeKey)throw new BadRequestException(group+' Elsewhere requires ANC payer office, payer name, address and country');
       if(!countries.includes(payerCountryCode))throw new BadRequestException('Prepaid Elsewhere is permitted only in a country where ANC has an active registered office');
-      return {chargeGroup:group,term,applicable:true,payerType:'ANC_REGISTERED_OFFICE_ELSEWHERE',payerName,payerAddress,payerCountryCode,carrierPayerCode,ancOfficeCountryValidated:true};
+      const office=offices.find((x:any)=>x.officeKey===officeKey);
+      if(!office||this.country(office.countryCode)!==payerCountryCode)throw new BadRequestException('Prepaid Elsewhere payer must be linked to an eligible ANC office in the selected country');
+      return {chargeGroup:group,term,applicable:true,payerType:'ANC_REGISTERED_OFFICE_ELSEWHERE',payerOfficeKey:office.officeKey,payerOfficeId:office.id,payerOfficeSource:office.source,payerCode:office.code,payerName,payerAddress,payerCountryCode,carrierPayerCode,ancOfficeCountryValidated:true};
     }
     const officeKey=this.text(input?.payerOfficeKey||input?.officeKey);
     if(!officeKey)throw new BadRequestException(group+' requires an ANC registered payer office');
