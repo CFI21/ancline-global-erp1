@@ -62,8 +62,9 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
       const result=await api('/portal/forwarding/quotes/'+selectedQuote.id+'/accept',token,{method:'POST',body:JSON.stringify({termsAccepted:true,termsVersion:selectedQuote.termsVersion})});
       const s=await api('/portal/bookings/'+result.booking.id+'/release-security',token).catch(()=>null);
       setSecurity(s);setSelectedQuote(result.quote);
-      const auto=result?.automation?.status?(' Carrier automation: '+result.automation.status+'.'):'';
-      setMessage('ANC quote '+result.quote.quoteNo+' accepted. Booking '+result.booking.bookingNo+' has now been created and entered Carrier Booking / Space Control.'+auto);
+      const autoStatus=String(result?.automation?.status||'');
+      const auto=role==='GLOBAL_ADMIN'&&autoStatus?(' Internal carrier workflow: '+autoStatus+'.'):autoStatus==='PENDING_PAYMENT_CONTROL'?' ANC internal payment/payer control is being completed before carrier submission.':'';
+      setMessage('ANC quote '+result.quote.quoteNo+' accepted. ANC booking '+result.booking.bookingNo+' has now been created.'+auto);
       setRequestId('');setOffers([]);setTermsAccepted(false);await loadBase();onBooked?.();
     }catch(e:any){setMessage(e?.message||'Could not accept ANC quote and start booking');}
     finally{setBusy(false);}
