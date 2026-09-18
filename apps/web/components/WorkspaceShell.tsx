@@ -6,6 +6,7 @@ import {signOut} from '../lib/api';
 const links=[
   ['/', 'Control Tower'],
   ['/bookings','Bookings'],
+  ['/global-commerce','Global Commerce / Demo'],
   ['/booking-control','Booking Control'],
   ['/shipment-control','Shipment / Consol Control'],
   ['/carrier-operations','Carrier Booking / Space Control'],
