@@ -59,7 +59,7 @@ export class OrganizationsService {
 
   async registrationStatus(registrationRef:string){
     const ref=this.text(registrationRef).toUpperCase();
-    const row=await this.prisma.organization.findUnique({where:{registrationRef:ref}});
+    const row=await this.prisma.organization.findFirst({where:{registrationRef:ref}});
     if(!row)throw new BadRequestException('Registration reference was not found');
     return {registrationRef:row.registrationRef,customerRef:row.customerRef,companyName:row.name,kycStatus:row.kycStatus,rejectionReason:row.kycStatus==='REJECTED'?row.kycRejectionReason:null,approvedAt:row.kycApprovedAt,submittedAt:row.kycSubmittedAt};
   }
