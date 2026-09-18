@@ -50,8 +50,8 @@ export class OperationsService {
     let partyId=body?.partyId!==undefined?(body.partyId||null):(current?.partyId||null);
     let costCenterCode=String(body?.costCenterCode??current?.costCenterCode??'').trim().toUpperCase()||null;
     let agentMode=String(body?.agentMode??current?.agentMode??(role==='AGENT'?'LINER_AGENCY_ONLY':'')).trim().toUpperCase()||null;
-    const requestedPermissions=Array.isArray(body?.permissions)?body.permissions:(Array.isArray(current?.permissions)?current.permissions:ROLE_DEFAULTS[role]||[]);
-    let permissions=[...new Set(requestedPermissions.map((x:any)=>String(x).trim().toUpperCase()).filter(Boolean))];
+    const requestedPermissions:any[]=Array.isArray(body?.permissions)?body.permissions:(Array.isArray(current?.permissions)?current.permissions:(ROLE_DEFAULTS[role]||[]));
+    let permissions:string[]=[...new Set<string>(requestedPermissions.map((x:any)=>String(x).trim().toUpperCase()).filter((x:string)=>Boolean(x)))];
     const invalid=permissions.filter((x:string)=>!ACCESS_RIGHTS.includes(x as any));if(invalid.length)throw new BadRequestException(`Unsupported access right(s): ${invalid.join(', ')}`);
     if(role==='GLOBAL_ADMIN')permissions=[...ACCESS_RIGHTS];
     if(role==='AGENT')agentMode='LINER_AGENCY_ONLY';
