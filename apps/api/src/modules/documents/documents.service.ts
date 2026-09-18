@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser, bookingScope } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
+import { evaluateReleaseSecurity } from './release-security';
 
 @Injectable()
 export class DocumentsService {
@@ -113,6 +114,8 @@ export class DocumentsService {
     this.scope.assertInternal(user);
     if(d.releaseControl && d.releaseControl!=='Clear') throw new BadRequestException(`Document release is blocked: ${d.releaseControl}`);
     if(d.status!=='Approved') throw new BadRequestException('Document must be approved before release');
+    const sensitive=['HOUSE_BL','MASTER_BL','DELIVERY_ORDER','TELEX_RELEASE','SEA_WAYBILL'].includes(String(d.type||'').toUpperCase());
+    if(sensitive){const security=await evaluateReleaseSecurity(this.prisma as any,d.bookingId);if(!security.clear)throw new BadRequestException(`Payment / security release blocked: ${security.blockers.join('; ')}`);}
     const out=await this.prisma.document.update({where:{id},data:{status:'Released'}});
     await this.audit.log({actorId:user.sub,action:'DOCUMENT_RELEASE',objectType:'Document',objectId:id,bookingId:d.bookingId,detail:{type:d.type,version:d.version}});
     return out;
