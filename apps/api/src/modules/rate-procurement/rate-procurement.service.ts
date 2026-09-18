@@ -15,6 +15,7 @@ export class RateProcurementService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
   private get db():any{return this.prisma as any;}
   private internal(user:ScopeUser){this.scope.assertInternal(user);}
+  private external(user:ScopeUser){return ['CUSTOMER','AGENT'].includes(String(user.role||'').toUpperCase());}
   private text(v:any){return String(v??'').trim();}
   private money(v:any,name='Rate'){const n=Number(v);if(!Number.isFinite(n)||n<0)throw new BadRequestException(`${name} must be a valid positive amount`);return Math.round(n*100)/100;}
   private round(v:any){return Math.round((Number(v||0)+Number.EPSILON)*100)/100;}
@@ -27,13 +28,14 @@ export class RateProcurementService {
   private aggregateLines(lines:any[]){const m=new Map<string,any>();for(const x of lines){const chargeCode=this.text(x?.chargeCode||'SURCHARGE').toUpperCase().replace(/\s+/g,'_'),unitRate=this.round(x?.unitRate);if(unitRate<0)continue;const key=chargeCode;if(!m.has(key))m.set(key,{chargeCode,description:x?.description||chargeCode,unitRate:0});const row=m.get(key);row.unitRate=this.round(row.unitRate+unitRate);}return [...m.values()].filter((x:any)=>x.unitRate>0.0005);}
   private readiness(p:any){const secretConfigured=p.authMode==='NONE'||Boolean(p.secretEnv&&process.env[String(p.secretEnv)]);return {secretConfigured,connectionReady:p.active!==false&&Boolean(p.endpoint)&&secretConfigured};}
 
-  async providers(user:ScopeUser){
-    this.internal(user);
+  private async providerProfiles(){
     const events=await this.db.integrationEvent.findMany({where:{sourceSystem:SOURCE,objectType:PROVIDER_OBJECT,eventType:'PROVIDER_PROFILE_SET'},orderBy:{createdAt:'asc'}});
     const latest=new Map<string,any>();
     for(const e of events){const p={...this.payload(e),providerCode:e.objectId,updatedAt:e.createdAt};latest.set(e.objectId,{...p,...this.readiness(p)});}
     return [...latest.values()].sort((a:any,b:any)=>String(a.name||a.providerCode).localeCompare(String(b.name||b.providerCode)));
   }
+
+  async providers(user:ScopeUser){this.internal(user);return this.providerProfiles();}
 
   async carriers(user:ScopeUser){
     this.internal(user);
@@ -85,7 +87,7 @@ export class RateProcurementService {
   }
 
   private async bookingRow(bookingId:string,user:ScopeUser){
-    this.internal(user);await this.scope.assertBookingAccess(user,bookingId);
+    await this.scope.assertBookingAccess(user,bookingId);
     const booking=await this.db.booking.findUnique({where:{id:bookingId},include:{customer:{select:{id:true,code:true,name:true}},rateQuote:true}});
     if(!booking)throw new NotFoundException('Booking not found');return booking;
   }
@@ -95,7 +97,27 @@ export class RateProcurementService {
   private async selected(bookingId:string){const e=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:OFFER_OBJECT,eventType:'RATE_OFFER_SELECTED',externalId:bookingId},orderBy:{createdAt:'desc'}});return e?{...this.payload(e),selectedAt:e.createdAt}:null;}
   private async lastSearch(bookingId:string){const e=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:SEARCH_OBJECT,eventType:'RATE_SEARCH_COMPLETED',externalId:bookingId},orderBy:{createdAt:'desc'}});return e?{...this.payload(e),searchedAt:e.createdAt}:null;}
 
-  async booking(bookingId:string,user:ScopeUser){const booking=await this.bookingRow(bookingId,user);const [providers,offers,carriers,selection,lastSearch]=await Promise.all([this.providers(user),this.storedOffers(bookingId),this.carriers(user),this.selected(bookingId),this.lastSearch(bookingId)]);return {booking,providers,offers,carriers,selection,lastSearch};}
+  private priceForOffer(offer:any,provider:any){
+    const buy=this.round(offer?.allInBuyRate??offer?.buyRate);
+    if(offer?.filedSellRate!=null&&Number.isFinite(Number(offer.filedSellRate))&&Number(offer.filedSellRate)>=buy)return this.round(offer.filedSellRate);
+    const method=this.text(provider?.defaultPricingMethod||'MARKUP_PCT').toUpperCase(),value=Number(provider?.defaultPricingValue??provider?.defaultMarginPct??0);
+    if(method==='GROSS_MARGIN_PCT'&&value>=0&&value<100)return this.round(buy/(1-value/100));
+    if(method==='FIXED_AMOUNT'&&value>=0)return this.round(buy+value);
+    return this.round(buy*(1+Math.max(0,value)/100));
+  }
+  private publicOffer(offer:any,provider:any){
+    const sellRate=this.priceForOffer(offer,provider);
+    return {offerId:offer.offerId,bookingId:offer.bookingId,source:offer.source,carrier:offer.carrier,serviceName:offer.serviceName||null,vessel:offer.vessel||null,voyage:offer.voyage||null,origin:offer.origin,destination:offer.destination,equipment:offer.equipment,quantity:offer.quantity,etd:offer.etd||null,eta:offer.eta||null,sellRate,currency:offer.currency,validTo:offer.validTo||null,externalQuoteRef:offer.externalQuoteRef||null,freeTimeOrigin:offer.freeTimeOrigin??null,freeTimeDestination:offer.freeTimeDestination??null};
+  }
+
+  async booking(bookingId:string,user:ScopeUser){
+    const booking=await this.bookingRow(bookingId,user),offers=await this.storedOffers(bookingId),selection=await this.selected(bookingId),lastSearch=await this.lastSearch(bookingId);
+    if(this.external(user)){
+      const profiles=await this.providerProfiles(),byCode=new Map(profiles.map((p:any)=>[String(p.providerCode),p]));
+      return {booking:{id:booking.id,bookingNo:booking.bookingNo,status:booking.status,origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading,portOfDischarge:booking.portOfDischarge,equipment:booking.equipment,quantity:booking.quantity,commodity:booking.commodity,specialCargo:booking.specialCargo,etd:booking.etd,currency:booking.currency,carrier:booking.carrier,rateQuote:booking.rateQuote?{id:booking.rateQuote.id,quoteNo:booking.rateQuote.quoteNo,sellRate:booking.rateQuote.sellRate,currency:booking.rateQuote.currency,status:booking.rateQuote.status,validTo:booking.rateQuote.validTo}:null,customer:booking.customer},providers:[],carriers:[],offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))),selection:selection?{offerId:selection.offerId,quoteNo:selection.quoteNo,sellRate:selection.sellRate,currency:selection.currency,selectedAt:selection.selectedAt}:null,lastSearch:lastSearch?{searchedAt:lastSearch.searchedAt,totalOffers:lastSearch.totalOffers}:null};
+    }
+    const [providers,carriers]=await Promise.all([this.providerProfiles(),this.carriers(user)]);return {booking,providers,offers,carriers,selection,lastSearch};
+  }
 
   private same(a:any,b:any){return this.text(a).toUpperCase()===this.text(b).toUpperCase();}
   private async contractOffers(booking:any){
@@ -106,8 +128,8 @@ export class RateProcurementService {
       const org=await this.db.organization.findUnique({where:{id:c.partyId},select:{id:true,name:true,code:true,active:true}});
       const grouped=new Map<string,any[]>();for(const r of lanes){const key=String(r.currency||c.currency||'USD').toUpperCase();if(!grouped.has(key))grouped.set(key,[]);grouped.get(key)!.push(r);}
       for(const [currency,rows] of grouped){
-        const costLines=this.aggregateLines(rows.map((r:any)=>({chargeCode:r.chargeCode||'OCEAN_FREIGHT',description:r.chargeCode||'Contract charge',unitRate:Number(r.buyRate||0)}))),allInBuyRate=this.round(costLines.reduce((s:number,x:any)=>s+Number(x.unitRate||0),0)),baseBuyRate=this.round(costLines.filter((x:any)=>x.chargeCode==='OCEAN_FREIGHT').reduce((s:number,x:any)=>s+x.unitRate,0)),surchargeTotal=this.round(allInBuyRate-baseBuyRate);
-        out.push({offerId:this.id('OFF'),bookingId:booking.id,source:'CONTRACT',providerCode:c.contractNo,carrier:org?.name||org?.code||c.partyId,carrierOrgId:org?.id||c.partyId,serviceName:c.contractType||'CONTRACT',origin,destination,equipment,quantity:Math.max(1,Number(booking.quantity||1)),rateBasis:'PER_UNIT',baseBuyRate,surchargeTotal,allInBuyRate,buyRate:allInBuyRate,currency,validTo:c.validTo.toISOString(),externalQuoteRef:c.contractNo,freeTimeOrigin:Math.max(...rows.map((r:any)=>Number(r.freeTimeOrigin||0))),freeTimeDestination:Math.max(...rows.map((r:any)=>Number(r.freeTimeDestination||0))),costLines,surcharges:costLines.filter((x:any)=>x.chargeCode!=='OCEAN_FREIGHT')});
+        const costLines=this.aggregateLines(rows.map((r:any)=>({chargeCode:r.chargeCode||'OCEAN_FREIGHT',description:r.chargeCode||'Contract charge',unitRate:Number(r.buyRate||0)}))),allInBuyRate=this.round(costLines.reduce((s:number,x:any)=>s+Number(x.unitRate||0),0)),baseBuyRate=this.round(costLines.filter((x:any)=>x.chargeCode==='OCEAN_FREIGHT').reduce((s:number,x:any)=>s+x.unitRate,0)),surchargeTotal=this.round(allInBuyRate-baseBuyRate),filedSellRate=rows.every((r:any)=>r.sellRate!=null)?this.round(rows.reduce((s:number,r:any)=>s+Number(r.sellRate||0),0)):null;
+        out.push({offerId:this.id('OFF'),bookingId:booking.id,source:'CONTRACT',providerCode:c.contractNo,carrier:org?.name||org?.code||c.partyId,carrierOrgId:org?.id||c.partyId,serviceName:c.contractType||'CONTRACT',origin,destination,equipment,quantity:Math.max(1,Number(booking.quantity||1)),rateBasis:'PER_UNIT',baseBuyRate,surchargeTotal,allInBuyRate,buyRate:allInBuyRate,filedSellRate,currency,validTo:c.validTo.toISOString(),externalQuoteRef:c.contractNo,freeTimeOrigin:Math.max(...rows.map((r:any)=>Number(r.freeTimeOrigin||0))),freeTimeDestination:Math.max(...rows.map((r:any)=>Number(r.freeTimeDestination||0))),costLines,surcharges:costLines.filter((x:any)=>x.chargeCode!=='OCEAN_FREIGHT')});
       }
     }return out;
   }
@@ -146,7 +168,7 @@ export class RateProcurementService {
 
   async search(bookingId:string,user:ScopeUser){
     const booking=await this.bookingRow(bookingId,user);if(!booking.equipment)throw new BadRequestException('Booking equipment is required before rate search');const current=String(booking.status);if(current==='DRAFT')await this.db.booking.update({where:{id:bookingId},data:{status:'RATE_REQUESTED'}});
-    const providers=(await this.providers(user)).filter((p:any)=>p.active!==false&&p.endpoint),contract=await this.contractOffers(booking),external:any[]=[],providerErrors:any[]=[],providerResults:any[]=[];
+    const allProfiles=await this.providerProfiles(),providers=allProfiles.filter((p:any)=>p.active!==false&&p.endpoint),contract=await this.contractOffers(booking),external:any[]=[],providerErrors:any[]=[],providerResults:any[]=[];
     for(const p of providers){const result=await this.onlineOffers(p,booking);external.push(...result.offers);providerResults.push({providerCode:p.providerCode,name:p.name,offers:result.offers.length,latencyMs:result.latencyMs,status:result.error?'ERROR':'OK'});if(result.error)providerErrors.push({providerCode:p.providerCode,name:p.name,error:result.error});}
     const offers=[...contract,...external],searchId=this.id('RSEARCH');
     await this.db.$transaction(async(tx:any)=>{
@@ -155,29 +177,32 @@ export class RateProcurementService {
       if(offers.length&&!TERMINAL_BOOKING.has(current))await tx.booking.update({where:{id:bookingId},data:{status:'RATE_RECEIVED'}});
     });
     await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SEARCH',objectType:'Booking',objectId:bookingId,bookingId,detail:{providers:providers.map((p:any)=>p.providerCode),contractOffers:contract.length,onlineOffers:external.length,providerErrors}});
+    if(this.external(user)){const byCode=new Map(allProfiles.map((p:any)=>[String(p.providerCode),p]));return {bookingId,offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))),providerErrors:providerErrors.map((x:any)=>({carrier:x.name||x.providerCode,error:'Rate source temporarily unavailable'})),providerResults:providerResults.map((x:any)=>({carrier:x.name,offers:x.offers,status:x.status}))};}
     return {bookingId,offers,providerErrors,providerResults};
   }
 
   async select(bookingId:string,offerId:string,body:any,user:ScopeUser){
     const booking=await this.bookingRow(bookingId,user),row=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:OFFER_OBJECT,objectId:offerId,eventType:'RATE_OFFER_RECEIVED'},orderBy:{createdAt:'desc'}});if(!row)throw new NotFoundException('Carrier rate offer not found');
     const offer:any=this.enrichOffer(this.payload(row));if(offer.bookingId!==bookingId)throw new BadRequestException('Rate offer does not belong to this booking');if(offer.validTo&&new Date(offer.validTo).getTime()<Date.now())throw new BadRequestException('Carrier rate offer has expired');
-    const provider=(await this.providers(user)).find((p:any)=>p.providerCode===offer.providerCode);
-    let pricingMethod=this.text(body?.pricingMethod||provider?.defaultPricingMethod||'MARKUP_PCT').toUpperCase();let pricingValue=body?.pricingValue==null||body?.pricingValue===''?Number(provider?.defaultPricingValue??provider?.defaultMarginPct??0):Number(body.pricingValue);
-    if(body?.marginAmount!=null&&body.marginAmount!==''){pricingMethod='FIXED_AMOUNT';pricingValue=Number(body.marginAmount);}else if(body?.marginPct!=null&&body.marginPct!==''&&body?.pricingValue==null){pricingMethod='MARKUP_PCT';pricingValue=Number(body.marginPct);}
+    const provider=(await this.providerProfiles()).find((p:any)=>p.providerCode===offer.providerCode),isExternal=this.external(user);
+    let pricingMethod=this.text(provider?.defaultPricingMethod||'MARKUP_PCT').toUpperCase();let pricingValue=Number(provider?.defaultPricingValue??provider?.defaultMarginPct??0);
+    if(!isExternal){pricingMethod=this.text(body?.pricingMethod||pricingMethod).toUpperCase();pricingValue=body?.pricingValue==null||body?.pricingValue===''?pricingValue:Number(body.pricingValue);}
+    if(!isExternal&&body?.marginAmount!=null&&body.marginAmount!==''){pricingMethod='FIXED_AMOUNT';pricingValue=Number(body.marginAmount);}else if(!isExternal&&body?.marginPct!=null&&body.marginPct!==''&&body?.pricingValue==null){pricingMethod='MARKUP_PCT';pricingValue=Number(body.marginPct);}
     if(!['MARKUP_PCT','GROSS_MARGIN_PCT','FIXED_AMOUNT'].includes(pricingMethod))throw new BadRequestException('Invalid pricing method');if(!Number.isFinite(pricingValue)||pricingValue<0)throw new BadRequestException('Pricing value must be positive');if(pricingMethod==='GROSS_MARGIN_PCT'&&pricingValue>=100)throw new BadRequestException('Gross margin % must be below 100');if(pricingMethod==='MARKUP_PCT'&&pricingValue>500)throw new BadRequestException('Markup % must be 500 or below');
-    const buyRate=this.money(offer.allInBuyRate??offer.buyRate,'All-in buy rate');let sellRate=buyRate;if(pricingMethod==='MARKUP_PCT')sellRate=this.round(buyRate*(1+pricingValue/100));if(pricingMethod==='GROSS_MARGIN_PCT')sellRate=this.round(buyRate/(1-pricingValue/100));if(pricingMethod==='FIXED_AMOUNT')sellRate=this.round(buyRate+pricingValue);
+    const buyRate=this.money(offer.allInBuyRate??offer.buyRate,'All-in buy rate');let sellRate=isExternal&&offer.filedSellRate!=null?this.round(offer.filedSellRate):buyRate;if(!(isExternal&&offer.filedSellRate!=null)){if(pricingMethod==='MARKUP_PCT')sellRate=this.round(buyRate*(1+pricingValue/100));if(pricingMethod==='GROSS_MARGIN_PCT')sellRate=this.round(buyRate/(1-pricingValue/100));if(pricingMethod==='FIXED_AMOUNT')sellRate=this.round(buyRate+pricingValue);}
     const markupPct=buyRate?this.round((sellRate-buyRate)/buyRate*100):0,grossMarginPct=sellRate?this.round((sellRate-buyRate)/sellRate*100):0,minimumMarkupPct=Number(provider?.minimumMarkupPct||0);if(markupPct+0.005<minimumMarkupPct)throw new BadRequestException(`Selected sell rate is below provider minimum markup of ${minimumMarkupPct}%`);
     const quoteNo=this.text(body?.quoteNo)||`Q-${Date.now().toString().slice(-9)}`,validTo=offer.validTo?new Date(offer.validTo):new Date(Date.now()+7*86400000),trade=`${this.text(offer.origin||booking.portOfLoading||booking.origin).toUpperCase()} -> ${this.text(offer.destination||booking.portOfDischarge||booking.destination).toUpperCase()}`,quantity=Math.max(1,Number(booking.quantity||offer.quantity||1));
     const commercialTerms={carrierOrgId:offer.carrierOrgId||provider?.carrierOrgId||null,paymentTermsDays:Number(provider?.paymentTermsDays??30),paymentMethod:provider?.paymentMethod||'BANK_TRANSFER',prepaidPct:Number(provider?.prepaidPct||0),creditLimit:provider?.creditLimit??null,creditCurrency:provider?.creditCurrency||offer.currency||booking.currency||'USD'};
     const costLines=this.aggregateLines(Array.isArray(offer.costLines)?offer.costLines:[{chargeCode:'OCEAN_FREIGHT',description:'Ocean freight',unitRate:buyRate}]);
     const result=await this.db.$transaction(async(tx:any)=>{
-      const quote=await tx.rateQuote.create({data:{quoteNo,customerId:booking.customerId,trade,equipment:String(offer.equipment||booking.equipment||'').toUpperCase(),buyRate,sellRate,currency:String(offer.currency||booking.currency||'USD').toUpperCase(),validFrom:new Date(),validTo,status:'DRAFT',source:`CARRIER_${offer.source||'RATE'}:${offer.providerCode||offer.carrier||'UNKNOWN'}`}});
-      const bookingData:any={rateQuoteId:quote.id,carrier:offer.carrier||booking.carrier||null,currency:quote.currency};if(offer.vessel||offer.voyage)bookingData.vesselVoyage=[offer.vessel,offer.voyage].filter(Boolean).join(' / ');if(offer.etd)bookingData.etd=new Date(offer.etd);if(offer.eta)bookingData.eta=new Date(offer.eta);if(!TERMINAL_BOOKING.has(String(booking.status)))bookingData.status='RATE_RECEIVED';await tx.booking.update({where:{id:bookingId},data:bookingData});
+      const quote=await tx.rateQuote.create({data:{quoteNo,customerId:booking.customerId,trade,equipment:String(offer.equipment||booking.equipment||'').toUpperCase(),buyRate,sellRate,currency:String(offer.currency||booking.currency||'USD').toUpperCase(),validFrom:new Date(),validTo,status:isExternal?'Quote Sent':'DRAFT',source:`CARRIER_${offer.source||'RATE'}:${offer.providerCode||offer.carrier||'UNKNOWN'}`}});
+      const bookingData:any={rateQuoteId:quote.id,carrier:offer.carrier||booking.carrier||null,currency:quote.currency};if(offer.vessel||offer.voyage)bookingData.vesselVoyage=[offer.vessel,offer.voyage].filter(Boolean).join(' / ');if(offer.etd)bookingData.etd=new Date(offer.etd);if(offer.eta)bookingData.eta=new Date(offer.eta);if(!TERMINAL_BOOKING.has(String(booking.status)))bookingData.status=isExternal?'QUOTE_SENT':'RATE_RECEIVED';await tx.booking.update({where:{id:bookingId},data:bookingData});
       const leg=await tx.bookingLeg.findFirst({where:{bookingId,legType:'MAIN'},orderBy:{sequence:'asc'}}),legData:any={carrier:offer.carrier||null,etd:offer.etd?new Date(offer.etd):null,eta:offer.eta?new Date(offer.eta):null,status:'PLANNED'};if(offer.vessel)legData.vessel=offer.vessel;if(offer.voyage)legData.voyage=offer.voyage;if(leg)await tx.bookingLeg.update({where:{id:leg.id},data:legData});else await tx.bookingLeg.create({data:{bookingId,sequence:1,legType:'MAIN',mode:booking.transportMode||'SEA',origin:booking.portOfLoading||booking.origin,destination:booking.portOfDischarge||booking.destination,...legData}});
       await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'RATE_OFFER_SELECTED',externalId:bookingId,objectType:OFFER_OBJECT,objectId:offerId,status:'COMPLETED',payload:{bookingId,offerId,quoteId:quote.id,quoteNo,providerCode:offer.providerCode||null,carrier:offer.carrier||null,externalQuoteRef:offer.externalQuoteRef||null,baseBuyRate:this.round(offer.baseBuyRate),surchargeTotal:this.round(offer.surchargeTotal),allInBuyRate:buyRate,buyRate,sellRate,quantity,totalBuyAmount:this.round(buyRate*quantity),totalSellAmount:this.round(sellRate*quantity),pricingMethod,pricingValue,markupPct,grossMarginPct,costLines,commercialTerms,selectedBy:user.sub},completedAt:new Date()}});
       return quote;
     });
     await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SELECTED',objectType:'Booking',objectId:bookingId,bookingId,detail:{offerId,providerCode:offer.providerCode,carrier:offer.carrier,externalQuoteRef:offer.externalQuoteRef||null,quoteNo:result.quoteNo,buyRate,sellRate,currency:result.currency,pricingMethod,pricingValue,markupPct,grossMarginPct,costLineCount:costLines.length,commercialTerms}});
+    if(isExternal)return {ok:true,offer:this.publicOffer(offer,provider),quote:{id:result.id,quoteNo:result.quoteNo,sellRate:result.sellRate,currency:result.currency,validTo:result.validTo,status:result.status}};
     return {ok:true,offer,quote:result,pricing:{pricingMethod,pricingValue,markupPct,grossMarginPct,grossProfit:this.round(sellRate-buyRate)},commercialTerms,costLines};
   }
 }
