@@ -114,7 +114,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
         <div className="cw-workspace-body">
           <div className="cw-workspace-left">
         <div className="cw-main-grid">
-          <fieldset className="cw-panel cw-org"><legend>Organization</legend>
+          <fieldset className="cw-panel cw-org cw-form3040"><legend>Organization</legend>
             <div className="cw-row"><label>Name</label><select className="cw-input" value={form.organizationId||''} onChange={e=>applyOrg(e.target.value)}><option value="">New / unlinked prospect</option>{orgs.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select><button className="cw-mini" type="button">...</button></div>
             <div className="cw-row"><label></label><input className="cw-input cw-small-id" value={form.organizationCode||''} onChange={e=>set('organizationCode',e.target.value)}/><span/></div>
             <div className="cw-row"><label>Address 1</label><input className="cw-input cw-green" value={form.address1||''} onChange={e=>set('address1',e.target.value)}/><div className="cw-icon-pair"><button className="cw-mini cw-x" type="button" onClick={()=>set('address1','')}>×</button><button className="cw-mini cw-mail" type="button">✉</button></div></div>
@@ -124,7 +124,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             {field('website','Website')}
             {field('registrationNumber','Reg. Number')}
           </fieldset>
-          <fieldset className="cw-panel cw-contact cw-ratio37"><legend>Contact</legend>
+          <fieldset className="cw-panel cw-contact cw-form3040"><legend>Contact</legend>
             {field('contactName','Inquiry Contact')}
             <div className="cw-row"><label>Phone</label><input className="cw-input" value={form.phone||''} onChange={e=>set('phone',e.target.value)}/><button className="cw-phone">☎</button></div>
             {field('emailAddress','E-Mail Address',{type:'email'})}
@@ -134,14 +134,14 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
           </fieldset>
 
           <div className="cw-right-stack">
-            <fieldset className="cw-panel cw-details cw-ratio37"><legend>Details</legend>
+            <fieldset className="cw-panel cw-details cw-form3040"><legend>Details</legend>
               <div className="cw-row"><label>Status</label><select className="cw-input cw-status-open" value={form.status||'OPEN'} onChange={e=>set('status',e.target.value)}><option value="OPEN">Open</option><option value="QUALIFIED">Qualified</option><option value="ON_HOLD">On Hold</option><option value="CONVERTED">Converted</option><option value="CLOSED">Closed</option><option value="LOST">Lost</option></select><span/></div>
               <div className="cw-row"><label>Assigned Sales Rep</label><input className="cw-input" value={form.assignedSalesRep||''} onChange={e=>set('assignedSalesRep',e.target.value)}/><button className="cw-mini" type="button">...</button></div>
               <div className="cw-row"><label>Original Call</label><input className="cw-input" type="date" value={form.originalCall||''} onChange={e=>set('originalCall',e.target.value)}/><button className="cw-mini" type="button">▣</button></div>
               <div className="cw-row cw-dual-value"><label>Lead Interest</label><select className="cw-input cw-interest-code" value={interestCode} onChange={e=>set('leadInterest',e.target.value==='CLD'?'COLD':e.target.value==='HOT'?'HOT':'WARM')}><option value="CLD">CLD</option><option value="WRM">WRM</option><option value="HOT">HOT</option></select><input className="cw-input" value={interestLabel} readOnly/></div>
               <div className="cw-row cw-dual-value"><label>Close Reason</label><input className="cw-input cw-interest-code" value={form.closeReason||''} onChange={e=>set('closeReason',e.target.value)}/><input className="cw-input" value="" readOnly/></div>
             </fieldset>
-            <fieldset className="cw-panel cw-lead-source cw-ratio37"><legend>Lead Source</legend>
+            <fieldset className="cw-panel cw-lead-source cw-form3040"><legend>Lead Source</legend>
               <div className="cw-row cw-source-row"><label>Source</label><select className="cw-input cw-codebox" value={form.leadSourceCode||'DIRECT'} onChange={e=>set('leadSourceCode',e.target.value)}><option value="DIRECT">DIR</option><option value="OAG">OAG</option><option value="WEB">WEB</option><option value="REF">REF</option><option value="PHONE">TEL</option><option value="VISIT">VIS</option></select><input className="cw-input" value={form.leadSourceName||''} onChange={e=>set('leadSourceName',e.target.value)}/></div>
               {field('sourceDetails','Source Details')}
               <div className="cw-row cw-ref-org"><label>Referring Organization</label><input className="cw-input cw-codebox" value={form.referringOrganization||''} onChange={e=>set('referringOrganization',e.target.value)}/><div className="cw-ref-tail"><button className="cw-mini" type="button">...</button><input className="cw-input" value={form.referringOrganization||'(None Selected)'} readOnly/></div></div>
@@ -150,7 +150,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
         </div>
 
         <div className="cw-bottom-grid">
-          <div className="cw-lower-panel">
+          <div className="cw-lower-panel cw-sales-relations-panel">
             <div className="cw-subtabs">{relationTabs.map(x=><button className={relationTab===x?'active':''} key={x} onClick={()=>setRelationTab(x)}>{x}</button>)}</div>
             {relationTab==='Notes'&&<textarea className="cw-notes" value={form.notes||''} onChange={e=>set('notes',e.target.value)}/>}
             {relationTab==='Custom Fields'&&<textarea className="cw-notes" value={JSON.stringify(form.customFields||{},null,2)} onChange={e=>{try{set('customFields',JSON.parse(e.target.value||'{}'));}catch{}}}/>}
@@ -161,7 +161,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             <div className="cw-lower-actions"><span>Popup</span><span className="cw-spacer"/><button>□ New</button><button>✎ Edit</button><button>● Attach</button><button>⊖ Detach</button></div>
           </div>
 
-          <div className="cw-lower-panel">
+          <div className="cw-lower-panel cw-related-communication-panel">
             <div className="cw-lower-title">Related Communication</div>
             <div className="cw-tablewrap"><table className="cw-table"><thead><tr><th>Date</th><th>Type</th><th>Contact</th><th>Subject</th><th>Created Time</th></tr></thead><tbody>
               {comms.map((c:any)=><tr key={c.communicationId}><td>{String(c.date||'').slice(0,10)}</td><td>{c.type}</td><td>{c.contact}</td><td>{c.subject}</td><td>{String(c.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>)}

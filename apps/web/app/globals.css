@@ -317,3 +317,204 @@
   .cw-summary-rail{width:200px;min-width:200px}
   .cw-workspace-left .cw-main-grid{grid-template-columns:repeat(3,minmax(200px,1fr))}
 }
+
+/* Final inquiry geometry: 30/40/30 forms + reserved right summary */
+.cw-workspace-body{
+  display:grid;
+  grid-template-columns:minmax(0,72%) minmax(220px,28%);
+  gap:3px;
+  padding:0 3px 3px;
+  background:#efefef;
+  align-items:stretch;
+}
+.cw-workspace-left{
+  min-width:0;
+  width:100%;
+}
+.cw-workspace-left .cw-main-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:2px;
+  padding:0 0 3px;
+  width:100%;
+}
+.cw-workspace-left .cw-right-stack{
+  display:grid;
+  grid-template-rows:auto auto;
+  gap:2px;
+  width:100%;
+  min-width:0;
+}
+
+/* All four upper panels share one exact row geometry */
+.cw-form3040{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  padding:2px 3px;
+}
+.cw-form3040 .cw-row{
+  display:grid;
+  grid-template-columns:30% 40% 30%;
+  align-items:center;
+  column-gap:0;
+  margin:0;
+  min-height:16px;
+  height:16px;
+  width:100%;
+}
+.cw-form3040 .cw-row>label{
+  display:block !important;
+  width:100%;
+  box-sizing:border-box;
+  text-align:right;
+  padding:0 4px 0 1px;
+  margin:0;
+  font-size:8.8px;
+  line-height:14px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.cw-form3040 .cw-row>label:empty{
+  display:block !important;
+  min-height:14px;
+}
+.cw-form3040 .cw-input{
+  grid-column:auto;
+  width:100%;
+  max-width:none;
+  min-width:0;
+  height:16px;
+  min-height:16px;
+  box-sizing:border-box;
+  padding:0 2px;
+  margin:0;
+  font-size:8.8px;
+  line-height:14px;
+}
+.cw-form3040 .cw-row>button,
+.cw-form3040 .cw-row>.cw-icon-pair,
+.cw-form3040 .cw-row>.cw-ref-tail{
+  justify-self:start;
+  margin-left:2px;
+}
+.cw-form3040 .cw-mini,
+.cw-form3040 .cw-phone{
+  width:20px;
+  min-width:20px;
+  height:16px;
+  min-height:16px;
+  padding:0;
+  font-size:8px;
+  line-height:14px;
+}
+.cw-form3040 legend{
+  font-size:9px;
+  line-height:12px;
+  padding:0 2px;
+}
+
+/* Rows with code + description use the same 30/40/30 boundary */
+.cw-form3040 .cw-dual-value,
+.cw-form3040 .cw-source-row,
+.cw-form3040 .cw-ref-org{
+  grid-template-columns:30% 40% 30%;
+}
+.cw-form3040 .cw-dual-value>.cw-interest-code,
+.cw-form3040 .cw-source-row>.cw-codebox,
+.cw-form3040 .cw-ref-org>.cw-codebox{
+  width:42%;
+  justify-self:start;
+}
+.cw-form3040 .cw-dual-value>input:last-child,
+.cw-form3040 .cw-source-row>input:last-child{
+  grid-column:3;
+  width:calc(100% - 2px);
+  margin-left:2px;
+}
+.cw-form3040 .cw-ref-org>.cw-ref-tail{
+  grid-column:3;
+  width:calc(100% - 2px);
+  display:grid;
+  grid-template-columns:20px minmax(0,1fr);
+  gap:2px;
+  min-width:0;
+}
+
+/* Organization secondary paired rows preserve the same first text start */
+.cw-form3040 .cw-pair-row{
+  display:grid;
+  grid-template-columns:30% 18% 22% 12% 18%;
+  align-items:center;
+  gap:0;
+  margin:0;
+  min-height:16px;
+  height:16px;
+  width:100%;
+}
+.cw-form3040 .cw-pair-row>label:first-child{
+  text-align:right;
+  padding-right:4px;
+}
+.cw-form3040 .cw-pair-row>.cw-input:nth-child(2){
+  width:100%;
+  max-width:none;
+  height:16px;
+}
+.cw-form3040 .cw-pair-row>.cw-mini{
+  justify-self:start;
+  margin-left:2px;
+}
+.cw-form3040 .cw-pair-row>label:nth-of-type(2){
+  text-align:right;
+  padding-right:3px;
+}
+.cw-form3040 .cw-pair-row>.cw-input:last-child{
+  width:100%;
+  max-width:none;
+  height:16px;
+}
+
+/* Lower grids map exactly to the three upper columns:
+   Sales Relations = columns 1+2; Related Communication = column 3 */
+.cw-workspace-left .cw-bottom-grid{
+  display:grid;
+  grid-template-columns:minmax(0,2fr) minmax(0,1fr);
+  gap:2px;
+  padding:0;
+  width:100%;
+  min-height:205px;
+}
+.cw-sales-relations-panel,
+.cw-related-communication-panel{
+  min-width:0;
+  width:100%;
+  box-sizing:border-box;
+}
+.cw-related-communication-panel{
+  border-right:1px solid #c5c5c5;
+}
+
+/* Summary owns the reserved right side and nothing else may flow under it */
+.cw-summary-rail{
+  width:100%;
+  min-width:220px;
+  max-width:none;
+  box-sizing:border-box;
+  align-self:stretch;
+}
+.cw-summary-line{
+  grid-template-columns:34% minmax(0,66%);
+}
+
+/* Keep the action/footer bars aligned to the operational form area,
+   while the summary remains visually separate above them */
+@media(max-width:1180px){
+  .cw-workspace-body{
+    grid-template-columns:minmax(720px,72%) minmax(210px,28%);
+  }
+  .cw-workspace-left .cw-main-grid{
+    grid-template-columns:repeat(3,minmax(215px,1fr));
+  }
+}
