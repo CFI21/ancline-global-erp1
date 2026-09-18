@@ -4,7 +4,7 @@ import {useEffect,useState} from 'react';
 import {api,fmtDate,fmtMoney} from '../lib/api';
 
 type Customer={id:string;code:string;name:string};
-type Offer={offerId:string;source:string;carrier:string;serviceName?:string|null;vessel?:string|null;voyage?:string|null;origin:string;destination:string;equipment:string;quantity:number;etd?:string|null;eta?:string|null;sellRate:number;currency:string;validTo?:string|null;externalQuoteRef?:string|null;freeTimeOrigin?:number|null;freeTimeDestination?:number|null};
+type Offer={offerId:string;source:string;carrier:string;serviceName?:string|null;vessel?:string|null;voyage?:string|null;origin:string;destination:string;equipment:string;quantity:number;etd?:string|null;eta?:string|null;sellRate?:number;buyRate?:number;allInBuyRate?:number;currency:string;validTo?:string|null;freeTimeOrigin?:number|null;freeTimeDestination?:number|null};
 
 export default function PortalRateBooking({token,role,onBooked}:{token:string;role:'CUSTOMER'|'AGENT'|'BRANCH_OPS';onBooked?:()=>void}){
   const [customers,setCustomers]=useState<Customer[]>([]);
@@ -36,7 +36,7 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
     try{
       const result=await api('/rate-procurement/booking/'+bookingId+'/select/'+o.offerId,token,{method:'POST',body:'{}'});
       setSelectedQuote(result.quote);
-      setMessage('Sell offer '+fmtMoney(result.quote.sellRate,result.quote.currency)+' selected. Confirm the booking request to continue.');
+      setMessage((role==='BRANCH_OPS'?'Forwarding sell quote ':'Sell offer ')+fmtMoney(result.quote.sellRate,result.quote.currency)+' selected. Confirm the booking request to continue.');
     }catch(e:any){setMessage(e?.message||'Could not select rate');}
     finally{setBusy(false);}
   }
@@ -76,7 +76,7 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
       <div style={{textAlign:'right',marginTop:12}}><button className="btn" disabled={busy||(role==='AGENT'||role==='BRANCH_OPS')&&!form.customerId||!form.origin.trim()||!form.destination.trim()} onClick={createAndSearch}>{busy?'Searching...':'Get Global Rates'}</button></div>
     </>}
 
-    {bookingId&&offers.length>0&&<div style={{overflowX:'auto',marginTop:12}}><table className="table"><thead><tr><th>Carrier / Service</th><th>Schedule</th><th>Equipment</th><th>Your Rate</th><th>Free Time</th><th>Validity</th><th></th></tr></thead><tbody>{offers.map(o=><tr key={o.offerId}><td><b>{o.carrier}</b><div className="sub">{o.serviceName||o.source}</div></td><td>ETD {fmtDate(o.etd||undefined)}<div className="sub">ETA {fmtDate(o.eta||undefined)} · {[o.vessel,o.voyage].filter(Boolean).join(' / ')||'-'}</div></td><td>{o.quantity||1} × {o.equipment}</td><td><b>{fmtMoney(o.sellRate,o.currency)}</b><div className="sub">Sell rate</div></td><td>ORG {o.freeTimeOrigin??'-'}d<div className="sub">DST {o.freeTimeDestination??'-'}d</div></td><td>{fmtDate(o.validTo||undefined)}<div className="sub">{o.externalQuoteRef||''}</div></td><td><button className="btn" disabled={busy||!!selectedQuote} onClick={()=>useRate(o)}>Select Rate</button></td></tr>)}</tbody></table></div>}
+    {bookingId&&offers.length>0&&<div style={{overflowX:'auto',marginTop:12}}><table className="table"><thead><tr><th>Carrier / Service</th><th>Schedule</th><th>Equipment</th><th>Your Rate</th><th>Free Time</th><th>Validity</th><th></th></tr></thead><tbody>{offers.map(o=><tr key={o.offerId}><td><b>{o.carrier}</b><div className="sub">{o.serviceName||o.source}</div></td><td>ETD {fmtDate(o.etd||undefined)}<div className="sub">ETA {fmtDate(o.eta||undefined)} · {[o.vessel,o.voyage].filter(Boolean).join(' / ')||'-'}</div></td><td>{o.quantity||1} × {o.equipment}</td><td><b>{fmtMoney(role==='BRANCH_OPS'?Number(o.allInBuyRate??o.buyRate??0):Number(o.sellRate??0),o.currency)}</b><div className="sub">{role==='BRANCH_OPS'?'Internal carrier buy':'Customer / agent sell'}</div></td><td>ORG {o.freeTimeOrigin??'-'}d<div className="sub">DST {o.freeTimeDestination??'-'}d</div></td><td>{fmtDate(o.validTo||undefined)}</td><td><button className="btn" disabled={busy||!!selectedQuote} onClick={()=>useRate(o)}>Select Rate</button></td></tr>)}</tbody></table></div>}
     {bookingId&&offers.length===0&&!busy&&<div style={{marginTop:12}}>No rate offers are currently available for this request.</div>}
     {selectedQuote&&<div style={{marginTop:12,padding:12,border:'1px solid #dce5ec',borderRadius:8}}><b>Selected quote {selectedQuote.quoteNo}</b> · {fmtMoney(selectedQuote.sellRate,selectedQuote.currency)} <span className="status">{selectedQuote.status}</span>{selectedQuote.status!=='Customer Accepted'&&<button className="btn" style={{marginLeft:10}} disabled={busy} onClick={accept}>Confirm & Book</button>}</div>}
     {security&&<div style={{marginTop:10}}><b>Release security:</b> <span className="status">{security.clear?'CLEAR':'HOLD'}</span> · {security.mode}{!security.clear&&<span> · {security.blockers?.join('; ')}</span>}</div>}
