@@ -8,6 +8,7 @@ const links=[
   ['/bookings','Bookings'],
   ['/global-commerce','Global Commerce / Demo'],
   ['/testing-lab','Testing Lab'],
+  ['/bulk-data','Bulk Data Upload'],
   ['/booking-control','Booking Control'],
   ['/shipment-control','Shipment / Consol Control'],
   ['/carrier-operations','Carrier Booking / Space Control'],

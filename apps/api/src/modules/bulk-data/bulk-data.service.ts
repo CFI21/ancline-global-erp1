@@ -1,0 +1,197 @@
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+
+const SOURCE='ANCLINE_BULK_DATA';
+const MAX_ROWS=1000;
+const BOOKING_STATUSES=new Set(['DRAFT','RATE_REQUESTED','RATE_RECEIVED','RATE_APPROVED','QUOTE_SENT','CUSTOMER_ACCEPTED','BOOKING_REQUESTED','CREDIT_CHECK','EQUIPMENT_CHECK','SLOT_CHECK','AGENT_ACCEPTANCE','CARRIER_CONFIRMATION','FINAL_APPROVAL','CONFIRMED','OPERATIONAL','COMPLETED','FINANCIALLY_CLOSED','CANCELLED']);
+const KYC_STATUSES=new Set(['NOT_STARTED','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED']);
+
+type ImportType='CUSTOMER'|'CARRIER'|'RATE'|'BOOKING';
+
+@Injectable()
+export class BulkDataService {
+  constructor(private prisma:PrismaService,private audit:AuditService){}
+  private get db():any{return this.prisma as any;}
+  private admin(user:any){if(String(user?.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin access required for bulk data import');}
+  private text(v:any){return String(v??'').trim();}
+  private upper(v:any){return this.text(v).toUpperCase();}
+  private bool(v:any,def=true){if(v===undefined||v===null||this.text(v)==='')return def;return ['TRUE','1','YES','Y','ACTIVE'].includes(this.upper(v));}
+  private num(v:any,name:string,required=false){if(v===undefined||v===null||this.text(v)===''){if(required)throw new Error(name+' is required');return null;}const n=Number(v);if(!Number.isFinite(n))throw new Error(name+' must be numeric');return n;}
+  private int(v:any,name:string){const n=this.num(v,name,false);if(n===null)return null;if(!Number.isInteger(n)||n<0)throw new Error(name+' must be a whole number');return n;}
+  private date(v:any,name:string,required=false){if(v===undefined||v===null||this.text(v)===''){if(required)throw new Error(name+' is required');return null;}const d=new Date(v);if(Number.isNaN(d.getTime()))throw new Error(name+' is invalid');return d;}
+  private type(v:any):ImportType{const t=this.upper(v).replace(/S$/,'') as ImportType;if(!['CUSTOMER','CARRIER','RATE','BOOKING'].includes(t))throw new BadRequestException('Type must be CUSTOMER, CARRIER, RATE or BOOKING');return t;}
+  private rows(v:any){if(!Array.isArray(v))throw new BadRequestException('rows must be an array');if(!v.length)throw new BadRequestException('At least one row is required');if(v.length>MAX_ROWS)throw new BadRequestException('Maximum '+MAX_ROWS+' rows per import batch');return v;}
+
+  templates(user:any){
+    this.admin(user);
+    return {
+      maxRows:MAX_ROWS,
+      importOrder:['CUSTOMER','CARRIER','RATE','BOOKING'],
+      privacyRule:'Carrier-facing data created from bulk import never includes customer KYC, ANC customer reference, HBL or house parties.',
+      templates:{
+        CUSTOMER:{
+          required:['code','name','countryCode'],
+          headers:['code','name','countryCode','customerRef','registrationRef','costCenterCode','kycStatus','contactName','contactEmail','contactPhone','registeredAddress','active'],
+          example:{code:'TEST-BULK-CUST-NL',name:'TEST Bulk NorthSea Trading B.V.',countryCode:'NL',customerRef:'ANC-TEST-BULK-CUS-001',registrationRef:'TEST-BULK-REG-001',costCenterCode:'TEST-BULK-NL',kycStatus:'APPROVED',contactName:'Test Contact',contactEmail:'bulk.customer@ancline.invalid',contactPhone:'+31-000-000-0000',registeredAddress:'TEST Address, Rotterdam',active:'true'}
+        },
+        CARRIER:{
+          required:['code','name','countryCode'],
+          headers:['code','name','countryCode','providerCode','accountCode','active'],
+          example:{code:'TEST-BULK-CAR-01',name:'TEST BlueWave Container Line',countryCode:'SG',providerCode:'TEST_BLUEWAVE',accountCode:'ANC-TEST-BLUEWAVE',active:'true'}
+        },
+        RATE:{
+          required:['quoteNo','customerCode','trade','equipment','buyRate','sellRate','currency','validFrom','validTo'],
+          headers:['quoteNo','customerCode','carrierCode','providerCode','trade','equipment','buyRate','sellRate','currency','validFrom','validTo','status','source','carrierQuoteRef'],
+          example:{quoteNo:'ANC-TEST-BULK-Q-001',customerCode:'TEST-BULK-CUST-NL',carrierCode:'TEST-BULK-CAR-01',providerCode:'TEST_BLUEWAVE',trade:'NLRTM-AEJEA',equipment:'40HC',buyRate:'1450',sellRate:'1725',currency:'USD',validFrom:'2026-09-01',validTo:'2026-12-31',status:'APPROVED',source:'BULK_IMPORT',carrierQuoteRef:'TEST-CARRIER-Q-001'}
+        },
+        BOOKING:{
+          required:['bookingNo','customerCode','origin','destination'],
+          headers:['bookingNo','customerCode','rateQuoteNo','businessModel','origin','destination','bookingType','transportMode','serviceType','carrierCode','carrierBookingNo','equipment','quantity','commodity','freightTerms','currency','status','customerReference','etd','eta','houseBL','masterBL'],
+          example:{bookingNo:'ANC-TEST-BULK-BKG-001',customerCode:'TEST-BULK-CUST-NL',rateQuoteNo:'ANC-TEST-BULK-Q-001',businessModel:'FORWARDING',origin:'NLRTM',destination:'AEJEA',bookingType:'FCL',transportMode:'SEA',serviceType:'PORT_TO_PORT',carrierCode:'TEST-BULK-CAR-01',carrierBookingNo:'TEST-CAR-BKG-001',equipment:'40HC',quantity:'1',commodity:'Furniture',freightTerms:'PREPAID',currency:'USD',status:'BOOKING_REQUESTED',customerReference:'TEST-CUST-REF-001',etd:'2026-10-01',eta:'2026-10-24',houseBL:'ANC-TEST-HBL-001',masterBL:''}
+        }
+      }
+    };
+  }
+
+  async history(user:any){
+    this.admin(user);
+    const rows=await this.db.integrationEvent.findMany({where:{sourceSystem:SOURCE,objectType:'BulkDataImport'},orderBy:{createdAt:'desc'},take:50});
+    return rows.map((x:any)=>({id:x.objectId,status:x.status,createdAt:x.createdAt,payload:x.payload}));
+  }
+
+  private syntax(type:ImportType,row:any,index:number){
+    const errors:string[]=[];const warnings:string[]=[];
+    const req=(key:string,label=key)=>{if(!this.text(row?.[key]))errors.push(label+' is required');};
+    if(type==='CUSTOMER'){
+      req('code');req('name');req('countryCode');
+      const cc=this.upper(row?.countryCode);if(cc&&cc.length!==2)errors.push('countryCode must be a 2-letter ISO code');
+      const k=this.upper(row?.kycStatus);if(k&&!KYC_STATUSES.has(k))errors.push('kycStatus is invalid');
+      if(k==='APPROVED'&&!this.text(row?.customerRef))warnings.push('Approved customer has no ANC customerRef');
+    }
+    if(type==='CARRIER'){
+      req('code');req('name');req('countryCode');
+      const cc=this.upper(row?.countryCode);if(cc&&cc.length!==2)errors.push('countryCode must be a 2-letter ISO code');
+    }
+    if(type==='RATE'){
+      ['quoteNo','customerCode','trade','equipment','buyRate','sellRate','currency','validFrom','validTo'].forEach(k=>req(k));
+      try{const b=this.num(row?.buyRate,'buyRate',true),s=this.num(row?.sellRate,'sellRate',true);if(b!==null&&b<0)errors.push('buyRate cannot be negative');if(s!==null&&s<0)errors.push('sellRate cannot be negative');if(b!==null&&s!==null&&s<b)warnings.push('sellRate is below buyRate');}catch(e:any){errors.push(e.message);}
+      try{const a=this.date(row?.validFrom,'validFrom',true),z=this.date(row?.validTo,'validTo',true);if(a&&z&&z<a)errors.push('validTo must be after validFrom');}catch(e:any){errors.push(e.message);}
+    }
+    if(type==='BOOKING'){
+      ['bookingNo','customerCode','origin','destination'].forEach(k=>req(k));
+      const bm=this.upper(row?.businessModel)||'NVOCC';if(!['NVOCC','FORWARDING'].includes(bm))errors.push('businessModel must be NVOCC or FORWARDING');
+      if(bm==='FORWARDING'&&!this.text(row?.rateQuoteNo))errors.push('FORWARDING booking requires rateQuoteNo');
+      const st=this.upper(row?.status)||'DRAFT';if(!BOOKING_STATUSES.has(st))errors.push('status is invalid');
+      try{const q=this.int(row?.quantity,'quantity');if(q!==null&&q<1)errors.push('quantity must be at least 1');}catch(e:any){errors.push(e.message);}
+    }
+    return {row:index+1,valid:errors.length===0,errors,warnings};
+  }
+
+  validate(body:any,user:any){
+    this.admin(user);
+    const type=this.type(body?.type),rows=this.rows(body?.rows);
+    const results=rows.map((r:any,i:number)=>this.syntax(type,r,i));
+    return {type,total:rows.length,valid:results.filter((x:any)=>x.valid).length,invalid:results.filter((x:any)=>!x.valid).length,results};
+  }
+
+  private async upsertCustomer(r:any){
+    const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
+    if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
+    const existing=await this.db.organization.findUnique({where:{code}});
+    const roles=Array.from(new Set([...(existing?.roles||[]),'CUSTOMER']));
+    const kycStatus=this.upper(r.kycStatus)||existing?.kycStatus||'NOT_STARTED';
+    if(!KYC_STATUSES.has(kycStatus))throw new Error('Invalid kycStatus');
+    const previousKyc=(existing?.kycData&&typeof existing.kycData==='object')?existing.kycData:{};
+    const extra:any={...previousKyc};
+    for(const [k,v] of Object.entries({contactName:this.text(r.contactName),contactEmail:this.text(r.contactEmail).toLowerCase(),contactPhone:this.text(r.contactPhone),registeredAddress:this.text(r.registeredAddress)})){if(v)extra[k]=v;}
+    extra.bulkImported=true;
+    const data:any={name,roles,countryCode,active:this.bool(r.active,true),kycStatus,kycData:extra};
+    if(this.text(r.customerRef))data.customerRef=this.text(r.customerRef);
+    if(this.text(r.registrationRef))data.registrationRef=this.text(r.registrationRef);
+    if(this.text(r.costCenterCode))data.costCenterCode=this.upper(r.costCenterCode);
+    if(kycStatus==='APPROVED'&&!existing?.kycApprovedAt){data.kycApprovedAt=new Date();data.kycApprovedBy='BULK_IMPORT';}
+    const row=existing?await this.db.organization.update({where:{code},data}):await this.db.organization.create({data:{code,...data}});
+    return {id:row.id,code:row.code,name:row.name,role:'CUSTOMER',kycStatus:row.kycStatus};
+  }
+
+  private async upsertCarrier(r:any){
+    const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
+    if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
+    const existing=await this.db.organization.findUnique({where:{code}});
+    const roles=Array.from(new Set([...(existing?.roles||[]),'CARRIER']));
+    const data={name,roles,countryCode,active:this.bool(r.active,true)};
+    const row=existing?await this.db.organization.update({where:{code},data}):await this.db.organization.create({data:{code,...data}});
+    const providerCode=this.upper(r.providerCode);
+    if(providerCode){
+      await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',objectId:providerCode,eventType:'PROVIDER_PROFILE_SET'}});
+      await this.db.integrationEvent.create({data:{
+        sourceSystem:'ANCLINE_RATE_PROCUREMENT',eventType:'PROVIDER_PROFILE_SET',objectType:'CarrierRateProvider',objectId:providerCode,status:'COMPLETED',completedAt:new Date(),
+        payload:{providerCode,name:row.name,carrier:row.name,carrierOrgId:row.id,active:row.active,authMode:'NONE',endpoint:null,bookingEndpoint:null,capabilities:{RATES:'MANUAL',BOOKING:'MANUAL',AMENDMENT:'MANUAL',CANCELLATION:'MANUAL',VGM:'MANUAL',SHIPPING_INSTRUCTIONS:'MANUAL',BL_DRAFT:'MANUAL',TRACKING:'MANUAL'},carrierIdentity:{accountName:'ANCLINE',accountCode:this.text(r.accountCode)||null},dataProtection:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false},bulkImported:true}
+      }});
+    }
+    return {id:row.id,code:row.code,name:row.name,role:'CARRIER',providerCode:providerCode||null};
+  }
+
+  private async upsertRate(r:any){
+    const quoteNo=this.upper(r.quoteNo),customerCode=this.upper(r.customerCode);
+    const customer=await this.db.organization.findUnique({where:{code:customerCode}});
+    if(!customer||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
+    let carrier:any=null;
+    const carrierCode=this.upper(r.carrierCode);if(carrierCode){carrier=await this.db.organization.findUnique({where:{code:carrierCode}});if(!carrier||!carrier.roles?.includes('CARRIER'))throw new Error('Carrier '+carrierCode+' not found');}
+    const buy=this.num(r.buyRate,'buyRate',true),sell=this.num(r.sellRate,'sellRate',true);
+    if((buy as number)<0||(sell as number)<0)throw new Error('Rates cannot be negative');
+    const validFrom=this.date(r.validFrom,'validFrom',true)!,validTo=this.date(r.validTo,'validTo',true)!;if(validTo<validFrom)throw new Error('validTo must be after validFrom');
+    const providerCode=this.upper(r.providerCode)||carrierCode||null;
+    const data:any={customerId:customer.id,trade:this.upper(r.trade),equipment:this.upper(r.equipment),buyRate:buy,sellRate:sell,currency:this.upper(r.currency)||'USD',validFrom,validTo,status:this.text(r.status)||'DRAFT',source:this.text(r.source)||'BULK_IMPORT',customerRef:customer.customerRef||null,costCenterCode:customer.costCenterCode||null,carrierCode:providerCode,carrierQuoteRef:this.text(r.carrierQuoteRef)||null,requestData:{bulkImported:true,trade:this.upper(r.trade),equipment:this.upper(r.equipment)},carrierOfferData:carrier?{bulkImported:true,carrierOrgId:carrier.id,carrierCode:carrier.code,providerCode,buyRate:buy,currency:this.upper(r.currency)||'USD',customerDataOutbound:false,houseDataOutbound:false}:null};
+    const existing=await this.db.rateQuote.findUnique({where:{quoteNo}});
+    const row=existing?await this.db.rateQuote.update({where:{quoteNo},data}):await this.db.rateQuote.create({data:{quoteNo,...data}});
+    return {id:row.id,quoteNo:row.quoteNo,customerCode,carrierCode:carrierCode||null,status:row.status};
+  }
+
+  private async upsertBooking(r:any){
+    const bookingNo=this.upper(r.bookingNo),customerCode=this.upper(r.customerCode),businessModel=this.upper(r.businessModel)||'NVOCC';
+    const customer=await this.db.organization.findUnique({where:{code:customerCode}});
+    if(!customer||!customer.roles?.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
+    let quote:any=null;const rateQuoteNo=this.upper(r.rateQuoteNo);
+    if(rateQuoteNo){quote=await this.db.rateQuote.findUnique({where:{quoteNo:rateQuoteNo}});if(!quote)throw new Error('Rate quote '+rateQuoteNo+' not found');if(quote.customerId!==customer.id)throw new Error('Rate quote belongs to another customer');}
+    if(businessModel==='FORWARDING'&&!quote)throw new Error('FORWARDING booking requires rateQuoteNo');
+    if(!['NVOCC','FORWARDING'].includes(businessModel))throw new Error('Invalid businessModel');
+    let carrier:any=null;const carrierCode=this.upper(r.carrierCode);if(carrierCode){carrier=await this.db.organization.findUnique({where:{code:carrierCode}});if(!carrier||!carrier.roles?.includes('CARRIER'))throw new Error('Carrier '+carrierCode+' not found');}
+    const status=this.upper(r.status)||'DRAFT';if(!BOOKING_STATUSES.has(status))throw new Error('Invalid booking status');
+    const quantity=this.int(r.quantity,'quantity');if(quantity!==null&&quantity<1)throw new Error('quantity must be at least 1');
+    const data:any={
+      businessModel,bookingChannel:'BULK_IMPORT',customerId:customer.id,customerRef:customer.customerRef||null,costCenterCode:customer.costCenterCode||null,
+      jobType:businessModel==='FORWARDING'?'FORWARDING':(this.text(r.bookingType)||'NVOCC'),forwardingTradeType:businessModel==='FORWARDING'?'STANDARD':null,
+      rateQuoteId:quote?.id||null,bookingType:this.upper(r.bookingType)||'FCL',transportMode:this.upper(r.transportMode)||'SEA',serviceType:this.upper(r.serviceType)||null,
+      origin:this.upper(r.origin),destination:this.upper(r.destination),carrier:carrier?.name||null,carrierBookingNo:this.text(r.carrierBookingNo)||null,
+      equipment:this.upper(r.equipment)||null,quantity,commodity:this.text(r.commodity)||null,freightTerms:this.upper(r.freightTerms)||null,currency:this.upper(r.currency)||quote?.currency||'USD',
+      status,customerReference:this.text(r.customerReference)||null,etd:this.date(r.etd,'etd'),eta:this.date(r.eta,'eta'),houseBL:this.text(r.houseBL)||null,masterBL:this.text(r.masterBL)||null,
+      notes:'BULK IMPORT — carrier outbound privacy policy enforced'
+    };
+    if(!data.origin||!data.destination)throw new Error('origin and destination are required');
+    const existing=await this.db.booking.findUnique({where:{bookingNo}});
+    const row=existing?await this.db.booking.update({where:{bookingNo},data}):await this.db.booking.create({data:{bookingNo,...data}});
+    return {id:row.id,bookingNo:row.bookingNo,customerCode,businessModel:row.businessModel,status:row.status,carrier:row.carrier,rateQuoteNo:quote?.quoteNo||null};
+  }
+
+  async importRows(body:any,user:any){
+    this.admin(user);
+    const type=this.type(body?.type),rows=this.rows(body?.rows);
+    const syntax=rows.map((r:any,i:number)=>this.syntax(type,r,i));
+    if(syntax.some((x:any)=>!x.valid))return {type,committed:false,total:rows.length,succeeded:0,failed:syntax.filter((x:any)=>!x.valid).length,results:syntax,message:'Validation failed. No rows were imported.'};
+    const batchId='BULK-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
+    const results:any[]=[];
+    for(let i=0;i<rows.length;i++){
+      try{
+        const value=type==='CUSTOMER'?await this.upsertCustomer(rows[i]):type==='CARRIER'?await this.upsertCarrier(rows[i]):type==='RATE'?await this.upsertRate(rows[i]):await this.upsertBooking(rows[i]);
+        results.push({row:i+1,status:'SUCCESS',value});
+      }catch(e:any){results.push({row:i+1,status:'FAILED',error:e?.message||String(e)});}
+    }
+    const succeeded=results.filter(x=>x.status==='SUCCESS').length,failed=results.length-succeeded,status=failed?'PARTIAL':'COMPLETED';
+    const payload={batchId,type,total:rows.length,succeeded,failed,actorId:user?.sub||user?.email||'unknown',customerKycOutbound:false,customerReferenceOutbound:false,houseDataOutbound:false};
+    await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,status,payload,completedAt:new Date()}});
+    await this.audit.log({actorId:user?.sub||user?.email||'unknown',action:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,detail:payload});
+    return {type,batchId,committed:true,total:rows.length,succeeded,failed,results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseDataOutbound:false}};
+  }
+}
