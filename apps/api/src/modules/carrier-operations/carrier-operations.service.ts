@@ -17,6 +17,20 @@ export class CarrierOperationsService {
   private dt(v:any,n:string){const d=new Date(v);if(Number.isNaN(d.getTime()))throw new BadRequestException(n+' is invalid');return d;}
   private norm(v:any){return String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
   private generatedNo(){return 'CBR-'+Date.now().toString().slice(-10);}
+  private shipmentNo(bookingNo:string){return 'SHP-'+String(bookingNo||Date.now()).trim().toUpperCase();}
+  private async milestone(tx:any,bookingId:string,code:string,label:string,actualAt:Date,location?:string|null,remarks?:string|null){
+    const existing=await tx.shipmentMilestone.findFirst({where:{bookingId,code},orderBy:{createdAt:'asc'}});
+    const data={label,status:'COMPLETED',actualAt,location:location||null,source:'CARRIER',remarks:remarks||null};
+    if(existing)return tx.shipmentMilestone.update({where:{id:existing.id},data});
+    return tx.shipmentMilestone.create({data:{bookingId,code,...data}});
+  }
+  private async syncMainLeg(tx:any,bookingId:string,schedule:any){
+    const main=await tx.bookingLeg.findFirst({where:{bookingId,legType:'MAIN'},orderBy:{sequence:'asc'}});
+    const data={mode:'SEA',origin:schedule.portOfLoading,destination:schedule.portOfDischarge,carrier:schedule.carrier,vessel:schedule.vessel,voyage:schedule.voyage,terminal:schedule.terminal,etd:schedule.etd,eta:schedule.eta,atd:schedule.atd||null,ata:schedule.ata||null,status:schedule.status,remarks:'Schedule '+schedule.scheduleNo};
+    if(main)return tx.bookingLeg.update({where:{id:main.id},data});
+    const last=await tx.bookingLeg.findFirst({where:{bookingId},orderBy:{sequence:'desc'},select:{sequence:true}});
+    return tx.bookingLeg.create({data:{bookingId,sequence:(last?.sequence||0)+1,legType:'MAIN',...data}});
+  }
   private teu(equipment:any,quantity:any){const e=String(equipment||'20GP').toUpperCase(),q=Math.max(1,Math.trunc(Number(quantity||1)));return q*(e.includes('40')||e.includes('45')?2:1);}
 
   private statusFor(eventType:string,current:string){
@@ -120,10 +134,11 @@ export class CarrierOperationsService {
     if(!Number.isFinite(quantity)||quantity<=0)throw new BadRequestException('Quantity must be greater than zero');
     const equipmentType=String(b?.equipmentType||booking.equipment||'20GP').toUpperCase(),spaceTeu=this.teu(equipmentType,quantity),id=this.generatedNo();
     const payload={carrierOperationNo:id,bookingId,bookingNo:booking.bookingNo,shipmentNo:booking.shipmentNo||null,carrierId,carrierCode:carrier.code,carrierName:carrier.name,scheduleId,scheduleNo:schedule.scheduleNo,scheduleCarrier:schedule.carrier,serviceName:schedule.serviceName||null,vessel:schedule.vessel,voyage:schedule.voyage,portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,terminal:schedule.terminal||null,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing||null,siCutoff:schedule.siCutoff||null,vgmCutoff:schedule.vgmCutoff||null,docCutoff:schedule.docCutoff||null,equipmentType,quantity,spaceTeu,carrierBookingNo:null,confirmationStatus:'REQUESTED',allocationStatus:'UNALLOCATED',allocationRef:null,equipmentReleaseStatus:'PENDING',releaseOrderNo:null,emptyDepot:null,releaseValidUntil:null,notes:b?.notes?String(b.notes):null,requestedBy:u.sub};
-    await this.db.$transaction([
-      this.db.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_REQUESTED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}}),
-      this.db.booking.update({where:{id:bookingId},data:{carrier:carrier.name,vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'REQUESTED',equipmentStatus:'PENDING'}})
-    ]);
+    await this.db.$transaction(async (tx:any)=>{
+      await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_REQUESTED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}});
+      await tx.booking.update({where:{id:bookingId},data:{carrier:carrier.name,vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'REQUESTED',equipmentStatus:'PENDING',shipmentStatus:'CARRIER_REQUESTED'}});
+      await this.syncMainLeg(tx,bookingId,schedule);
+    });
     await this.audit.log({actorId:u.sub,action:'CARRIER_BOOKING_REQUESTED',objectType:'CarrierBooking',objectId:id,bookingId,detail:{carrierId,scheduleId,spaceTeu}});
     return this.one(id,u);
   }
@@ -131,12 +146,16 @@ export class CarrierOperationsService {
   async confirm(id:string,b:any,u:ScopeUser){
     this.internal(u);const row=await this.one(id,u);
     if(!['REQUESTED','ROLLED'].includes(row.status))throw new BadRequestException('Carrier confirmation is not allowed from '+row.status);
-    const carrierBookingNo=this.req(b?.carrierBookingNo,'Carrier booking number'),schedule=await this.schedule(row.scheduleId);
-    const payload={carrierBookingNo,confirmationStatus:'CONFIRMED',confirmedAt:new Date().toISOString(),confirmedBy:u.sub};
-    await this.db.$transaction([
-      this.db.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_CONFIRMED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}}),
-      this.db.booking.update({where:{id:row.bookingId},data:{carrierBookingNo,carrier:row.carrierName,vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'CONFIRMED'}})
-    ]);
+    const carrierBookingNo=this.req(b?.carrierBookingNo,'Carrier booking number'),schedule=await this.schedule(row.scheduleId),confirmedAt=new Date();
+    const payload={carrierBookingNo,confirmationStatus:'CONFIRMED',confirmedAt:confirmedAt.toISOString(),confirmedBy:u.sub};
+    await this.db.$transaction(async (tx:any)=>{
+      await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_CONFIRMED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:confirmedAt}});
+      const booking=await tx.booking.findUnique({where:{id:row.bookingId}});
+      if(!booking)throw new BadRequestException('Booking not found');
+      await tx.booking.update({where:{id:row.bookingId},data:{shipmentNo:booking.shipmentNo||this.shipmentNo(booking.bookingNo),shipmentStatus:'CARRIER_CONFIRMED',carrierBookingNo,carrier:row.carrierName,vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'CONFIRMED'}});
+      await this.syncMainLeg(tx,row.bookingId,schedule);
+      await this.milestone(tx,row.bookingId,'CARRIER_CONFIRMED','Carrier Booking Confirmed',confirmedAt,schedule.portOfLoading,carrierBookingNo);
+    });
     await this.audit.log({actorId:u.sub,action:'CARRIER_BOOKING_CONFIRMED',objectType:'CarrierBooking',objectId:id,bookingId:row.bookingId,detail:{carrierBookingNo}});
     return this.one(id,u);
   }
@@ -147,11 +166,13 @@ export class CarrierOperationsService {
     if(row.status!=='CONFIRMED')throw new BadRequestException('Space can only be allocated after carrier confirmation');
     const cap=await this.capacityFor(row.scheduleId,id);
     if(cap.capacityTeu!=null&&Number(row.spaceTeu)>Number(cap.remainingTeu)+0.0005)throw new BadRequestException('Insufficient vessel allocation: requested '+row.spaceTeu+' TEU, remaining '+cap.remainingTeu+' TEU');
-    const allocationRef=this.req(b?.allocationRef||row.carrierBookingNo,'Allocation reference'),payload={allocationStatus:'ALLOCATED',allocationRef,allocatedAt:new Date().toISOString(),allocatedBy:u.sub};
-    await this.db.$transaction([
-      this.db.integrationEvent.create({data:{sourceSystem:SRC,eventType:'SPACE_ALLOCATED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}}),
-      this.db.booking.update({where:{id:row.bookingId},data:{slotStatus:'ALLOCATED'}})
-    ]);
+    const allocatedAt=new Date(),allocationRef=this.req(b?.allocationRef||row.carrierBookingNo,'Allocation reference'),payload={allocationStatus:'ALLOCATED',allocationRef,allocatedAt:allocatedAt.toISOString(),allocatedBy:u.sub};
+    await this.db.$transaction(async (tx:any)=>{
+      await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'SPACE_ALLOCATED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:allocatedAt}});
+      await tx.booking.update({where:{id:row.bookingId},data:{slotStatus:'ALLOCATED',shipmentStatus:'SPACE_ALLOCATED'}});
+      await tx.container.updateMany({where:{bookingId:row.bookingId},data:{equipmentProvider:row.carrierName,allocationRef,allocationStatus:'ALLOCATED'}});
+      await this.milestone(tx,row.bookingId,'SPACE_ALLOCATED','Carrier Space Allocated',allocatedAt,row.portOfLoading,allocationRef);
+    });
     await this.audit.log({actorId:u.sub,action:'CARRIER_SPACE_ALLOCATED',objectType:'CarrierBooking',objectId:id,bookingId:row.bookingId,detail:{allocationRef,spaceTeu:row.spaceTeu,scheduleId:row.scheduleId}});
     return this.one(id,u);
   }
@@ -162,12 +183,13 @@ export class CarrierOperationsService {
     if(row.allocationStatus!=='ALLOCATED')throw new BadRequestException('Equipment release requires allocated space');
     const releaseOrderNo=this.req(b?.releaseOrderNo,'Empty release order'),emptyDepot=this.req(b?.emptyDepot,'Empty depot'),releaseValidUntil=this.dt(b?.releaseValidUntil,'Release valid until');
     if(releaseValidUntil.getTime()<=Date.now())throw new BadRequestException('Release validity must be in the future');
-    const payload={equipmentReleaseStatus:'RELEASED',releaseOrderNo,emptyDepot,releaseValidUntil:releaseValidUntil.toISOString(),releasedAt:new Date().toISOString(),releasedBy:u.sub};
-    await this.db.$transaction([
-      this.db.integrationEvent.create({data:{sourceSystem:SRC,eventType:'EQUIPMENT_RELEASED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}}),
-      this.db.booking.update({where:{id:row.bookingId},data:{equipmentStatus:'RELEASED'}}),
-      this.db.container.updateMany({where:{bookingId:row.bookingId},data:{equipmentProvider:row.carrierName,allocationRef:row.allocationRef,allocationStatus:'ALLOCATED',emptyReleaseOrderNo:releaseOrderNo,emptyDepot,emptyReleaseValidUntil:releaseValidUntil}})
-    ]);
+    const releasedAt=new Date(),payload={equipmentReleaseStatus:'RELEASED',releaseOrderNo,emptyDepot,releaseValidUntil:releaseValidUntil.toISOString(),releasedAt:releasedAt.toISOString(),releasedBy:u.sub};
+    await this.db.$transaction(async (tx:any)=>{
+      await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'EQUIPMENT_RELEASED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:releasedAt}});
+      await tx.booking.update({where:{id:row.bookingId},data:{equipmentStatus:'RELEASED',shipmentStatus:'EQUIPMENT_RELEASED'}});
+      await tx.container.updateMany({where:{bookingId:row.bookingId},data:{equipmentProvider:row.carrierName,allocationRef:row.allocationRef,allocationStatus:'ALLOCATED',emptyReleaseOrderNo:releaseOrderNo,emptyDepot,emptyReleaseValidUntil:releaseValidUntil,status:'RELEASED'}});
+      await this.milestone(tx,row.bookingId,'EMPTY_RELEASED','Empty Equipment Released',releasedAt,emptyDepot,releaseOrderNo);
+    });
     await this.audit.log({actorId:u.sub,action:'CARRIER_EQUIPMENT_RELEASED',objectType:'CarrierBooking',objectId:id,bookingId:row.bookingId,detail:{releaseOrderNo,emptyDepot,releaseValidUntil}});
     return this.one(id,u);
   }
@@ -178,10 +200,14 @@ export class CarrierOperationsService {
     const newScheduleId=this.req(b?.scheduleId,'New schedule');
     if(newScheduleId===row.scheduleId)throw new BadRequestException('Select a different schedule');
     const schedule=await this.schedule(newScheduleId),payload={previousScheduleId:row.scheduleId,previousScheduleNo:row.scheduleNo,scheduleId:newScheduleId,scheduleNo:schedule.scheduleNo,scheduleCarrier:schedule.carrier,serviceName:schedule.serviceName||null,vessel:schedule.vessel,voyage:schedule.voyage,portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,terminal:schedule.terminal||null,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing||null,siCutoff:schedule.siCutoff||null,vgmCutoff:schedule.vgmCutoff||null,docCutoff:schedule.docCutoff||null,carrierBookingNo:null,confirmationStatus:'REQUESTED',allocationStatus:'UNALLOCATED',allocationRef:null,equipmentReleaseStatus:'PENDING',releaseOrderNo:null,emptyDepot:null,releaseValidUntil:null,rollReason:this.req(b?.reason,'Roll reason'),rolledAt:new Date().toISOString(),rolledBy:u.sub};
-    await this.db.$transaction([
-      this.db.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_ROLLED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}}),
-      this.db.booking.update({where:{id:row.bookingId},data:{carrierBookingNo:null,vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'ROLLED',equipmentStatus:'RELEASE_REQUIRED'}})
-    ]);
+    const rolledAt=new Date();
+    await this.db.$transaction(async (tx:any)=>{
+      await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_ROLLED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:rolledAt}});
+      await tx.booking.update({where:{id:row.bookingId},data:{carrierBookingNo:null,shipmentStatus:'CARRIER_ROLLED',vesselVoyage:String(schedule.vessel)+' / '+String(schedule.voyage),portOfLoading:schedule.portOfLoading,portOfDischarge:schedule.portOfDischarge,etd:schedule.etd,eta:schedule.eta,cyClosing:schedule.cyClosing,siCutoff:schedule.siCutoff,vgmCutoff:schedule.vgmCutoff,docCutoff:schedule.docCutoff,terminal:schedule.terminal,slotStatus:'ROLLED',equipmentStatus:'RELEASE_REQUIRED'}});
+      await tx.container.updateMany({where:{bookingId:row.bookingId},data:{allocationRef:null,allocationStatus:'UNALLOCATED',emptyReleaseOrderNo:null,emptyReleaseValidUntil:null,emptyDepot:null,status:'PLANNED'}});
+      await this.syncMainLeg(tx,row.bookingId,schedule);
+      await this.milestone(tx,row.bookingId,'CARRIER_ROLLED','Carrier Booking Rolled',rolledAt,schedule.portOfLoading,payload.rollReason);
+    });
     await this.audit.log({actorId:u.sub,action:'CARRIER_BOOKING_ROLLED',objectType:'CarrierBooking',objectId:id,bookingId:row.bookingId,detail:{from:row.scheduleId,to:newScheduleId,reason:payload.rollReason}});
     return this.one(id,u);
   }
@@ -190,10 +216,13 @@ export class CarrierOperationsService {
     this.internal(u);const row=await this.one(id,u);
     if(row.status==='CANCELLED')return row;
     const reason=this.req(b?.reason,'Cancellation reason'),payload={cancellationReason:reason,cancelledAt:new Date().toISOString(),cancelledBy:u.sub,confirmationStatus:'CANCELLED',allocationStatus:'CANCELLED',equipmentReleaseStatus:'CANCELLED'};
-    await this.db.$transaction([
-      this.db.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_CANCELLED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}}),
-      this.db.booking.update({where:{id:row.bookingId},data:{carrierBookingNo:null,slotStatus:'CANCELLED',equipmentStatus:'CANCELLED'}})
-    ]);
+    const cancelledAt=new Date();
+    await this.db.$transaction(async (tx:any)=>{
+      await tx.integrationEvent.create({data:{sourceSystem:SRC,eventType:'CARRIER_BOOKING_CANCELLED',externalId:id,objectType:'CarrierBooking',objectId:id,status:'COMPLETED',payload,completedAt:cancelledAt}});
+      await tx.booking.update({where:{id:row.bookingId},data:{carrierBookingNo:null,shipmentStatus:'CARRIER_CANCELLED',slotStatus:'CANCELLED',equipmentStatus:'CANCELLED'}});
+      await tx.container.updateMany({where:{bookingId:row.bookingId},data:{allocationRef:null,allocationStatus:'CANCELLED',emptyReleaseOrderNo:null,emptyReleaseValidUntil:null,emptyDepot:null}});
+      await this.milestone(tx,row.bookingId,'CARRIER_BOOKING_CANCELLED','Carrier Booking Cancelled',cancelledAt,row.portOfLoading,reason);
+    });
     await this.audit.log({actorId:u.sub,action:'CARRIER_BOOKING_CANCELLED',objectType:'CarrierBooking',objectId:id,bookingId:row.bookingId,detail:{reason}});
     return this.one(id,u);
   }
