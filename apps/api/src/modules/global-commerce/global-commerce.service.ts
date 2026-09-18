@@ -69,12 +69,38 @@ export class GlobalCommerceService {
     const activeOffices=offices.filter((x:any)=>x.active!==false&&x.registeredOffice!==false);
     const payerOffices=activeOffices.filter((x:any)=>x.carrierPayerEligible===true);
     const activeLocations=locations.filter((x:any)=>x.active!==false);
+    const authConfigured=Boolean(process.env.OIDC_ISSUER&&process.env.OIDC_CLIENT_ID&&process.env.OIDC_CLIENT_SECRET);
+    const devLoginAllowed=String(process.env.ALLOW_DEV_LOGIN||'true').toLowerCase()!=='false';
+    const storageProvider=String(process.env.OBJECT_STORAGE_PROVIDER||'stub').toLowerCase();
+    const storageReady=storageProvider!=='stub'&&Boolean(process.env.OBJECT_STORAGE_BUCKET);
+    const paymentProvider=String(process.env.PAYMENT_PROVIDER||'').trim();
+    const paymentReady=Boolean(paymentProvider&&process.env.PAYMENT_PROVIDER_SECRET);
+    const complianceProvider=String(process.env.COMPLIANCE_SCREENING_PROVIDER||'').trim();
+    const complianceReady=Boolean(complianceProvider&&process.env.COMPLIANCE_SCREENING_SECRET);
+    const fxProvider=String(process.env.FX_RATE_PROVIDER||'').trim();
+    const fxReady=Boolean(fxProvider&&process.env.FX_RATE_PROVIDER_SECRET);
+    const notificationProvider=String(process.env.EMAIL_PROVIDER||process.env.NOTIFICATION_PROVIDER||'').trim();
+    const notificationReady=Boolean(notificationProvider&&(process.env.EMAIL_PROVIDER_SECRET||process.env.NOTIFICATION_PROVIDER_SECRET));
+    const durableJobsReady=Boolean(process.env.JOB_QUEUE_URL||process.env.REDIS_URL);
+    const providerEvents=await this.db.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',eventType:'PROVIDER_PROFILE_SET'},orderBy:{createdAt:'asc'}});
+    const providerMap=new Map<string,any>();for(const e of providerEvents)providerMap.set(e.objectId,e.payload||{});
+    const liveCarrierProfiles=[...providerMap.values()].filter((p:any)=>p.active!==false&&p.endpoint&&String(p.capabilities?.RATES||'DISABLED')!=='DISABLED');
+    const bookingCarrierProfiles=liveCarrierProfiles.filter((p:any)=>String(p.capabilities?.BOOKING||'DISABLED')!=='DISABLED');
     const blockers:string[]=[];
     if(!activeCountries.length)blockers.push('No active service countries configured');
     if(!activeOffices.length)blockers.push('No active registered ANC offices configured');
     if(!payerOffices.length)blockers.push('No carrier-payer eligible ANC offices configured');
     if(!activeLocations.length)blockers.push('No controlled global locations configured');
-    return {ready:blockers.length===0,blockers,summary:{countries:activeCountries.length,registeredOffices:activeOffices.length,carrierPayerOffices:payerOffices.length,locations:activeLocations.length},countries:activeCountries,offices:activeOffices,locations:activeLocations};
+    if(!authConfigured||devLoginAllowed)blockers.push('Strong production identity is not ready: configure OIDC/identity and disable transitional login');
+    if(!storageReady)blockers.push('Real secure object storage is not connected');
+    if(!paymentReady)blockers.push('Customer online payment provider is not connected');
+    if(!complianceReady)blockers.push('Automated sanctions/KYB screening provider is not connected');
+    if(!fxReady)blockers.push('Controlled FX rate provider is not connected');
+    if(!notificationReady)blockers.push('Transactional notification provider is not connected');
+    if(!durableJobsReady)blockers.push('Durable job queue / worker infrastructure is not connected');
+    if(!liveCarrierProfiles.length)blockers.push('No live carrier rate provider is enabled');
+    if(!bookingCarrierProfiles.length)blockers.push('No carrier booking provider is enabled');
+    return {ready:blockers.length===0,blockers,summary:{countries:activeCountries.length,registeredOffices:activeOffices.length,carrierPayerOffices:payerOffices.length,locations:activeLocations.length,liveRateCarriers:liveCarrierProfiles.length,bookingCarriers:bookingCarrierProfiles.length},infrastructure:{identity:{ready:authConfigured&&!devLoginAllowed,oidcConfigured:authConfigured,transitionalLoginEnabled:devLoginAllowed},storage:{ready:storageReady,provider:storageProvider},payments:{ready:paymentReady,provider:paymentProvider||null},compliance:{ready:complianceReady,provider:complianceProvider||null},fx:{ready:fxReady,provider:fxProvider||null},notifications:{ready:notificationReady,provider:notificationProvider||null},durableJobs:{ready:durableJobsReady},carriers:{rateProviders:liveCarrierProfiles.length,bookingProviders:bookingCarrierProfiles.length}},countries:activeCountries,offices:activeOffices,locations:activeLocations};
   }
 
   async demo(user:ScopeUser){
