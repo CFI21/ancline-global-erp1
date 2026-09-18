@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {api,currentUser,fmtDate,requireToken,signOut} from '../../lib/api';
+import PortalRateBooking from '../../components/PortalRateBooking';
 
 type Movement={id:string;eventCode:string;eventLabel:string;status?:string;location?:string;occurredAt:string;source?:string;containerNo?:string};
 type Milestone={id:string;code:string;label:string;location?:string;plannedAt?:string;actualAt?:string;status:string;source?:string};
@@ -23,6 +24,7 @@ export default function AgentPortal(){
   return <main style={{padding:18,maxWidth:1280,margin:'0 auto'}}>
     <div className="top"><div><div className="sub">AGENT PORTAL</div><h1 style={{margin:'2px 0'}}>Assigned Shipments</h1><div className="sub">{user?.email||''} · controlled operational visibility only</div></div><div style={{display:'flex',gap:8}}><button className="btn" onClick={()=>location.reload()}>Refresh</button><button className="btn" onClick={signOut}>Sign out</button></div></div>
     {err&&<div className="card" style={{marginBottom:12}}>Portal notice: {err}</div>}
+    <PortalRateBooking token={requireToken()||''} role="AGENT" onBooked={()=>location.reload()}/>
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">ASSIGNED JOBS</div><div className="kpi">{loading?'…':rows.length}</div></div><div className="card"><div className="sub">ACTIVE</div><div className="kpi">{loading?'…':active}</div></div><div className="card"><div className="sub">IN TRANSIT</div><div className="kpi">{loading?'…':inTransit}</div></div><div className="card"><div className="sub">DOCUMENTS PENDING</div><div className="kpi">{loading?'…':pendingDocs}</div></div></div>
     <div className="card" style={{marginBottom:12}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search booking, customer, B/L, vessel, route or container" style={{width:'100%',maxWidth:540,padding:9,border:'1px solid #cfd9e2',borderRadius:6}}/></div>
     <div className="card"><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Customer</th><th>Route</th><th>Vessel / Voyage</th><th>Latest Event</th><th>Progress</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(b=><tr key={b.id}><td><b>{b.bookingNo}</b><div className="sub">{b.houseBL||b.masterBL||''}</div></td><td>{b.customer?.name||'-'}</td><td>{b.origin} → {b.destination}</td><td>{b.vesselVoyage||'-'}<div className="sub">{b.carrier||''}</div></td><td>{b.latestMovement?.eventLabel||'-'}<div className="sub">{b.latestMovement?.location||''}</div></td><td>{b.progress?.completed||0}/{b.progress?.total||0}</td><td><span className="status">{b.status}</span></td><td><button className="btn" onClick={()=>setSelected(selected===b.id?'':b.id)}>{selected===b.id?'Close':'Open'}</button></td></tr>)}{!loading&&visible.length===0&&<tr><td colSpan={8}>No assigned shipments found.</td></tr>}</tbody></table></div></div>
