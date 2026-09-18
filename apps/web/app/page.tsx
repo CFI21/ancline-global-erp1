@@ -15,9 +15,8 @@ export default function Home(){
   useEffect(()=>{
     const token=requireToken();if(!token)return;
     const user=currentUser();
-    if(user?.role==='CUSTOMER'){location.replace('/customer-portal');return;}
-    if(user?.role==='AGENT'){location.replace('/agent-portal');return;}
-    if(user?.role==='BRANCH_OPS'){location.replace('/branch-portal');return;}
+    if(['CUSTOMER','SHIPPER','CONSIGNEE'].includes(String(user?.role||''))){location.replace('/customer-portal');return;}
+    if(['AGENT','BRANCH_OPS'].includes(String(user?.role||''))){location.replace('/nvocc-portal');return;}
     void load(token);
   },[]);
 
