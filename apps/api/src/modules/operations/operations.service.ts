@@ -13,7 +13,7 @@ const closeoutTemplate=[
   ['COSTS_FINAL','Costs finalized / accrued'],
   ['APPROVALS_CLEAR','Outstanding approvals cleared']
 ] as const;
-const USER_ROLES=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'] as const;
+const USER_ROLES=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'] as const;
 
 @Injectable()
 export class OperationsService {
@@ -32,24 +32,30 @@ export class OperationsService {
     let branchId=body?.branchId!==undefined?(body.branchId||null):(current?.branchId||null);
     let agentId=body?.agentId!==undefined?(body.agentId||null):(current?.agentId||null);
     let customerId=body?.customerId!==undefined?(body.customerId||null):(current?.customerId||null);
+    let partyId=body?.partyId!==undefined?(body.partyId||null):(current?.partyId||null);
 
     if(role==='BRANCH_OPS'){
       if(!branchId) throw new BadRequestException('Branch Operations users must be assigned to a branch');
       const branch=await this.prisma.branch.findUnique({where:{id:String(branchId)}});
       if(!branch||!branch.active) throw new BadRequestException('Selected branch is invalid or inactive');
-      agentId=null;customerId=null;
+      agentId=null;customerId=null;partyId=null;
     }else if(role==='AGENT'){
       if(!agentId) throw new BadRequestException('Agent users must be assigned to an agent organization');
       const org=await this.prisma.organization.findUnique({where:{id:String(agentId)}});
       if(!org||!org.active||!org.roles.includes('AGENT')) throw new BadRequestException('Selected organization is not an active agent');
-      branchId=null;customerId=null;
+      branchId=null;customerId=null;partyId=null;
     }else if(role==='CUSTOMER'){
       if(!customerId) throw new BadRequestException('Customer users must be assigned to a customer organization');
       const org=await this.prisma.organization.findUnique({where:{id:String(customerId)}});
       if(!org||!org.active||!org.roles.includes('CUSTOMER')) throw new BadRequestException('Selected organization is not an active customer');
-      branchId=null;agentId=null;
+      branchId=null;agentId=null;partyId=null;
+    }else if(role==='SHIPPER'||role==='CONSIGNEE'){
+      if(!partyId) throw new BadRequestException(`${role==='SHIPPER'?'Shipper':'Consignee'} users must be assigned to a forwarding party organization`);
+      const org=await this.prisma.organization.findUnique({where:{id:String(partyId)}});
+      if(!org||!org.active||!org.roles.includes(role as any)) throw new BadRequestException(`Selected organization is not an active ${role.toLowerCase()}`);
+      branchId=null;agentId=null;customerId=null;
     }else{
-      agentId=null;customerId=null;
+      agentId=null;customerId=null;partyId=null;
       if(role!=='FINANCE') branchId=null;
       if(branchId){
         const branch=await this.prisma.branch.findUnique({where:{id:String(branchId)}});
@@ -57,7 +63,7 @@ export class OperationsService {
       }
     }
 
-    return {email,displayName,role,branchId,agentId,customerId,active:body?.active!==undefined?Boolean(body.active):(current?.active??true)};
+    return {email,displayName,role,branchId,agentId,customerId,partyId,active:body?.active!==undefined?Boolean(body.active):(current?.active??true)};
   }
 
   async listBranches(user:ScopeUser){this.assertInternal(user);return this.prisma.branch.findMany({orderBy:{code:'asc'}});}
@@ -74,7 +80,7 @@ export class OperationsService {
     this.assertAdmin(user);
     const data=await this.normalizedUser(body);
     const row=await this.prisma.userAccount.create({data});
-    await this.audit.log({actorId:user.sub,action:'USER_CREATE',objectType:'UserAccount',objectId:row.id,detail:{email:row.email,role:row.role,branchId:row.branchId,agentId:row.agentId,customerId:row.customerId}});
+    await this.audit.log({actorId:user.sub,action:'USER_CREATE',objectType:'UserAccount',objectId:row.id,detail:{email:row.email,role:row.role,branchId:row.branchId,agentId:row.agentId,customerId:row.customerId,partyId:row.partyId}});
     return row;
   }
   async updateUser(id:string,body:any,user:ScopeUser){
@@ -83,7 +89,7 @@ export class OperationsService {
     if(!current) throw new BadRequestException('User not found');
     const data=await this.normalizedUser(body,current);
     const row=await this.prisma.userAccount.update({where:{id},data});
-    await this.audit.log({actorId:user.sub,action:'USER_UPDATE',objectType:'UserAccount',objectId:id,detail:{email:row.email,role:row.role,branchId:row.branchId,agentId:row.agentId,customerId:row.customerId,active:row.active}});
+    await this.audit.log({actorId:user.sub,action:'USER_UPDATE',objectType:'UserAccount',objectId:id,detail:{email:row.email,role:row.role,branchId:row.branchId,agentId:row.agentId,customerId:row.customerId,partyId:row.partyId,active:row.active}});
     return row;
   }
   async toggleUser(id:string,user:ScopeUser){
