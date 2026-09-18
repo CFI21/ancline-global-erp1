@@ -3,10 +3,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
+import { StorageService } from '../storage/storage.service';
+import { createHash, randomBytes } from 'crypto';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
+  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService,private storage:StorageService){}
 
   list(){ return this.prisma.organization.findMany({orderBy:{name:'asc'}}); }
   get(id:string){ return this.prisma.organization.findUnique({where:{id}}); }
@@ -15,6 +17,19 @@ export class OrganizationsService {
   private text(v:any){return String(v??'').trim();}
   private admin(user:ScopeUser){if(String(user?.role||'').toUpperCase()!=='GLOBAL_ADMIN')throw new ForbiddenException('Global Admin approval is required');}
   private ref(prefix:string){return `${prefix}-${new Date().getUTCFullYear()}-${Date.now().toString().slice(-8)}`;}
+  private hash(v:string){return createHash('sha256').update(v).digest('hex');}
+  private requiredKycDocs(){return ['Company registration certificate','Tax / VAT certificate','UBO identity document','Director / authorized signatory ID','Proof of registered address','Bank proof / account confirmation'];}
+  private async issueUploadToken(organizationId:string){
+    const token=randomBytes(32).toString('base64url'),hours=Math.max(1,Math.min(72,Number(process.env.KYC_UPLOAD_TOKEN_HOURS||24))),expiresAt=new Date(Date.now()+hours*3600000);
+    await this.prisma.integrationEvent.create({data:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_UPLOAD_AUTH_ISSUED',objectType:'KycUploadAuthorization',objectId:organizationId,status:'ACTIVE',completedAt:new Date(),payload:{tokenHash:this.hash(token),expiresAt:expiresAt.toISOString()}}});
+    return {token,expiresAt};
+  }
+  private async validateUploadToken(row:any,tokenInput:any){
+    const token=this.text(tokenInput);if(!token)throw new ForbiddenException('KYC upload authorization is required');
+    const auth=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_UPLOAD_AUTH_ISSUED',objectType:'KycUploadAuthorization',objectId:row.id},orderBy:{createdAt:'desc'}});
+    const p:any=auth?.payload||{};if(!auth||!p.tokenHash||p.tokenHash!==this.hash(token))throw new ForbiddenException('KYC upload authorization is invalid');
+    if(!p.expiresAt||new Date(p.expiresAt).getTime()<Date.now())throw new ForbiddenException('KYC upload authorization has expired');
+  }
 
   async registerCustomer(body:any){
     const legalName=this.text(body?.legalName||body?.companyName),countryCode=this.text(body?.countryCode).toUpperCase();
@@ -46,22 +61,59 @@ export class OrganizationsService {
       expectedTradeLanes:Array.isArray(body?.expectedTradeLanes)?body.expectedTradeLanes:[],
       expectedMonthlyShipments:Number(body?.expectedMonthlyShipments||0)||null,
       dangerousGoods:Boolean(body?.dangerousGoods),
-      sanctionsDeclaration,termsAccepted,privacyAccepted,documents,
+      sanctionsDeclaration,termsAccepted,privacyAccepted,documentChecklist:documents,documents:[],
       submittedTermsVersion:'ANC-CUSTOMER-KYC-2026.1'
     };
     const row=await this.prisma.organization.create({data:{
       code,name:legalName,roles:['CUSTOMER'],countryCode,registrationRef,kycStatus:'SUBMITTED',kycData,
       kycSubmittedAt:new Date(),active:false
     }});
+    const uploadAuth=await this.issueUploadToken(row.id);
     await this.audit.log({actorId:contactEmail,action:'CUSTOMER_KYC_SUBMIT',objectType:'Organization',objectId:row.id,detail:{registrationRef,legalName,countryCode,contactEmail}});
-    return {registrationRef,kycStatus:row.kycStatus,companyName:row.name,submittedAt:row.kycSubmittedAt};
+    return {registrationRef,kycStatus:row.kycStatus,companyName:row.name,submittedAt:row.kycSubmittedAt,kycUploadToken:uploadAuth.token,kycUploadTokenExpiresAt:uploadAuth.expiresAt,storage:this.storage.status()};
   }
 
   async registrationStatus(registrationRef:string){
     const ref=this.text(registrationRef).toUpperCase();
     const row=await this.prisma.organization.findFirst({where:{registrationRef:ref}});
     if(!row)throw new BadRequestException('Registration reference was not found');
-    return {registrationRef:row.registrationRef,customerRef:row.customerRef,companyName:row.name,kycStatus:row.kycStatus,rejectionReason:row.kycStatus==='REJECTED'?row.kycRejectionReason:null,approvedAt:row.kycApprovedAt,submittedAt:row.kycSubmittedAt};
+    const kyc:any=row.kycData||{},uploaded=Array.isArray(kyc.documents)?kyc.documents:[];
+    return {registrationRef:row.registrationRef,customerRef:row.customerRef,companyName:row.name,kycStatus:row.kycStatus,rejectionReason:row.kycStatus==='REJECTED'?row.kycRejectionReason:null,approvedAt:row.kycApprovedAt,submittedAt:row.kycSubmittedAt,documentsUploaded:uploaded.map((x:any)=>({documentType:x.documentType,filename:x.filename,uploadedAt:x.uploadedAt}))};
+  }
+
+  async createKycDocumentUpload(registrationRef:string,body:any){
+    const ref=this.text(registrationRef).toUpperCase();
+    const row=await this.prisma.organization.findFirst({where:{registrationRef:ref}});
+    if(!row)throw new BadRequestException('Registration reference was not found');
+    if(!['SUBMITTED','UNDER_REVIEW'].includes(row.kycStatus))throw new BadRequestException('KYC documents can only be uploaded while registration is under review');
+    await this.validateUploadToken(row,body?.uploadToken);
+    const documentType=this.text(body?.documentType),filename=this.text(body?.filename),contentType=this.text(body?.contentType).toLowerCase(),size=Number(body?.size||0);
+    if(!this.requiredKycDocs().includes(documentType))throw new BadRequestException('Unsupported KYC document type');
+    if(!filename||!['application/pdf','image/jpeg','image/png'].includes(contentType))throw new BadRequestException('KYC files must be PDF, JPG or PNG');
+    if(!Number.isFinite(size)||size<=0||size>15*1024*1024)throw new BadRequestException('KYC file must be larger than 0 and no more than 15 MB');
+    const storage=this.storage.status();if(!storage.configured)throw new BadRequestException('Secure KYC document storage is not configured yet');
+    const upload=this.storage.createPresignedPut({scope:`kyc/${row.id}`,filename,contentType,expiresInSeconds:600});
+    await this.prisma.integrationEvent.create({data:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_DOCUMENT_UPLOAD_RESERVED',externalId:upload.key,objectType:'KycDocument',objectId:row.id,status:'PENDING',payload:{registrationRef:ref,documentType,filename,contentType,size,key:upload.key},completedAt:new Date()}});
+    return {...upload,documentType,filename,maxBytes:15*1024*1024};
+  }
+
+  async completeKycDocumentUpload(registrationRef:string,body:any){
+    const ref=this.text(registrationRef).toUpperCase(),key=this.text(body?.key);
+    const row=await this.prisma.organization.findFirst({where:{registrationRef:ref}});
+    if(!row)throw new BadRequestException('Registration reference was not found');
+    await this.validateUploadToken(row,body?.uploadToken);
+    const reserved=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_DOCUMENT_UPLOAD_RESERVED',objectType:'KycDocument',objectId:row.id,externalId:key},orderBy:{createdAt:'desc'}});
+    const meta:any=reserved?.payload||{};if(!reserved||!meta.key)throw new BadRequestException('KYC upload reservation was not found');
+    const verified=await this.storage.verifyObject(key);if(!verified.exists)throw new BadRequestException('Uploaded KYC object could not be verified');
+    if(verified.contentLength<=0||verified.contentLength>15*1024*1024)throw new BadRequestException('Uploaded KYC file size is invalid');
+    if(meta.size&&Number(meta.size)!==Number(verified.contentLength))throw new BadRequestException('Uploaded KYC file size does not match the reserved file');
+    const kyc:any=row.kycData||{},docs=Array.isArray(kyc.documents)?kyc.documents:[];
+    const doc={documentType:meta.documentType,filename:meta.filename,contentType:verified.contentType||meta.contentType,size:verified.contentLength,key,etag:verified.etag||null,uploadedAt:new Date().toISOString()};
+    const next=[...docs.filter((x:any)=>x.documentType!==doc.documentType),doc];
+    await this.prisma.organization.update({where:{id:row.id},data:{kycData:{...kyc,documents:next}}});
+    await this.prisma.integrationEvent.create({data:{sourceSystem:'ANCLINE_KYC',eventType:'KYC_DOCUMENT_UPLOADED',externalId:key,objectType:'KycDocument',objectId:row.id,status:'COMPLETED',payload:{...doc,registrationRef:ref},completedAt:new Date()}});
+    await this.audit.log({actorId:ref,action:'KYC_DOCUMENT_UPLOADED',objectType:'Organization',objectId:row.id,detail:{registrationRef:ref,documentType:doc.documentType,filename:doc.filename,size:doc.size}});
+    return {ok:true,document:{documentType:doc.documentType,filename:doc.filename,uploadedAt:doc.uploadedAt}};
   }
 
   async kycQueue(user:ScopeUser){
@@ -90,6 +142,12 @@ export class OrganizationsService {
     if(!['SUBMITTED','UNDER_REVIEW'].includes(row.kycStatus))throw new BadRequestException('Only submitted or under-review KYC can be approved');
     const costCenterCode=this.text(body?.costCenterCode).toUpperCase();
     if(!costCenterCode)throw new BadRequestException('Forwarding cost center is required before customer approval');
+    const kycForApproval:any=row.kycData||{},uploadedDocs=Array.isArray(kycForApproval.documents)?kycForApproval.documents:[];
+    const requireUploads=this.storage.status().configured||String(process.env.KYC_REQUIRE_DOCUMENT_UPLOAD||'false').toLowerCase()==='true';
+    if(requireUploads){
+      const missing=this.requiredKycDocs().filter(x=>!uploadedDocs.some((d:any)=>d.documentType===x));
+      if(missing.length)throw new BadRequestException('KYC approval blocked: missing uploaded documents: '+missing.join(', '));
+    }
     const customerRef=row.customerRef||this.ref('ANC-CUS');
     const updated=await this.prisma.organization.update({where:{id},data:{
       customerRef,costCenterCode,kycStatus:'APPROVED',kycApprovedAt:new Date(),kycApprovedBy:user.sub,
