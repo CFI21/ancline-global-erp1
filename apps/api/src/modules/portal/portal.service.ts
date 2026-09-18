@@ -139,8 +139,9 @@ export class PortalService {
     if(!booking)throw new BadRequestException('Booking not found');
     if(String((booking as any).businessModel||'NVOCC').toUpperCase()!=='NVOCC')throw new BadRequestException('NVOCC rates are available only for NVOCC jobs');
     const now=new Date();
+    const allowedStatuses=role==='GLOBAL_ADMIN'?['Rate Approved','Quote Sent','DRAFT']:['Rate Approved','Quote Sent'];
     const rows=await this.prisma.rateQuote.findMany({
-      where:{customerId:booking.customerId,validFrom:{lte:now},validTo:{gte:now},status:{in:['Rate Approved','Quote Sent','DRAFT']}},
+      where:{customerId:booking.customerId,validFrom:{lte:now},validTo:{gte:now},status:{in:allowedStatuses}},
       orderBy:[{validTo:'asc'},{createdAt:'desc'}],take:300
     });
     const norm=(v:any)=>String(v||'').trim().toUpperCase().replace(/\s+/g,'');
