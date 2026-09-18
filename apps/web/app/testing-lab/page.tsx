@@ -7,7 +7,19 @@ import {api,requireToken} from '../../lib/api';
 export default function TestingLabPage(){
   const [token,setToken]=useState(''),[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
-  async function load(t=token){setBusy(true);setMessage('');try{setData(await api('/test-data/summary',t));}catch(e:any){setMessage(e.message||'Unable to load test data.');}finally{setBusy(false);}}
+  async function load(t=token){
+    setBusy(true);setMessage('');
+    try{
+      const r=await api('/test-data/summary',t);setData(r);
+      const bookingNo=new URLSearchParams(window.location.search).get('bookingNo');
+      if(bookingNo){
+        const match=(r?.bookings||[]).find((b:any)=>String(b.bookingNo).toUpperCase()===String(bookingNo).toUpperCase());
+        if(match){window.location.replace('/bookings/'+match.id);return;}
+        setMessage('Test booking '+bookingNo+' is not seeded yet. Use Seed / Refresh Test Pack after deployment.');
+      }
+    }catch(e:any){setMessage(e.message||'Unable to load test data.');}
+    finally{setBusy(false);}
+  }
   async function seed(){setBusy(true);setMessage('');try{const r=await api('/test-data/seed',token,{method:'POST'});setData(r);setMessage('Synthetic test pack seeded / refreshed successfully.');}catch(e:any){setMessage(e.message||'Test data seed failed.');}finally{setBusy(false);}}
   async function reset(){if(!window.confirm('Delete only ANCLINE synthetic TEST-* data?'))return;setBusy(true);setMessage('');try{await api('/test-data/reset',token,{method:'DELETE'});setMessage('Synthetic test data removed.');await load();}catch(e:any){setMessage(e.message||'Test data reset failed.');}finally{setBusy(false);}}
   return <WorkspaceShell title="ANCLINE Testing Lab" subtitle="Synthetic customers, carriers and full-field bookings · never for real operations" active="/testing-lab" actions={<><button className="btn" disabled={busy} onClick={seed}>Seed / Refresh Test Pack</button><button className="btn" disabled={busy} onClick={reset}>Reset Test Data</button></>}>
