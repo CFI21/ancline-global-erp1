@@ -182,6 +182,7 @@ export class RatesService {
 
     const booking=await this.prisma.booking.create({data:{
       bookingNo,
+      businessModel:'NVOCC',bookingChannel:'ADMIN_NVOCC_RATE_CONVERSION',
       customerId:quote.customerId,
       rateQuoteId:quote.id,
       salesOwner:user.email,
