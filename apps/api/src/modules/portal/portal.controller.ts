@@ -17,6 +17,7 @@ export class PortalController {
   @Post('nvocc/bookings/:id/select-rate/:rateId') nvoccSelectRate(@Param('id') id:string,@Param('rateId') rateId:string,@Req() req:any){return this.s.nvoccSelectRate(id,rateId,req.user);}
   @Post('bookings/:id/accept-quote') acceptQuote(@Param('id') id:string,@Req() req:any){return this.s.acceptQuote(id,req.user);}
   @Post('forwarding/quotes/:quoteId/accept') acceptForwardingQuote(@Param('quoteId') quoteId:string,@Body() body:any,@Req() req:any){return this.s.acceptForwardingQuote(quoteId,body,req.user);}
+  @Post('bookings/:id/submit-carrier-booking') submitForwardingCarrierBooking(@Param('id') id:string,@Req() req:any){return this.s.submitForwardingCarrierBooking(id,req.user);}
   @Post('nvocc/bookings/:id/accept-quote') acceptNvoccQuote(@Param('id') id:string,@Req() req:any){return this.s.nvoccAcceptQuote(id,req.user);}
   @Get('bookings/:id/release-security') releaseSecurity(@Param('id') id:string,@Req() req:any){return this.s.releaseSecurity(id,req.user);}
 }
