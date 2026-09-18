@@ -10,6 +10,7 @@ export class BookingsController {
   @Get(':id') get(@Param('id') id:string,@Req() req:any){ return this.service.get(id,req.user); }
   @Post() create(@Body() body:any,@Req() req:any){ return this.service.create(body,req.user); }
   @Patch(':id') update(@Param('id') id:string,@Body() body:any,@Req() req:any){ return this.service.update(id,body,req.user); }
+  @Post(':id/convert-model') convertModel(@Param('id') id:string,@Body() body:any,@Req() req:any){ return this.service.convertModel(id,body,req.user); }
   @Post(':id/duplicate') duplicate(@Param('id') id:string,@Req() req:any){ return this.service.duplicate(id,req.user); }
   @Post(':id/cancel') cancel(@Param('id') id:string,@Body() body:any,@Req() req:any){ return this.service.cancel(id,body,req.user); }
   @Post(':id/containers') addContainer(@Param('id') id:string,@Body() body:any,@Req() req:any){ return this.service.addContainer(id,body,req.user); }
