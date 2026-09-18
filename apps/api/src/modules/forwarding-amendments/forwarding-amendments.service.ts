@@ -8,6 +8,7 @@ const SOURCE='ANCLINE_FORWARDING_AMENDMENT';
 const OBJECT='ForwardingAmendment';
 const RATE_SOURCE='ANCLINE_RATE_PROCUREMENT';
 const PROVIDER_OBJECT='CarrierRateProvider';
+const PRIVATE_HOUSE_FIELDS=new Set(['customerReference','shipperReference','shipper','consignee','notifyParty']);
 const ALLOWED_FIELDS=new Set([
   'customerReference','shipperReference','shipper','consignee','notifyParty',
   'origin','destination','placeOfReceipt','portOfLoading','portOfDischarge','placeOfDelivery','transshipmentPort',
@@ -61,6 +62,11 @@ export class ForwardingAmendmentsService {
     for(const [k,v] of Object.entries(out))if(typeof v==='number'&&!Number.isFinite(v))throw new BadRequestException(`Invalid numeric value for ${k}`);
     return out;
   }
+  private carrierSafeChanges(changes:any){
+    const out:any={};
+    for(const [k,v] of Object.entries(changes||{}))if(!PRIVATE_HOUSE_FIELDS.has(k))out[k]=v;
+    return out;
+  }
   private async write(id:string,eventType:string,payload:any,status='COMPLETED'){
     return this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType,objectType:OBJECT,objectId:id,externalId:String(payload.bookingId||''),status,completedAt:status==='COMPLETED'?new Date():null,payload}});
   }
@@ -70,7 +76,7 @@ export class ForwardingAmendmentsService {
       const now=new Date();
       await this.db.booking.update({where:{id:b.id},data:{status:'CANCELLED',cancellationReason:request.reason,cancelledAt:now,cancelledBy:user.sub,shipmentStatus:'CARRIER_CANCELLATION_CONFIRMED'}});
     }else{
-      const changes:any={...request.changes,shipmentStatus:'CARRIER_AMENDMENT_CONFIRMED'};
+      const changes:any={...request.changes,shipmentStatus:request.houseOnly?'HOUSE_DATA_UPDATED':'CARRIER_AMENDMENT_CONFIRMED'};
       await this.db.booking.update({where:{id:b.id},data:changes});
     }
     await this.write(id,request.requestType==='CANCELLATION'?'CANCELLATION_CONFIRMED':'AMENDMENT_CONFIRMED',{...request,status:'CONFIRMED',carrierResponse,confirmedAt:new Date().toISOString(),confirmedBy:user.sub});
@@ -79,6 +85,9 @@ export class ForwardingAmendmentsService {
   }
   private async submit(id:string,request:any,b:any,user:ScopeUser){
     const {providerCode,profile}=await this.provider(b);
+    if(request.requestType==='AMENDMENT'&&request.houseOnly){
+      return this.apply(id,request,user,{reference:null,note:'ANC house/private data updated internally; no customer data transmitted to carrier',houseOnly:true});
+    }
     const capability=request.requestType==='CANCELLATION'?'CANCELLATION':'AMENDMENT';
     const mode=String(profile?.capabilities?.[capability]||'DISABLED').toUpperCase();
     const endpoint=request.requestType==='CANCELLATION'?profile?.cancellationEndpoint:profile?.amendmentEndpoint;
@@ -87,7 +96,15 @@ export class ForwardingAmendmentsService {
     if(mode==='DISABLED'){await this.write(id,'AMENDMENT_STATUS_SET',{...base,status:'PENDING_CONFIGURATION',note:`${capability} capability is not enabled for this carrier`});return {amendmentId:id,status:'PENDING_CONFIGURATION',providerCode,mode};}
     if(mode==='MANUAL'||mode==='EDI'){const status=mode==='EDI'?'PENDING_EDI':'PENDING_MANUAL';await this.write(id,'AMENDMENT_STATUS_SET',{...base,status});return {amendmentId:id,status,providerCode,mode};}
     if(mode!=='API'||!endpoint){await this.write(id,'AMENDMENT_STATUS_SET',{...base,status:'PENDING_CONFIGURATION',note:'API capability requires a configured endpoint'});return {amendmentId:id,status:'PENDING_CONFIGURATION',providerCode,mode};}
-    const body={amendmentId:id,requestType:request.requestType,bookingId:b.id,bookingNo:b.bookingNo,carrierBookingNo:b.carrierBookingNo,ancQuoteRef:b.rateQuote?.quoteNo||null,carrierQuoteRef:b.rateQuote?.carrierQuoteRef||null,reason:request.reason,changes:request.changes||{},requestedBy:user.sub};
+    const body={
+      requestReference:id,
+      requestType:request.requestType,
+      bookingParty:{name:profile?.carrierIdentity?.accountName||'ANC',accountCode:profile?.carrierIdentity?.accountCode||null},
+      carrierBookingNo:b.carrierBookingNo,
+      carrierQuoteRef:b.rateQuote?.carrierQuoteRef||null,
+      reasonCode:request.requestType==='CANCELLATION'?'ANC_CANCELLATION_REQUEST':'ANC_BOOKING_AMENDMENT',
+      changes:request.carrierChanges||{}
+    };
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
     try{
       const response=await (globalThis as any).fetch(endpoint,{method:'POST',headers:this.headers(profile),body:JSON.stringify(body),signal:controller.signal});
@@ -111,7 +128,9 @@ export class ForwardingAmendmentsService {
     const reason=String(body?.reason||'').trim();if(!reason)throw new BadRequestException('Reason is required');
     const changes=requestType==='AMENDMENT'?this.cleanChanges(body):{};
     if(requestType==='AMENDMENT'&&!Object.keys(changes).length)throw new BadRequestException('At least one amendment field is required');
-    const amendmentId=this.id(),request={amendmentId,bookingId:b.id,bookingNo:b.bookingNo,requestType,reason,changes,requestedAt:new Date().toISOString(),requestedBy:user.sub,customerRef:b.customerRef||b.customer?.customerRef||null,ancQuoteRef:b.rateQuote?.quoteNo||null,carrierQuoteRef:b.rateQuote?.carrierQuoteRef||null};
+    const carrierChanges=requestType==='AMENDMENT'?this.carrierSafeChanges(changes):{};
+    const houseOnly=requestType==='AMENDMENT'&&Object.keys(changes).length>0&&Object.keys(carrierChanges).length===0;
+    const amendmentId=this.id(),request={amendmentId,bookingId:b.id,bookingNo:b.bookingNo,requestType,reason,changes,carrierChanges,houseOnly,requestedAt:new Date().toISOString(),requestedBy:user.sub,customerRef:b.customerRef||b.customer?.customerRef||null,ancQuoteRef:b.rateQuote?.quoteNo||null,carrierQuoteRef:b.rateQuote?.carrierQuoteRef||null};
     await this.write(amendmentId,'AMENDMENT_REQUESTED',request);
     await this.audit.log({actorId:user.sub,action:requestType==='CANCELLATION'?'FORWARDING_CANCELLATION_REQUESTED':'FORWARDING_AMENDMENT_REQUESTED',objectType:OBJECT,objectId:amendmentId,bookingId:b.id,detail:{reason,changes}});
     return this.submit(amendmentId,request,b,user);
