@@ -6,7 +6,7 @@ import {api,fmtDate,fmtMoney} from '../lib/api';
 type Customer={id:string;code:string;name:string};
 type Offer={offerId:string;source:string;carrier:string;serviceName?:string|null;vessel?:string|null;voyage?:string|null;origin:string;destination:string;equipment:string;quantity:number;etd?:string|null;eta?:string|null;sellRate?:number;buyRate?:number;allInBuyRate?:number;currency:string;validTo?:string|null;freeTimeOrigin?:number|null;freeTimeDestination?:number|null};
 
-export default function PortalRateBooking({token,role,onBooked}:{token:string;role:'CUSTOMER'|'AGENT'|'BRANCH_OPS';onBooked?:()=>void}){
+export default function PortalRateBooking({token,role,onBooked}:{token:string;role:'CUSTOMER'|'SHIPPER'|'CONSIGNEE'|'GLOBAL_ADMIN';onBooked?:()=>void}){
   const [customers,setCustomers]=useState<Customer[]>([]);
   const [bookingId,setBookingId]=useState('');
   const [bookingNo,setBookingNo]=useState('');
@@ -17,7 +17,7 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
   const [message,setMessage]=useState('');
   const [form,setForm]=useState({customerId:'',origin:'',destination:'',equipment:'40HC',quantity:'1',commodity:'',grossWeight:'',volumeCbm:'',etd:'',freightTerms:'PREPAID',currency:'USD',customerReference:''});
 
-  useEffect(()=>{if(!token)return;api('/portal/customers',token).then((x:any)=>{const rows=Array.isArray(x)?x:[];setCustomers(rows);if((role==='AGENT'||role==='BRANCH_OPS')&&rows.length===1)setForm(f=>({...f,customerId:rows[0].id}));}).catch(()=>{});},[token,role]);
+  useEffect(()=>{if(!token)return;api('/portal/customers',token).then((x:any)=>{const rows=Array.isArray(x)?x:[];setCustomers(rows);if(role!=='GLOBAL_ADMIN'&&rows.length===1)setForm(f=>({...f,customerId:rows[0].id}));}).catch(()=>{});},[token,role]);
 
   async function createAndSearch(){
     setBusy(true);setMessage('');setOffers([]);setSelectedQuote(null);setSecurity(null);
@@ -36,7 +36,7 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
     try{
       const result=await api('/rate-procurement/booking/'+bookingId+'/select/'+o.offerId,token,{method:'POST',body:'{}'});
       setSelectedQuote(result.quote);
-      setMessage((role==='BRANCH_OPS'?'Forwarding sell quote ':'Sell offer ')+fmtMoney(result.quote.sellRate,result.quote.currency)+' selected. Confirm the booking request to continue.');
+      setMessage((role==='GLOBAL_ADMIN'?'Forwarding sell quote ':'Sell offer ')+fmtMoney(result.quote.sellRate,result.quote.currency)+' selected. Confirm the booking request to continue.');
     }catch(e:any){setMessage(e?.message||'Could not select rate');}
     finally{setBusy(false);}
   }
@@ -47,7 +47,8 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
       const result=await api('/portal/bookings/'+bookingId+'/accept-quote',token,{method:'POST'});
       const s=await api('/portal/bookings/'+bookingId+'/release-security',token);
       setSecurity(s);setSelectedQuote(result.quote);
-      setMessage('Booking '+result.booking.bookingNo+' submitted to ANCLINE operations. Payment / credit security will control release.');
+      const auto=result?.automation?.status?(' Carrier automation: '+result.automation.status+'.'):'';
+      setMessage('Booking '+result.booking.bookingNo+' submitted to ANCLINE Forwarding operations.'+auto+' Payment / credit security continues to control release.');
       onBooked?.();
     }catch(e:any){setMessage(e?.message||'Could not submit booking');}
     finally{setBusy(false);}
@@ -60,7 +61,7 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
     {message&&<div style={{margin:'12px 0',padding:10,border:'1px solid #dce5ec',borderRadius:7}}>{message}</div>}
     {!bookingId&&<>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:10,marginTop:12}}>
-        {(role==='AGENT'||role==='BRANCH_OPS')&&<label><span style={label}>Customer *</span><select style={input} value={form.customerId} onChange={e=>setForm({...form,customerId:e.target.value})}><option value="">Select customer</option>{customers.map(c=><option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}</select></label>}
+        {role==='GLOBAL_ADMIN'&&<label><span style={label}>Forwarding Contracting Party *</span><select style={input} value={form.customerId} onChange={e=>setForm({...form,customerId:e.target.value})}><option value="">Select customer</option>{customers.map(c=><option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}</select></label>}
         <label><span style={label}>Origin *</span><input style={input} value={form.origin} onChange={e=>setForm({...form,origin:e.target.value})} placeholder="NLRTM"/></label>
         <label><span style={label}>Destination *</span><input style={input} value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} placeholder="AEJEA"/></label>
         <label><span style={label}>Equipment *</span><select style={input} value={form.equipment} onChange={e=>setForm({...form,equipment:e.target.value})}><option>20GP</option><option>40GP</option><option>40HC</option><option>45HC</option><option>20RF</option><option>40RF</option></select></label>
@@ -73,10 +74,10 @@ export default function PortalRateBooking({token,role,onBooked}:{token:string;ro
         <label><span style={label}>Currency</span><select style={input} value={form.currency} onChange={e=>setForm({...form,currency:e.target.value})}><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></select></label>
         <label><span style={label}>Your Reference</span><input style={input} value={form.customerReference} onChange={e=>setForm({...form,customerReference:e.target.value})}/></label>
       </div>
-      <div style={{textAlign:'right',marginTop:12}}><button className="btn" disabled={busy||(role==='AGENT'||role==='BRANCH_OPS')&&!form.customerId||!form.origin.trim()||!form.destination.trim()} onClick={createAndSearch}>{busy?'Searching...':'Get Global Rates'}</button></div>
+      <div style={{textAlign:'right',marginTop:12}}><button className="btn" disabled={busy||role==='GLOBAL_ADMIN'&&!form.customerId||!form.origin.trim()||!form.destination.trim()} onClick={createAndSearch}>{busy?'Searching...':'Get Global Rates'}</button></div>
     </>}
 
-    {bookingId&&offers.length>0&&<div style={{overflowX:'auto',marginTop:12}}><table className="table"><thead><tr><th>Carrier / Service</th><th>Schedule</th><th>Equipment</th><th>Your Rate</th><th>Free Time</th><th>Validity</th><th></th></tr></thead><tbody>{offers.map(o=><tr key={o.offerId}><td><b>{o.carrier}</b><div className="sub">{o.serviceName||o.source}</div></td><td>ETD {fmtDate(o.etd||undefined)}<div className="sub">ETA {fmtDate(o.eta||undefined)} · {[o.vessel,o.voyage].filter(Boolean).join(' / ')||'-'}</div></td><td>{o.quantity||1} × {o.equipment}</td><td><b>{fmtMoney(role==='BRANCH_OPS'?Number(o.allInBuyRate??o.buyRate??0):Number(o.sellRate??0),o.currency)}</b><div className="sub">{role==='BRANCH_OPS'?'Internal carrier buy':'Customer / agent sell'}</div></td><td>ORG {o.freeTimeOrigin??'-'}d<div className="sub">DST {o.freeTimeDestination??'-'}d</div></td><td>{fmtDate(o.validTo||undefined)}</td><td><button className="btn" disabled={busy||!!selectedQuote} onClick={()=>useRate(o)}>Select Rate</button></td></tr>)}</tbody></table></div>}
+    {bookingId&&offers.length>0&&<div style={{overflowX:'auto',marginTop:12}}><table className="table"><thead><tr><th>Carrier / Service</th><th>Schedule</th><th>Equipment</th><th>Your Rate</th><th>Free Time</th><th>Validity</th><th></th></tr></thead><tbody>{offers.map(o=><tr key={o.offerId}><td><b>{o.carrier}</b><div className="sub">{o.serviceName||o.source}</div></td><td>ETD {fmtDate(o.etd||undefined)}<div className="sub">ETA {fmtDate(o.eta||undefined)} · {[o.vessel,o.voyage].filter(Boolean).join(' / ')||'-'}</div></td><td>{o.quantity||1} × {o.equipment}</td><td><b>{fmtMoney(role==='GLOBAL_ADMIN'?Number(o.allInBuyRate??o.buyRate??0):Number(o.sellRate??0),o.currency)}</b><div className="sub">{role==='GLOBAL_ADMIN'?'Internal carrier buy':'Forwarding sell rate'}</div></td><td>ORG {o.freeTimeOrigin??'-'}d<div className="sub">DST {o.freeTimeDestination??'-'}d</div></td><td>{fmtDate(o.validTo||undefined)}</td><td><button className="btn" disabled={busy||!!selectedQuote} onClick={()=>useRate(o)}>Select Rate</button></td></tr>)}</tbody></table></div>}
     {bookingId&&offers.length===0&&!busy&&<div style={{marginTop:12}}>No rate offers are currently available for this request.</div>}
     {selectedQuote&&<div style={{marginTop:12,padding:12,border:'1px solid #dce5ec',borderRadius:8}}><b>Selected quote {selectedQuote.quoteNo}</b> · {fmtMoney(selectedQuote.sellRate,selectedQuote.currency)} <span className="status">{selectedQuote.status}</span>{selectedQuote.status!=='Customer Accepted'&&<button className="btn" style={{marginLeft:10}} disabled={busy} onClick={accept}>Confirm & Book</button>}</div>}
     {security&&<div style={{marginTop:10}}><b>Release security:</b> <span className="status">{security.clear?'CLEAR':'HOLD'}</span> · {security.mode}{!security.clear&&<span> · {security.blockers?.join('; ')}</span>}</div>}
