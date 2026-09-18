@@ -12,6 +12,7 @@ const milestoneMap:Record<string,{code:string;label:string}>={
   LOADED:{code:'LOADED',label:'Loaded on Vessel'},
   DEPARTED:{code:'DEPARTED',label:'Vessel Departed'},
   TRANSSHIPMENT:{code:'TRANSSHIPMENT',label:'Transshipment'},
+  ARRIVED:{code:'ARRIVED',label:'Vessel Arrived'},
   DISCHARGED:{code:'DISCHARGED',label:'Discharged'},
   GATED_OUT:{code:'GATED_OUT',label:'Gate Out'},
   DELIVERED:{code:'DELIVERED',label:'Delivered'},
@@ -19,12 +20,12 @@ const milestoneMap:Record<string,{code:string;label:string}>={
 };
 const movementStatus:Record<string,string>={
   EMPTY_RELEASED:'RELEASED',PICKED_UP:'PICKED_UP',GATED_IN:'GATED_IN',VGM_SUBMITTED:'VGM_SUBMITTED',LOADED:'LOADED',
-  DEPARTED:'DEPARTED',TRANSSHIPMENT:'TRANSSHIPMENT',DISCHARGED:'DISCHARGED',GATED_OUT:'GATED_OUT',DELIVERED:'DELIVERED',EMPTY_RETURNED:'EMPTY_RETURNED'
+  DEPARTED:'DEPARTED',TRANSSHIPMENT:'TRANSSHIPMENT',ARRIVED:'ARRIVED',DISCHARGED:'DISCHARGED',GATED_OUT:'GATED_OUT',DELIVERED:'DELIVERED',EMPTY_RETURNED:'EMPTY_RETURNED'
 };
 const stageRank:Record<string,number>={
-  PLANNED:0,ALLOCATED:0,RELEASED:1,PICKED_UP:2,GATED_IN:3,VGM_SUBMITTED:4,LOADED:5,DEPARTED:6,IN_TRANSIT:6,TRANSSHIPMENT:7,DISCHARGED:8,GATED_OUT:9,DELIVERED:10,EMPTY_RETURNED:11
+  PLANNED:0,ALLOCATED:0,RELEASED:1,PICKED_UP:2,GATED_IN:3,VGM_SUBMITTED:4,LOADED:5,DEPARTED:6,IN_TRANSIT:6,TRANSSHIPMENT:7,ARRIVED:8,DISCHARGED:9,GATED_OUT:10,DELIVERED:11,EMPTY_RETURNED:12
 };
-const stageLabel=['PLANNED','EQUIPMENT_RELEASED','PICKED_UP','GATED_IN','VGM_SUBMITTED','LOADED','DEPARTED','TRANSSHIPMENT','DISCHARGED','GATED_OUT','DELIVERED','EMPTY_RETURNED'];
+const stageLabel=['PLANNED','EQUIPMENT_RELEASED','PICKED_UP','GATED_IN','VGM_SUBMITTED','LOADED','DEPARTED','TRANSSHIPMENT','ARRIVED','DISCHARGED','GATED_OUT','DELIVERED','EMPTY_RETURNED'];
 
 @Injectable()
 export class ContainerMovementsService {
@@ -126,7 +127,8 @@ export class ContainerMovementsService {
         actorId:user.sub
       }});
       const update:any={};
-      update.status=body?.status?String(body.status):movementStatus[eventCode]||container.status;
+      const requestedStatus=body?.status?String(body.status):movementStatus[eventCode]||container.status;
+      update.status=eventCode==='CUSTOM'||this.rank(requestedStatus)>=this.rank(container.status)?requestedStatus:container.status;
       if(body?.location!==undefined) update.location=body.location?String(body.location):null;
       if(eventCode==='EMPTY_RELEASED') update.allocationStatus='RELEASED';
       if(eventCode==='PICKED_UP') update.pickupDate=occurredAt;
@@ -150,7 +152,7 @@ export class ContainerMovementsService {
       if(aggregate.shipmentStatus)bookingData.shipmentStatus=aggregate.shipmentStatus;
       if(aggregate.maxRank>=5)bookingData.status='OPERATIONAL';
       if(eventCode==='DEPARTED')bookingData.atd=occurredAt;
-      if(eventCode==='DISCHARGED')bookingData.ata=occurredAt;
+      if(eventCode==='ARRIVED')bookingData.ata=occurredAt;
       if(Object.keys(bookingData).length)await tx.booking.update({where:{id:bookingId},data:bookingData});
       return movement;
     });
