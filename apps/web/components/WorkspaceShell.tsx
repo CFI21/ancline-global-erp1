@@ -121,7 +121,7 @@ const menuGroups=[
   },
 ] as const;
 
-export default function WorkspaceShell({title,subtitle,active,children,actions}:{title:string;subtitle:string;active:string;children:ReactNode;actions?:ReactNode}){
+export default function WorkspaceShell({title,subtitle,active,children,actions,hideHeader=false}:{title:string;subtitle:string;active:string;children:ReactNode;actions?:ReactNode;hideHeader?:boolean}){
   const activeGroup=menuGroups.find(group=>group.items.some(([href])=>href===active))?.id??null;
   const [openGroup,setOpenGroup]=useState<string|null>(activeGroup);
   const [menuQuery,setMenuQuery]=useState('');
@@ -202,10 +202,10 @@ export default function WorkspaceShell({title,subtitle,active,children,actions}:
       </nav>
     </aside>
     <main className="main">
-      <div className="top">
+      {!hideHeader&&<div className="top">
         <div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
-      </div>
+      </div>}
       {children}
     </main>
   </div>;
