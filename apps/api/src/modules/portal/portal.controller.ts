@@ -12,6 +12,8 @@ export class PortalController {
   @Get('customers') customers(@Req() req:any){return this.s.customers(req.user);}
   @Post('bookings') createBooking(@Body() body:any,@Req() req:any){return this.s.directBooking(body,req.user);}
   @Post('nvocc/bookings') createNvoccBooking(@Body() body:any,@Req() req:any){return this.s.nvoccDirectBooking(body,req.user);}
+  @Get('nvocc/bookings/:id/rates') nvoccRates(@Param('id') id:string,@Req() req:any){return this.s.nvoccRates(id,req.user);}
+  @Post('nvocc/bookings/:id/select-rate/:rateId') nvoccSelectRate(@Param('id') id:string,@Param('rateId') rateId:string,@Req() req:any){return this.s.nvoccSelectRate(id,rateId,req.user);}
   @Post('bookings/:id/accept-quote') acceptQuote(@Param('id') id:string,@Req() req:any){return this.s.acceptQuote(id,req.user);}
   @Post('nvocc/bookings/:id/accept-quote') acceptNvoccQuote(@Param('id') id:string,@Req() req:any){return this.s.nvoccAcceptQuote(id,req.user);}
   @Get('bookings/:id/release-security') releaseSecurity(@Param('id') id:string,@Req() req:any){return this.s.releaseSecurity(id,req.user);}
