@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
@@ -12,7 +12,7 @@ export class RatesService {
     private audit:AuditService
   ){}
 
-  private internal(user:ScopeUser){ this.scope.assertInternal(user); }
+  private internal(user:ScopeUser){ if(String(user.role||'').toUpperCase()!=='GLOBAL_ADMIN') throw new ForbiddenException('Global Admin access required for NVOCC tariff management'); }
 
   private canonicalStatus(status?:string|null){
     const key=String(status||'DRAFT').trim().toUpperCase().replace(/[\s_-]+/g,'');
@@ -118,7 +118,7 @@ export class RatesService {
       validFrom,
       validTo,
       status:'DRAFT',
-      source:String(body.source||'COMMERCIAL_DESK')
+      source:String(body.source||'NVOCC_COMMERCIAL_DESK')
     }});
     await this.audit.log({
       actorId:user.sub,action:'RATE_QUOTE_CREATE',objectType:'RateQuote',objectId:row.id,
