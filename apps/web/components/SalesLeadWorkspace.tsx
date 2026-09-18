@@ -26,6 +26,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
   const [relationTab,setRelationTab]=useState<(typeof relationTabs)[number]>('Sales Relations');
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
+  const [showCommEditor,setShowCommEditor]=useState(false);
   const [comm,setComm]=useState<any>({type:'EMAIL',contact:'',subject:'',notes:''});
   const user=currentUser();
 
@@ -92,7 +93,8 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
   const relationSummary=useMemo(()=>[form.inquiryTypeLabel||form.inquiryType,[form.leadSourceCode,form.leadSourceName].filter(Boolean).join(' - '),form.status].filter(Boolean).join('; '),[form]);
   const inquiryNo=form.inquiryNo||(isNew?'NEW':leadId||'');
   const field=(k:string,label:string,opts:{type?:string;green?:boolean;readonly?:boolean}={})=><div className="cw-row"><label>{label}</label><input className={'cw-input'+(opts.green?' cw-green':'')} type={opts.type||'text'} value={form[k]??''} readOnly={opts.readonly} onChange={e=>set(k,e.target.value)}/></div>;
-  const select=(k:string,label:string,options:string[],green=false)=><div className="cw-row"><label>{label}</label><select className={'cw-input'+(green?' cw-green':'')} value={form[k]??''} onChange={e=>set(k,e.target.value)}>{options.map(x=><option key={x} value={x}>{x}</option>)}</select></div>;
+  const interestCode=String(form.leadInterest||'WARM').toUpperCase()==='COLD'?'CLD':String(form.leadInterest||'WARM').toUpperCase()==='HOT'?'HOT':'WRM';
+  const interestLabel=String(form.leadInterest||'WARM').toUpperCase()==='COLD'?'Cold':String(form.leadInterest||'WARM').toUpperCase()==='HOT'?'Hot':'Warm';
 
   if(!lead)return <WorkspaceShell title="" subtitle="" active="/sales-crm/leads" hideHeader><div className="cw-screen"><div className="cw-loading">{message||'Loading inquiry...'}</div></div></WorkspaceShell>;
 
@@ -111,18 +113,15 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
 
         <div className="cw-main-grid">
           <fieldset className="cw-panel cw-org"><legend>Organization</legend>
-            <div className="cw-row"><label>Name</label><select className="cw-input" value={form.organizationId||''} onChange={e=>applyOrg(e.target.value)}><option value="">New / unlinked prospect</option>{orgs.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select><button className="cw-mini">...</button></div>
-            {field('organizationName','',{green:false})}
-            {field('address1','Address 1',{green:true})}
-            {field('address2','Address 2',{green:true})}
-            {field('portCountry','Port / Country',{green:true})}
-            {field('city','City',{green:true})}
-            {field('postCode','Post Code',{green:true})}
-            {field('state','State',{green:true})}
-            {field('website','Website')}
-            {field('registrationNumber','Reg. Number')}
+            <div className="cw-row"><label>Name</label><select className="cw-input" value={form.organizationId||''} onChange={e=>applyOrg(e.target.value)}><option value="">New / unlinked prospect</option>{orgs.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select><button className="cw-mini" type="button">...</button></div>
+            <div className="cw-row"><label></label><input className="cw-input cw-small-id" value={form.organizationCode||''} onChange={e=>set('organizationCode',e.target.value)}/><span/></div>
+            <div className="cw-row"><label>Address 1</label><input className="cw-input cw-green" value={form.address1||''} onChange={e=>set('address1',e.target.value)}/><div className="cw-icon-pair"><button className="cw-mini cw-x" type="button" onClick={()=>set('address1','')}>×</button><button className="cw-mini cw-mail" type="button">✉</button></div></div>
+            <div className="cw-row"><label>Address 2</label><input className="cw-input cw-green" value={form.address2||''} onChange={e=>set('address2',e.target.value)}/><span/></div>
+            <div className="cw-pair-row"><label>Port / Country</label><input className="cw-input cw-green cw-codebox" value={form.portCountry||''} onChange={e=>set('portCountry',e.target.value)}/><button className="cw-mini" type="button">...</button><label>City</label><input className="cw-input cw-green" value={form.city||''} onChange={e=>set('city',e.target.value)}/></div>
+            <div className="cw-pair-row"><label>Post Code</label><input className="cw-input cw-green cw-codebox" value={form.postCode||''} onChange={e=>set('postCode',e.target.value)}/><span></span><label>State</label><input className="cw-input cw-green" value={form.state||''} onChange={e=>set('state',e.target.value)}/></div>
+            ${field('website','Website')}
+            ${field('registrationNumber','Reg. Number')}
           </fieldset>
-
           <fieldset className="cw-panel cw-contact"><legend>Contact</legend>
             {field('contactName','Inquiry Contact')}
             <div className="cw-row"><label>Phone</label><input className="cw-input" value={form.phone||''} onChange={e=>set('phone',e.target.value)}/><button className="cw-phone">☎</button></div>
@@ -134,20 +133,18 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
 
           <div className="cw-right-stack">
             <fieldset className="cw-panel"><legend>Details</legend>
-              <div className="cw-row"><label>Status</label><select className="cw-input cw-status-open" value={form.status||'OPEN'} onChange={e=>set('status',e.target.value)}><option>OPEN</option><option>QUALIFIED</option><option>ON_HOLD</option><option>CONVERTED</option><option>CLOSED</option><option>LOST</option></select></div>
-              {field('assignedSalesRep','Assigned Sales Rep')}
-              {field('originalCall','Original Call',{type:'date'})}
-              <div className="cw-row"><label>Lead Interest</label><select className="cw-input" value={form.leadInterest||'WARM'} onChange={e=>set('leadInterest',e.target.value)}><option>COLD</option><option>WARM</option><option>HOT</option></select></div>
-              {field('closeReason','Close Reason')}
+              <div className="cw-row"><label>Status</label><select className="cw-input cw-status-open" value={form.status||'OPEN'} onChange={e=>set('status',e.target.value)}><option value="OPEN">Open</option><option value="QUALIFIED">Qualified</option><option value="ON_HOLD">On Hold</option><option value="CONVERTED">Converted</option><option value="CLOSED">Closed</option><option value="LOST">Lost</option></select><span/></div>
+              <div className="cw-row"><label>Assigned Sales Rep</label><input className="cw-input" value={form.assignedSalesRep||''} onChange={e=>set('assignedSalesRep',e.target.value)}/><button className="cw-mini" type="button">...</button></div>
+              <div className="cw-row"><label>Original Call</label><input className="cw-input" type="date" value={form.originalCall||''} onChange={e=>set('originalCall',e.target.value)}/><button className="cw-mini" type="button">▣</button></div>
+              <div className="cw-row cw-dual-value"><label>Lead Interest</label><select className="cw-input cw-interest-code" value={interestCode} onChange={e=>set('leadInterest',e.target.value==='CLD'?'COLD':e.target.value==='HOT'?'HOT':'WARM')}><option value="CLD">CLD</option><option value="WRM">WRM</option><option value="HOT">HOT</option></select><input className="cw-input" value={interestLabel} readOnly/></div>
+              <div className="cw-row cw-dual-value"><label>Close Reason</label><input className="cw-input cw-interest-code" value={form.closeReason||''} onChange={e=>set('closeReason',e.target.value)}/><input className="cw-input" value="" readOnly/></div>
             </fieldset>
-
             <fieldset className="cw-panel"><legend>Lead Source</legend>
-              <div className="cw-row"><label>Source</label><input className="cw-input cw-code" value={form.leadSourceCode||''} onChange={e=>set('leadSourceCode',e.target.value)}/><input className="cw-input" value={form.leadSourceName||''} onChange={e=>set('leadSourceName',e.target.value)}/></div>
-              {field('sourceDetails','Source Details')}
-              {field('referringOrganization','Referring Organization')}
-              {field('referringContact','Referring Contact')}
-            </fieldset>
-          </div>
+              <div className="cw-row cw-source-row"><label>Source</label><select className="cw-input cw-codebox" value={form.leadSourceCode||'DIRECT'} onChange={e=>set('leadSourceCode',e.target.value)}><option value="DIRECT">DIR</option><option value="OAG">OAG</option><option value="WEB">WEB</option><option value="REF">REF</option><option value="PHONE">TEL</option><option value="VISIT">VIS</option></select><input className="cw-input" value={form.leadSourceName||''} onChange={e=>set('leadSourceName',e.target.value)}/></div>
+              ${field('sourceDetails','Source Details')}
+              <div className="cw-row cw-ref-org"><label>Referring Organization</label><input className="cw-input cw-codebox" value={form.referringOrganization||''} onChange={e=>set('referringOrganization',e.target.value)}/><div className="cw-ref-tail"><button className="cw-mini" type="button">...</button><input className="cw-input" value={form.referringOrganization||'(None Selected)'} readOnly/></div></div>
+              <div className="cw-row"><label>Referring Contact</label><select className="cw-input cw-disabled" value={form.referringContact||''} disabled><option value="">{form.referringContact||''}</option></select><span/></div>
+            </fieldset>          </div>
         </div>
 
         <div className="cw-bottom-grid">
@@ -168,14 +165,14 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
               {comms.map((c:any)=><tr key={c.communicationId}><td>{String(c.date||'').slice(0,10)}</td><td>{c.type}</td><td>{c.contact}</td><td>{c.subject}</td><td>{String(c.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>)}
               {!comms.length&&<tr><td colSpan={5}>&nbsp;</td></tr>}
             </tbody></table></div>
-            <div className="cw-comm-editor"><select value={comm.type} onChange={e=>setComm({...comm,type:e.target.value})}><option>EMAIL</option><option>PHONE</option><option>MEETING</option><option>NOTE</option></select><input placeholder="Contact" value={comm.contact} onChange={e=>setComm({...comm,contact:e.target.value})}/><input placeholder="Subject" value={comm.subject} onChange={e=>setComm({...comm,subject:e.target.value})}/><button disabled={busy||isNew||!comm.subject.trim()} onClick={()=>void addCommunication()}>Add</button></div>
-            <div className="cw-lower-actions"><label><input type="checkbox"/> Show Notes</label><span className="cw-spacer"/><button disabled={isNew}>□ New</button><button disabled={isNew}>✎ Edit</button></div>
+            {showCommEditor&&<div className="cw-comm-editor"><select value={comm.type} onChange={e=>setComm({...comm,type:e.target.value})}><option>EMAIL</option><option>PHONE</option><option>MEETING</option><option>NOTE</option></select><input placeholder="Contact" value={comm.contact} onChange={e=>setComm({...comm,contact:e.target.value})}/><input placeholder="Subject" value={comm.subject} onChange={e=>setComm({...comm,subject:e.target.value})}/><button disabled={busy||isNew||!comm.subject.trim()} onClick={()=>void addCommunication()}>Save</button></div>}
+            <div className="cw-lower-actions"><label><input type="checkbox"/> Show Notes</label><span className="cw-spacer"/><button disabled={isNew} onClick={()=>setShowCommEditor(true)}>□ New</button><button disabled={isNew||!comms.length} onClick={()=>setShowCommEditor(true)}>✎ Edit</button></div>
           </div>
         </div>
 
         <div className="cw-action-row">
           <button onClick={()=>location.href='/sales-crm'}>Close</button>
-          <button>Set Client Intelligence</button>
+          <button type="button" onClick={()=>setMessage('Client Intelligence workspace is available from the Sales Lead relation.')}>Set Client Intelligence</button>
           {!opportunityId?<button className="cw-primary-action" disabled={busy||isNew} onClick={()=>void convert()}>Create Sales Opportunity</button>:<button className="cw-primary-action" onClick={()=>location.href=`/sales-crm?opportunity=${opportunityId}`}>Open Sales Opportunity</button>}
         </div>
         <div className="cw-footerbar"><span className="cw-spacer"/><button onClick={()=>location.href='/sales-crm/leads/new'}>□ New</button><button disabled={busy} onClick={()=>void save(true)}>◉ Save & Close</button><button onClick={()=>location.href='/sales-crm'}>● Close</button></div>

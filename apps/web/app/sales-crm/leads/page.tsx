@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../../components/WorkspaceShell';
+import WorkspaceShell,{fieldStyle,sectionTitle} from '../../../components/WorkspaceShell';
 import {api,requireToken} from '../../../lib/api';
 
 export default function SalesLeadsPage(){
@@ -12,14 +12,6 @@ export default function SalesLeadsPage(){
   const [search,setSearch]=useState('');
   const [status,setStatus]=useState('ALL');
   const [interest,setInterest]=useState('ALL');
-  const [showNew,setShowNew]=useState(true);
-  const [lead,setLead]=useState<any>({
-    organizationId:'',organizationName:'',inquiryType:'EMAIL',inquiryTypeLabel:'Email Inquiry',
-    contactName:'',phone:'',emailAddress:'',mobile:'',jobDescription:'',
-    assignedSalesRep:'',leadInterest:'WARM',leadSourceCode:'DIRECT',leadSourceName:'Direct',
-    sourceDetails:'',referringOrganization:'',referringContact:'',notes:''
-  });
-
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
   async function load(t=token){
     try{
@@ -28,16 +20,6 @@ export default function SalesLeadsPage(){
       setOrgs(Array.isArray(o)?o:[]);
     }catch(e:any){setMessage(e.message||'Unable to load Sales Leads / Inquiries');}
   }
-  async function createLead(){
-    setBusy(true);setMessage('');
-    try{
-      const org=orgs.find((x:any)=>x.id===lead.organizationId);
-      const created=await api('/sales-crm/leads',token,{method:'POST',body:JSON.stringify({...lead,organizationName:lead.organizationName||org?.name||''})});
-      location.href=`/sales-crm/leads/${created.leadId}`;
-    }catch(e:any){setMessage(e.message||'Inquiry / lead could not be created');}
-    finally{setBusy(false);}
-  }
-
   const visible=useMemo(()=>{
     const q=search.trim().toLowerCase();
     return rows.filter(x=>{
@@ -57,7 +39,7 @@ export default function SalesLeadsPage(){
     subtitle="Capture enquiries, qualify prospects and convert them into Sales Opportunities"
     active="/sales-crm/leads"
     actions={<>
-      <button className="btn" onClick={()=>setShowNew(v=>!v)}>{showNew?'Hide New Inquiry':'+ New Inquiry'}</button>
+      <a className="btn" href="/sales-crm/leads/new" style={{textDecoration:'none'}}>+ New Inquiry</a>
       <a className="btn" href="/sales-crm" style={{textDecoration:'none'}}>Opportunities / Pipeline</a>
       <button className="btn" onClick={()=>void load()}>Refresh</button>
     </>}
@@ -70,29 +52,6 @@ export default function SalesLeadsPage(){
       <div className="card"><div className="sub">HOT LEADS</div><div className="kpi">{hot}</div></div>
       <div className="card"><div className="sub">CONVERTED</div><div className="kpi">{converted}</div></div>
     </div>
-
-    {showNew&&<div className="card" style={{marginBottom:12}}>
-      <h3 style={sectionTitle}>New Inquiry / Sales Lead</h3>
-      <div style={formGrid}>
-        <label><span style={labelStyle}>Organization</span><select style={fieldStyle} value={lead.organizationId} onChange={e=>{const o=orgs.find((x:any)=>x.id===e.target.value);setLead({...lead,organizationId:e.target.value,organizationName:o?.name||lead.organizationName});}}><option value="">New / unlinked prospect</option>{orgs.map((o:any)=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
-        {!lead.organizationId&&<label><span style={labelStyle}>Organization Name *</span><input style={fieldStyle} value={lead.organizationName} onChange={e=>setLead({...lead,organizationName:e.target.value})}/></label>}
-        <label><span style={labelStyle}>Inquiry Type</span><select style={fieldStyle} value={lead.inquiryType} onChange={e=>setLead({...lead,inquiryType:e.target.value,inquiryTypeLabel:e.target.options[e.target.selectedIndex].text})}><option value="EMAIL">Email Inquiry</option><option value="PHONE">Phone Inquiry</option><option value="WEB">Web Inquiry</option><option value="VISIT">Sales Visit</option><option value="REFERRAL">Referral</option></select></label>
-        <label><span style={labelStyle}>Inquiry Contact *</span><input style={fieldStyle} value={lead.contactName} onChange={e=>setLead({...lead,contactName:e.target.value})}/></label>
-        <label><span style={labelStyle}>Phone</span><input style={fieldStyle} value={lead.phone} onChange={e=>setLead({...lead,phone:e.target.value})}/></label>
-        <label><span style={labelStyle}>E-Mail Address</span><input type="email" style={fieldStyle} value={lead.emailAddress} onChange={e=>setLead({...lead,emailAddress:e.target.value})}/></label>
-        <label><span style={labelStyle}>Mobile</span><input style={fieldStyle} value={lead.mobile} onChange={e=>setLead({...lead,mobile:e.target.value})}/></label>
-        <label><span style={labelStyle}>Job Description</span><input style={fieldStyle} value={lead.jobDescription} onChange={e=>setLead({...lead,jobDescription:e.target.value})}/></label>
-        <label><span style={labelStyle}>Assigned Sales Rep</span><input style={fieldStyle} value={lead.assignedSalesRep} onChange={e=>setLead({...lead,assignedSalesRep:e.target.value})}/></label>
-        <label><span style={labelStyle}>Lead Interest</span><select style={fieldStyle} value={lead.leadInterest} onChange={e=>setLead({...lead,leadInterest:e.target.value})}><option>COLD</option><option>WARM</option><option>HOT</option></select></label>
-        <label><span style={labelStyle}>Lead Source Code</span><input style={fieldStyle} value={lead.leadSourceCode} onChange={e=>setLead({...lead,leadSourceCode:e.target.value})}/></label>
-        <label><span style={labelStyle}>Lead Source</span><input style={fieldStyle} value={lead.leadSourceName} onChange={e=>setLead({...lead,leadSourceName:e.target.value})}/></label>
-        <label><span style={labelStyle}>Source Details</span><input style={fieldStyle} value={lead.sourceDetails} onChange={e=>setLead({...lead,sourceDetails:e.target.value})}/></label>
-        <label><span style={labelStyle}>Referring Organization</span><input style={fieldStyle} value={lead.referringOrganization} onChange={e=>setLead({...lead,referringOrganization:e.target.value})}/></label>
-        <label><span style={labelStyle}>Referring Contact</span><input style={fieldStyle} value={lead.referringContact} onChange={e=>setLead({...lead,referringContact:e.target.value})}/></label>
-      </div>
-      <label style={{display:'block',marginTop:10}}><span style={labelStyle}>Notes</span><textarea style={{...fieldStyle,minHeight:70}} value={lead.notes} onChange={e=>setLead({...lead,notes:e.target.value})}/></label>
-      <div style={{textAlign:'right',marginTop:10}}><button className="btn" disabled={busy||(!lead.organizationId&&!lead.organizationName.trim())||!lead.contactName.trim()} onClick={()=>void createLead()}>{busy?'Creating...':'Create Inquiry / Lead'}</button></div>
-    </div>}
 
     <div className="card">
       <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'end',flexWrap:'wrap',marginBottom:10}}>
