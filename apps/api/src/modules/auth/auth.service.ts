@@ -15,6 +15,7 @@ export class AuthService {
       branchId:account.branchId||null,
       agentId:account.agentId||null,
       customerId:account.customerId||null,
+      partyId:account.partyId||null,
       managedAccount:true,
       authSource
     };
@@ -42,11 +43,12 @@ export class AuthService {
     if(!devAllowed) throw new UnauthorizedException('No active ANCLINE account is provisioned for this email');
 
     const role=String(body.role||'GLOBAL_ADMIN').toUpperCase();
-    const allowed=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'];
+    const allowed=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'];
     if(!allowed.includes(role)) throw new UnauthorizedException('Unsupported ANCLINE role');
     if(role==='CUSTOMER'&&!body.customerId) throw new UnauthorizedException('Customer organization is required');
     if(role==='AGENT'&&!body.agentId) throw new UnauthorizedException('Agent organization is required');
     if(role==='BRANCH_OPS'&&!body.branchId) throw new UnauthorizedException('Branch organization is required');
+    if((role==='SHIPPER'||role==='CONSIGNEE')&&!body.partyId) throw new UnauthorizedException('Forwarding party organization is required');
 
     const payload={
       sub:body.userId||email,
@@ -55,6 +57,7 @@ export class AuthService {
       branchId:body.branchId||null,
       agentId:body.agentId||null,
       customerId:body.customerId||null,
+      partyId:body.partyId||null,
       managedAccount:false,
       authSource:'DEV'
     };
