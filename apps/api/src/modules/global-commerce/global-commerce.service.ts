@@ -72,7 +72,7 @@ export class GlobalCommerceService {
     const authConfigured=Boolean(process.env.OIDC_ISSUER&&process.env.OIDC_CLIENT_ID&&process.env.OIDC_CLIENT_SECRET);
     const devLoginAllowed=String(process.env.ALLOW_DEV_LOGIN||'true').toLowerCase()!=='false';
     const storageProvider=String(process.env.OBJECT_STORAGE_PROVIDER||'stub').toLowerCase();
-    const storageReady=storageProvider!=='stub'&&Boolean(process.env.OBJECT_STORAGE_BUCKET);
+    const storageReady=storageProvider==='s3'&&Boolean(process.env.OBJECT_STORAGE_BUCKET&&process.env.OBJECT_STORAGE_REGION&&process.env.OBJECT_STORAGE_ACCESS_KEY&&process.env.OBJECT_STORAGE_SECRET_KEY);
     const paymentProvider=String(process.env.PAYMENT_PROVIDER||'').trim();
     const paymentReady=Boolean(paymentProvider&&process.env.PAYMENT_PROVIDER_SECRET);
     const complianceProvider=String(process.env.COMPLIANCE_SCREENING_PROVIDER||'').trim();
