@@ -98,8 +98,8 @@ model Organization {
   roles          OrgRole[]
   countryCode    String?
   costCenterCode  String?
-  customerRef    String?   @unique
-  registrationRef String?  @unique
+  customerRef    String?
+  registrationRef String?
   kycStatus      String    @default("NOT_STARTED")
   kycData        Json?
   kycSubmittedAt DateTime?
@@ -113,6 +113,9 @@ model Organization {
   agentBookings  Booking[] @relation("AgentBookings")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([customerRef])
+  @@index([registrationRef])
 }
 
 model RateQuote {
