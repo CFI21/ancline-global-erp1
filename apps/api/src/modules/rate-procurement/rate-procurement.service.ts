@@ -106,7 +106,9 @@ export class RateProcurementService {
     return this.round(buy*(1+Math.max(0,value)/100));
   }
   private publicOffer(offer:any,provider:any){
+    if(offer?.filedSellRate==null&&!provider)return null;
     const sellRate=this.priceForOffer(offer,provider);
+    if(!Number.isFinite(Number(sellRate))||Number(sellRate)<=0)return null;
     return {offerId:offer.offerId,bookingId:offer.bookingId,source:offer.source,carrier:offer.carrier,serviceName:offer.serviceName||null,vessel:offer.vessel||null,voyage:offer.voyage||null,origin:offer.origin,destination:offer.destination,equipment:offer.equipment,quantity:offer.quantity,etd:offer.etd||null,eta:offer.eta||null,sellRate,currency:offer.currency,validTo:offer.validTo||null,externalQuoteRef:offer.externalQuoteRef||null,freeTimeOrigin:offer.freeTimeOrigin??null,freeTimeDestination:offer.freeTimeDestination??null};
   }
 
@@ -114,7 +116,7 @@ export class RateProcurementService {
     const booking=await this.bookingRow(bookingId,user),offers=await this.storedOffers(bookingId),selection=await this.selected(bookingId),lastSearch=await this.lastSearch(bookingId);
     if(this.external(user)){
       const profiles=await this.providerProfiles(),byCode=new Map(profiles.map((p:any)=>[String(p.providerCode),p]));
-      return {booking:{id:booking.id,bookingNo:booking.bookingNo,status:booking.status,origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading,portOfDischarge:booking.portOfDischarge,equipment:booking.equipment,quantity:booking.quantity,commodity:booking.commodity,specialCargo:booking.specialCargo,etd:booking.etd,currency:booking.currency,carrier:booking.carrier,rateQuote:booking.rateQuote?{id:booking.rateQuote.id,quoteNo:booking.rateQuote.quoteNo,sellRate:booking.rateQuote.sellRate,currency:booking.rateQuote.currency,status:booking.rateQuote.status,validTo:booking.rateQuote.validTo}:null,customer:booking.customer},providers:[],carriers:[],offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))),selection:selection?{offerId:selection.offerId,quoteNo:selection.quoteNo,sellRate:selection.sellRate,currency:selection.currency,selectedAt:selection.selectedAt}:null,lastSearch:lastSearch?{searchedAt:lastSearch.searchedAt,totalOffers:lastSearch.totalOffers}:null};
+      return {booking:{id:booking.id,bookingNo:booking.bookingNo,status:booking.status,origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading,portOfDischarge:booking.portOfDischarge,equipment:booking.equipment,quantity:booking.quantity,commodity:booking.commodity,specialCargo:booking.specialCargo,etd:booking.etd,currency:booking.currency,carrier:booking.carrier,rateQuote:booking.rateQuote?{id:booking.rateQuote.id,quoteNo:booking.rateQuote.quoteNo,sellRate:booking.rateQuote.sellRate,currency:booking.rateQuote.currency,status:booking.rateQuote.status,validTo:booking.rateQuote.validTo}:null,customer:booking.customer},providers:[],carriers:[],offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))).filter(Boolean),selection:selection?{offerId:selection.offerId,quoteNo:selection.quoteNo,sellRate:selection.sellRate,currency:selection.currency,selectedAt:selection.selectedAt}:null,lastSearch:lastSearch?{searchedAt:lastSearch.searchedAt,totalOffers:lastSearch.totalOffers}:null};
     }
     const [providers,carriers]=await Promise.all([this.providerProfiles(),this.carriers(user)]);return {booking,providers,offers,carriers,selection,lastSearch};
   }
@@ -177,7 +179,7 @@ export class RateProcurementService {
       if(offers.length&&!TERMINAL_BOOKING.has(current))await tx.booking.update({where:{id:bookingId},data:{status:'RATE_RECEIVED'}});
     });
     await this.audit.log({actorId:user.sub,action:'CARRIER_RATE_SEARCH',objectType:'Booking',objectId:bookingId,bookingId,detail:{providers:providers.map((p:any)=>p.providerCode),contractOffers:contract.length,onlineOffers:external.length,providerErrors}});
-    if(this.external(user)){const byCode=new Map(allProfiles.map((p:any)=>[String(p.providerCode),p]));return {bookingId,offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))),providerErrors:providerErrors.map((x:any)=>({carrier:x.name||x.providerCode,error:'Rate source temporarily unavailable'})),providerResults:providerResults.map((x:any)=>({carrier:x.name,offers:x.offers,status:x.status}))};}
+    if(this.external(user)){const byCode=new Map(allProfiles.map((p:any)=>[String(p.providerCode),p]));return {bookingId,offers:offers.map((o:any)=>this.publicOffer(o,byCode.get(String(o.providerCode)))).filter(Boolean),providerErrors:providerErrors.map((x:any)=>({carrier:x.name||x.providerCode,error:'Rate source temporarily unavailable'})),providerResults:providerResults.map((x:any)=>({carrier:x.name,offers:x.offers,status:x.status}))};}
     return {bookingId,offers,providerErrors,providerResults};
   }
 
@@ -185,6 +187,7 @@ export class RateProcurementService {
     const booking=await this.bookingRow(bookingId,user),row=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:OFFER_OBJECT,objectId:offerId,eventType:'RATE_OFFER_RECEIVED'},orderBy:{createdAt:'desc'}});if(!row)throw new NotFoundException('Carrier rate offer not found');
     const offer:any=this.enrichOffer(this.payload(row));if(offer.bookingId!==bookingId)throw new BadRequestException('Rate offer does not belong to this booking');if(offer.validTo&&new Date(offer.validTo).getTime()<Date.now())throw new BadRequestException('Carrier rate offer has expired');
     const provider=(await this.providerProfiles()).find((p:any)=>p.providerCode===offer.providerCode),isExternal=this.external(user);
+    if(isExternal&&offer.filedSellRate==null&&!provider)throw new BadRequestException('This carrier rate is not approved for external selling');
     let pricingMethod=this.text(provider?.defaultPricingMethod||'MARKUP_PCT').toUpperCase();let pricingValue=Number(provider?.defaultPricingValue??provider?.defaultMarginPct??0);
     if(!isExternal){pricingMethod=this.text(body?.pricingMethod||pricingMethod).toUpperCase();pricingValue=body?.pricingValue==null||body?.pricingValue===''?pricingValue:Number(body.pricingValue);}
     if(!isExternal&&body?.marginAmount!=null&&body.marginAmount!==''){pricingMethod='FIXED_AMOUNT';pricingValue=Number(body.marginAmount);}else if(!isExternal&&body?.marginPct!=null&&body.marginPct!==''&&body?.pricingValue==null){pricingMethod='MARKUP_PCT';pricingValue=Number(body.marginPct);}
