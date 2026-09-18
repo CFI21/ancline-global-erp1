@@ -17,66 +17,38 @@ export class PortalService {
 
   private allowedPortalRole(user:ScopeUser){
     const role=String(user.role||'').toUpperCase();
-    if(!['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))throw new ForbiddenException('Global Forwarding Portal access is limited to Customer, Shipper, Consignee and Global Admin users');
-    return role;
+    if(['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(role))return role;
+    if(role==='AGENT'&&Array.isArray(user.permissions)&&user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE'))return role;
+    throw new ForbiddenException('Global Forwarding Portal access denied');
   }
 
   async customers(user:ScopeUser){
     const role=this.allowedPortalRole(user);
+    const select={id:true,code:true,name:true,active:true,roles:true,customerRef:true,costCenterCode:true,kycStatus:true} as const;
     if(role==='CUSTOMER'){
       if(!user.customerId)return [];
-      const row=await this.prisma.organization.findUnique({where:{id:user.customerId},select:{id:true,code:true,name:true,active:true,roles:true}});
+      const row=await this.prisma.organization.findUnique({where:{id:user.customerId},select});
       return row&&row.active?[row]:[];
     }
     if(role==='SHIPPER'||role==='CONSIGNEE'){
       if(!user.partyId)return [];
-      const row=await this.prisma.organization.findUnique({where:{id:user.partyId},select:{id:true,code:true,name:true,active:true,roles:true}});
+      const row=await this.prisma.organization.findUnique({where:{id:user.partyId},select});
+      return row&&row.active?[row]:[];
+    }
+    if(role==='AGENT'){
+      if(!user.agentId)return [];
+      const row=await this.prisma.organization.findUnique({where:{id:user.agentId},select});
       return row&&row.active?[row]:[];
     }
     return this.prisma.organization.findMany({
-      where:{active:true,OR:[{roles:{has:'CUSTOMER'}},{roles:{has:'SHIPPER'}},{roles:{has:'CONSIGNEE'}}]},
-      select:{id:true,code:true,name:true,active:true,roles:true},
-      orderBy:{name:'asc'},take:500
+      where:{active:true,kycStatus:'APPROVED',customerRef:{not:null}},
+      select,orderBy:{name:'asc'},take:500
     });
   }
 
   async directBooking(body:any,user:ScopeUser){
-    const role=this.allowedPortalRole(user);
-    const origin=String(body?.origin||'').trim().toUpperCase(),destination=String(body?.destination||'').trim().toUpperCase(),equipment=String(body?.equipment||'').trim().toUpperCase();
-    if(!origin||!destination||!equipment)throw new BadRequestException('Origin, destination and equipment are required');
-    if(origin===destination)throw new BadRequestException('Origin and destination must be different');
-    let customerId=String(body?.customerId||'').trim();
-    if(role==='CUSTOMER'){if(!user.customerId)throw new ForbiddenException('Customer account is not linked');customerId=user.customerId;}
-    if(role==='SHIPPER'||role==='CONSIGNEE'){if(!user.partyId)throw new ForbiddenException('Forwarding party account is not linked');customerId=user.partyId;}
-    if(!customerId)throw new BadRequestException('Forwarding contracting party is required');
-    const party=await this.prisma.organization.findUnique({where:{id:customerId}});
-    if(!party||!party.active)throw new BadRequestException('Forwarding contracting party must be active');
-    const roles=Array.isArray(party.roles)?party.roles:[];
-    const allowedParty=roles.some((x:any)=>['CUSTOMER','SHIPPER','CONSIGNEE'].includes(String(x)));
-    if(!allowedParty)throw new BadRequestException('Forwarding contracting party must be a Customer, Shipper or Consignee organization');
-    if(role==='CUSTOMER'&&(!roles.includes('CUSTOMER')||customerId!==user.customerId))throw new ForbiddenException('Customer can only create its own forwarding booking');
-    if(role==='SHIPPER'&&(!roles.includes('SHIPPER')||customerId!==user.partyId))throw new ForbiddenException('Shipper can only create its own forwarding booking');
-    if(role==='CONSIGNEE'&&(!roles.includes('CONSIGNEE')||customerId!==user.partyId))throw new ForbiddenException('Consignee can only create its own forwarding booking');
-
-    const quantity=Math.max(1,Math.min(999,Math.floor(Number(body?.quantity||1))));
-    const bookingNo='FWD-'+Date.now().toString().slice(-10);
-    const bookingChannel=role==='CUSTOMER'?'CUSTOMER_PORTAL':role==='SHIPPER'?'SHIPPER_PORTAL':role==='CONSIGNEE'?'CONSIGNEE_PORTAL':'ADMIN_FORWARDING';
-    const shipper=role==='SHIPPER'?party.name:(body?.shipper?String(body.shipper):null);
-    const consignee=role==='CONSIGNEE'?party.name:(body?.consignee?String(body.consignee):null);
-    const row=await this.prisma.booking.create({data:{
-      bookingNo,businessModel:'FORWARDING',bookingChannel,customerId,producingAgentId:null,owningBranchId:null,salesOwner:user.email,
-      bookingType:String(body?.bookingType||'FCL').toUpperCase(),transportMode:String(body?.transportMode||'SEA').toUpperCase(),serviceType:String(body?.serviceType||'PORT_TO_PORT').toUpperCase(),
-      bookingDate:new Date(),customerReference:body?.customerReference?String(body.customerReference):null,
-      shipper,consignee,
-      origin,destination,portOfLoading:String(body?.portOfLoading||origin).trim().toUpperCase(),portOfDischarge:String(body?.portOfDischarge||destination).trim().toUpperCase(),
-      placeOfReceipt:body?.placeOfReceipt?String(body.placeOfReceipt):null,placeOfDelivery:body?.placeOfDelivery?String(body.placeOfDelivery):null,
-      equipment,quantity,commodity:body?.commodity?String(body.commodity):null,grossWeight:body?.grossWeight!==''&&body?.grossWeight!=null?Number(body.grossWeight):null,volumeCbm:body?.volumeCbm!==''&&body?.volumeCbm!=null?Number(body.volumeCbm):null,
-      specialCargo:body?.specialCargo&&String(body.specialCargo).toUpperCase()!=='NONE'?String(body.specialCargo).toUpperCase():null,
-      freightTerms:String(body?.freightTerms||'PREPAID').toUpperCase(),currency:String(body?.currency||'USD').toUpperCase(),
-      etd:body?.etd?new Date(body.etd):null,status:'DRAFT',notes:'Created through ANCLINE Global Forwarding Portal'
-    }});
-    await this.audit.log({actorId:user.sub,action:'FORWARDING_PORTAL_BOOKING_CREATE',objectType:'Booking',objectId:row.id,bookingId:row.id,detail:{role,businessModel:'FORWARDING',bookingChannel,bookingNo:row.bookingNo,customerId,origin,destination,equipment,quantity}});
-    return row;
+    this.allowedPortalRole(user);
+    throw new BadRequestException('Forwarding booking cannot be created directly. Search carrier rates, issue an ANC quote, accept the ANC quote and terms, then ANCLINE creates the booking.');
   }
 
   async nvoccParties(user:ScopeUser){
@@ -246,7 +218,8 @@ export class PortalService {
     const source='ANCLINE_FORWARDING_AUTOMATION';
     const selected=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateOffer',eventType:'RATE_OFFER_SELECTED',externalId:booking.id},orderBy:{createdAt:'desc'}});
     const selection:any=selected?.payload||{};
-    const providerCode=String(selection.providerCode||'').trim();
+    const quoteOffer:any=quote?.carrierOfferData&&typeof quote.carrierOfferData==='object'?quote.carrierOfferData:{};
+    const providerCode=String(quote?.carrierCode||selection.providerCode||quoteOffer.providerCode||'').trim();
     if(!providerCode){
       await this.prisma.integrationEvent.create({data:{sourceSystem:source,eventType:'CARRIER_BOOKING_AUTOMATION_PENDING',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'PENDING',payload:{bookingId:booking.id,reason:'Selected forwarding rate has no online carrier provider',createdBy:user.sub}}});
       await this.prisma.booking.update({where:{id:booking.id},data:{shipmentStatus:'CARRIER_AUTOMATION_PENDING'}});
@@ -256,13 +229,13 @@ export class PortalService {
     const provider:any=providerEvent?.payload||{};
     const bookingEndpoint=String(provider.bookingEndpoint||'').trim();
     if(!bookingEndpoint){
-      await this.prisma.integrationEvent.create({data:{sourceSystem:source,eventType:'CARRIER_BOOKING_AUTOMATION_PENDING',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'PENDING',payload:{bookingId:booking.id,providerCode,carrier:selection.carrier||booking.carrier||null,reason:'Carrier booking API endpoint is not configured',createdBy:user.sub}}});
+      await this.prisma.integrationEvent.create({data:{sourceSystem:source,eventType:'CARRIER_BOOKING_AUTOMATION_PENDING',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'PENDING',payload:{bookingId:booking.id,providerCode,carrier:quoteOffer.carrier||selection.carrier||booking.carrier||null,reason:'Carrier booking API endpoint is not configured',createdBy:user.sub}}});
       await this.prisma.booking.update({where:{id:booking.id},data:{shipmentStatus:'CARRIER_AUTOMATION_PENDING'}});
       return {status:'PENDING_CONFIGURATION',providerCode};
     }
     const request={
       bookingId:booking.id,bookingNo:booking.bookingNo,customerReference:booking.customerReference||null,
-      carrierQuoteReference:selection.externalQuoteRef||null,quoteNo:quote.quoteNo,
+      carrierQuoteReference:quote?.carrierQuoteRef||selection.externalQuoteRef||quoteOffer.carrierQuoteRef||null,quoteNo:quote.quoteNo,
       origin:booking.origin,destination:booking.destination,portOfLoading:booking.portOfLoading||booking.origin,portOfDischarge:booking.portOfDischarge||booking.destination,
       equipment:booking.equipment,quantity:booking.quantity||1,commodity:booking.commodity||null,grossWeight:booking.grossWeight||null,volumeCbm:booking.volumeCbm||null,
       requestedEtd:booking.etd||null,shipper:booking.shipper||null,consignee:booking.consignee||null,freightTerms:booking.freightTerms||null
@@ -276,8 +249,8 @@ export class PortalService {
       const carrierBookingNo=String((refPath?this.readPath(data,refPath):undefined)??data?.carrierBookingNo??data?.bookingReference??data?.bookingNo??'').trim()||null;
       const confirmation=String(data?.status||data?.confirmationStatus||(carrierBookingNo?'CONFIRMED':'SUBMITTED')).toUpperCase();
       await this.prisma.$transaction(async(tx:any)=>{
-        await tx.integrationEvent.create({data:{sourceSystem:source,eventType:carrierBookingNo?'FORWARDING_CARRIER_BOOKING_CONFIRMED':'FORWARDING_CARRIER_BOOKING_SUBMITTED',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'COMPLETED',payload:{bookingId:booking.id,providerCode,carrier:selection.carrier||booking.carrier||null,carrierBookingNo,confirmation,responseMeta:data?.meta||null,submittedBy:user.sub},completedAt:new Date()}});
-        await tx.booking.update({where:{id:booking.id},data:{carrier:selection.carrier||booking.carrier||null,carrierBookingNo,slotStatus:carrierBookingNo?'CONFIRMED':'REQUESTED',shipmentStatus:carrierBookingNo?'CARRIER_CONFIRMED':'CARRIER_BOOKING_SUBMITTED'}});
+        await tx.integrationEvent.create({data:{sourceSystem:source,eventType:carrierBookingNo?'FORWARDING_CARRIER_BOOKING_CONFIRMED':'FORWARDING_CARRIER_BOOKING_SUBMITTED',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'COMPLETED',payload:{bookingId:booking.id,providerCode,carrier:quoteOffer.carrier||selection.carrier||booking.carrier||null,carrierBookingNo,confirmation,responseMeta:data?.meta||null,submittedBy:user.sub},completedAt:new Date()}});
+        await tx.booking.update({where:{id:booking.id},data:{carrier:quoteOffer.carrier||selection.carrier||booking.carrier||null,carrierBookingNo,slotStatus:carrierBookingNo?'CONFIRMED':'REQUESTED',shipmentStatus:carrierBookingNo?'CARRIER_CONFIRMED':'CARRIER_BOOKING_SUBMITTED'}});
       });
       return {status:carrierBookingNo?'CONFIRMED':'SUBMITTED',providerCode,carrierBookingNo};
     }catch(e:any){
@@ -291,19 +264,75 @@ export class PortalService {
   }
 
   async acceptQuote(bookingId:string,user:ScopeUser){
-    this.allowedPortalRole(user);await this.scope.assertBookingAccess(user,bookingId);
-    const booking=await this.prisma.booking.findUnique({where:{id:bookingId},include:{rateQuote:true}});
-    if(!booking)throw new BadRequestException('Booking not found');
-    if(String((booking as any).businessModel||'NVOCC').toUpperCase()!=='FORWARDING')throw new BadRequestException('Online portal quote acceptance is available only for FORWARDING bookings');
-    const quote=booking.rateQuote;if(!quote)throw new BadRequestException('No quoted rate is linked to this booking');
-    if(new Date(quote.validTo).getTime()<Date.now())throw new BadRequestException('The quoted rate has expired');
-    const status=String(quote.status||'').toUpperCase().replace(/[\s_-]+/g,'');
-    if(!['QUOTESENT','RATEAPPROVED','DRAFT'].includes(status)&&status!=='CUSTOMERACCEPTED')throw new BadRequestException('Quote is not available for acceptance');
-    if(status!=='CUSTOMERACCEPTED')await this.prisma.rateQuote.update({where:{id:quote.id},data:{status:'Customer Accepted'}});
-    const updated=await this.prisma.booking.update({where:{id:bookingId},data:{status:'BOOKING_REQUESTED'}});
-    const automation=await this.autoForwardingCarrierBooking(updated,quote,user);
-    await this.audit.log({actorId:user.sub,action:'PORTAL_QUOTE_ACCEPTED_BOOKING_REQUESTED',objectType:'Booking',objectId:bookingId,bookingId,detail:{quoteNo:quote.quoteNo,role:user.role,forwardingCarrierAutomation:automation.status}});
-    return {booking:updated,quote:{id:quote.id,quoteNo:quote.quoteNo,sellRate:quote.sellRate,currency:quote.currency,status:'Customer Accepted'},automation};
+    this.allowedPortalRole(user);
+    throw new BadRequestException('Legacy booking-first quote acceptance is disabled. Accept the ANC Forwarding quote reference instead.');
+  }
+
+  async forwardingQuotes(user:ScopeUser){
+    const role=this.allowedPortalRole(user);
+    let customerId:string|undefined;
+    if(role==='CUSTOMER')customerId=user.customerId||undefined;
+    if(role==='SHIPPER'||role==='CONSIGNEE')customerId=user.partyId||undefined;
+    if(role==='AGENT')customerId=user.agentId||undefined;
+    const where:any={source:{startsWith:'FORWARDING_CARRIER:'}};
+    if(role!=='GLOBAL_ADMIN'){if(!customerId)return [];where.customerId=customerId;}
+    const rows=await this.prisma.rateQuote.findMany({where,orderBy:{createdAt:'desc'},take:300});
+    return rows.map((q:any)=>({id:q.id,quoteNo:q.quoteNo,customerRef:q.customerRef,costCenterCode:q.costCenterCode,trade:q.trade,equipment:q.equipment,sellRate:q.sellRate,currency:q.currency,validFrom:q.validFrom,validTo:q.validTo,status:q.status,carrierCode:q.carrierCode,carrierQuoteRef:q.carrierQuoteRef,termsVersion:q.termsVersion,termsAcceptedAt:q.termsAcceptedAt,requestData:q.requestData}));
+  }
+
+  async acceptForwardingQuote(quoteId:string,body:any,user:ScopeUser){
+    const role=this.allowedPortalRole(user);
+    const quote:any=await this.prisma.rateQuote.findUnique({where:{id:quoteId}});
+    if(!quote||!String(quote.source||'').startsWith('FORWARDING_CARRIER:'))throw new BadRequestException('ANC Forwarding quote was not found');
+    if(new Date(quote.validTo).getTime()<Date.now())throw new BadRequestException('ANC Forwarding quote has expired');
+    if(!quote.carrierCode||!quote.carrierQuoteRef)throw new BadRequestException('ANC quote is missing the linked carrier code / carrier quote reference');
+    if(body?.termsAccepted!==true)throw new BadRequestException('All ANC Forwarding booking terms must be accepted before booking starts');
+    if(!quote.termsVersion||String(body?.termsVersion||'')!==String(quote.termsVersion))throw new BadRequestException('Accepted terms version does not match the ANC quote');
+    let scopedCustomerId:string|undefined;
+    if(role==='CUSTOMER')scopedCustomerId=user.customerId||undefined;
+    if(role==='SHIPPER'||role==='CONSIGNEE')scopedCustomerId=user.partyId||undefined;
+    if(role==='AGENT')scopedCustomerId=user.agentId||undefined;
+    if(role!=='GLOBAL_ADMIN'&&scopedCustomerId!==quote.customerId)throw new ForbiddenException('ANC quote is outside your registered customer scope');
+    const customer:any=await this.prisma.organization.findUnique({where:{id:quote.customerId}});
+    if(!customer||!customer.active||customer.kycStatus!=='APPROVED'||!customer.customerRef||customer.customerRef!==quote.customerRef)throw new BadRequestException('Customer KYC / ANC customer reference is not valid for booking');
+    const request:any=quote.requestData||{},offer:any=quote.carrierOfferData||{};
+    const tradeType=String(request.forwardingTradeType||'STANDARD').toUpperCase();
+    if(role==='AGENT'){
+      if(!Array.isArray(user.permissions)||!user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE'))throw new ForbiddenException('Agent Forwarding right is not assigned');
+      if(!['DIRECT_COLOAD','CROSS_TRADE'].includes(tradeType))throw new ForbiddenException('Agent Forwarding bookings are limited to direct co-load / cross-trade');
+    }
+    const costCenterCode=String(role==='AGENT'?(user.costCenterCode||''):(quote.costCenterCode||customer.costCenterCode||'')).trim().toUpperCase();
+    if(!costCenterCode)throw new BadRequestException('Forwarding booking requires a cost center');
+    const existing=await this.prisma.booking.findFirst({where:{rateQuoteId:quote.id}});
+    if(existing)return {booking:existing,quote:{id:quote.id,quoteNo:quote.quoteNo,status:'Customer Accepted'},automation:{status:existing.shipmentStatus||'BOOKING_REQUESTED'}};
+    const bookingNo='FWD-'+Date.now().toString().slice(-10);
+    const bookingChannel=role==='CUSTOMER'?'CUSTOMER_PORTAL':role==='SHIPPER'?'SHIPPER_PORTAL':role==='CONSIGNEE'?'CONSIGNEE_PORTAL':role==='AGENT'?'AGENT_FORWARDING_CROSS_TRADE':'ADMIN_FORWARDING';
+    const shipper=role==='SHIPPER'?customer.name:(request.shipper||null),consignee=role==='CONSIGNEE'?customer.name:(request.consignee||null);
+    const vesselVoyage=[offer.vessel,offer.voyage].filter(Boolean).join(' / ')||null;
+    const booking=await this.prisma.$transaction(async(tx:any)=>{
+      await tx.rateQuote.update({where:{id:quote.id},data:{status:'Customer Accepted',termsAcceptedAt:new Date(),termsAcceptedBy:user.sub}});
+      const b=await tx.booking.create({data:{
+        bookingNo,businessModel:'FORWARDING',bookingChannel,customerId:quote.customerId,customerRef:quote.customerRef,costCenterCode,
+        jobType:role==='AGENT'?'FORWARDING_AGENT':'FORWARDING',forwardingTradeType:tradeType,
+        producingAgentId:role==='AGENT'?user.agentId:null,owningBranchId:null,rateQuoteId:quote.id,salesOwner:user.email,
+        bookingType:String(request.bookingType||'FCL').toUpperCase(),transportMode:String(request.transportMode||'SEA').toUpperCase(),serviceType:String(request.serviceType||'PORT_TO_PORT').toUpperCase(),
+        bookingDate:new Date(),customerReference:request.customerReference||null,shipper,consignee,
+        origin:String(request.origin||'').toUpperCase(),destination:String(request.destination||'').toUpperCase(),
+        portOfLoading:String(request.portOfLoading||request.origin||'').toUpperCase(),portOfDischarge:String(request.portOfDischarge||request.destination||'').toUpperCase(),
+        placeOfReceipt:request.placeOfReceipt||null,placeOfDelivery:request.placeOfDelivery||null,
+        carrier:offer.carrier||null,vesselVoyage,etd:offer.etd?new Date(offer.etd):(request.etd?new Date(request.etd):null),eta:offer.eta?new Date(offer.eta):null,
+        equipment:quote.equipment,quantity:Math.max(1,Number(request.quantity||1)),commodity:request.commodity||null,
+        grossWeight:request.grossWeight==null?null:Number(request.grossWeight),volumeCbm:request.volumeCbm==null?null:Number(request.volumeCbm),
+        specialCargo:request.specialCargo&&request.specialCargo!=='NONE'?request.specialCargo:null,freightTerms:String(request.freightTerms||'PREPAID').toUpperCase(),
+        currency:quote.currency,status:'BOOKING_REQUESTED',slotStatus:'REQUESTED',equipmentStatus:'PENDING',
+        notes:`Created only after acceptance of ANC quote ${quote.quoteNo}; carrier quote ${quote.carrierCode}/${quote.carrierQuoteRef}`
+      }});
+      await tx.integrationEvent.create({data:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',eventType:'RATE_OFFER_SELECTED',externalId:b.id,objectType:'CarrierRateOffer',objectId:String(offer.offerId||quote.id),status:'COMPLETED',payload:{bookingId:b.id,quoteId:quote.id,quoteNo:quote.quoteNo,providerCode:quote.carrierCode,carrier:offer.carrier||null,externalQuoteRef:quote.carrierQuoteRef,selectedBy:user.sub},completedAt:new Date()}});
+      return b;
+    });
+    const automation=await this.autoForwardingCarrierBooking(booking,quote,user);
+    await this.audit.log({actorId:user.sub,action:'FORWARDING_QUOTE_ACCEPTED_BOOKING_CREATE',objectType:'Booking',objectId:booking.id,bookingId:booking.id,detail:{bookingNo,quoteNo:quote.quoteNo,customerRef:quote.customerRef,carrierCode:quote.carrierCode,carrierQuoteRef:quote.carrierQuoteRef,costCenterCode,forwardingTradeType:tradeType,termsVersion:quote.termsVersion,role,automation:automation.status}});
+    return {booking,quote:{id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,carrierCode:quote.carrierCode,carrierQuoteRef:quote.carrierQuoteRef,sellRate:quote.sellRate,currency:quote.currency,status:'Customer Accepted',termsVersion:quote.termsVersion},automation};
   }
 
   async releaseSecurity(bookingId:string,user:ScopeUser){
@@ -313,7 +342,7 @@ export class PortalService {
 
   async bookings(user:ScopeUser){
     this.allowedPortalRole(user);
-    const customerView=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(String(user.role||'').toUpperCase());
+    const customerView=['CUSTOMER','SHIPPER','CONSIGNEE','AGENT'].includes(String(user.role||'').toUpperCase());
     const rows=await this.prisma.booking.findMany({
       where:{AND:[bookingScope(user),{businessModel:'FORWARDING'}]},
       select:{
