@@ -92,6 +92,7 @@ const menuGroups=[
       ['/revenue-close','Revenue Recognition'],
       ['/finance-close-control','Finance Close Control'],
       ['/finance-close-execution','Finance Close Execution'],
+      ['/finance-close-pack','Legal Entity / Group Close Pack'],
       ['/closeout','Job Closeout'],
     ],
   },
