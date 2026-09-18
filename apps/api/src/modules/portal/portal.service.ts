@@ -228,6 +228,9 @@ export class PortalService {
     }
     const providerEvent=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',eventType:'PROVIDER_PROFILE_SET',objectId:providerCode},orderBy:{createdAt:'desc'}});
     const provider:any=providerEvent?.payload||{};
+    if(booking.carrierBookingNo)return {status:'CONFIRMED',providerCode,carrierBookingNo:booking.carrierBookingNo};
+    const priorSubmission=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:source,externalId:booking.id,eventType:{in:['FORWARDING_CARRIER_BOOKING_CONFIRMED','FORWARDING_CARRIER_BOOKING_SUBMITTED']}},orderBy:{createdAt:'desc'}});
+    if(priorSubmission){const p:any=priorSubmission.payload||{};return {status:p.carrierBookingNo?'CONFIRMED':'SUBMITTED',providerCode,carrierBookingNo:p.carrierBookingNo||null,idempotent:true};}
     const carrierOperationNo='CBR-FWD-'+String(booking.bookingNo);
     const carrierOpsExisting=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',objectType:'CarrierBooking',objectId:carrierOperationNo,eventType:'CARRIER_BOOKING_REQUESTED'}});
     if(!carrierOpsExisting){
@@ -253,6 +256,12 @@ export class PortalService {
       return {status:'PENDING_CONFIGURATION',providerCode};
     }
     const paymentEvent=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CARRIER_PAYMENT',objectType:'CarrierPaymentInstruction',objectId:booking.id,eventType:'CARRIER_PAYMENT_INSTRUCTIONS_SET'},orderBy:{createdAt:'desc'}});
+    if(!paymentEvent){
+      const existingHold=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:source,eventType:'CARRIER_PAYMENT_CONTROL_PENDING',externalId:booking.id,objectType:'Booking',objectId:booking.id},orderBy:{createdAt:'desc'}});
+      if(!existingHold)await this.prisma.integrationEvent.create({data:{sourceSystem:source,eventType:'CARRIER_PAYMENT_CONTROL_PENDING',externalId:booking.id,objectType:'Booking',objectId:booking.id,status:'PENDING',payload:{bookingId:booking.id,bookingNo:booking.bookingNo,providerCode,reason:'ANC carrier payment / payer instructions must be validated before carrier submission',createdBy:user.sub}}});
+      await this.prisma.booking.update({where:{id:booking.id},data:{shipmentStatus:'CARRIER_PAYMENT_CONTROL_PENDING'}});
+      return {status:'PENDING_PAYMENT_CONTROL',providerCode};
+    }
     const paymentPayload:any=paymentEvent?.payload||{};
     const paymentInstructions=(Array.isArray(paymentPayload.instructions)?paymentPayload.instructions:[])
       .filter((x:any)=>x?.applicable!==false&&String(x?.term||'').toUpperCase()!=='NOT_APPLICABLE')
@@ -298,6 +307,17 @@ export class PortalService {
       });
       return {status:'EXCEPTION',providerCode,reason};
     }finally{clearTimeout(timer);}
+  }
+
+  async submitForwardingCarrierBooking(bookingId:string,user:ScopeUser){
+    this.scope.assertInternal(user);
+    await this.scope.assertBookingAccess(user,bookingId);
+    const booking:any=await this.prisma.booking.findUnique({where:{id:bookingId},include:{rateQuote:true}});
+    if(!booking)throw new BadRequestException('Booking not found');
+    if(String(booking.businessModel||'NVOCC').toUpperCase()!=='FORWARDING')throw new BadRequestException('Carrier automation submission is Forwarding-only');
+    const quote:any=booking.rateQuote;
+    if(!quote||String(quote.status)!=='Customer Accepted'||!quote.termsAcceptedAt)throw new BadRequestException('Accepted ANC Forwarding quote is required before carrier submission');
+    return this.autoForwardingCarrierBooking(booking,quote,user);
   }
 
   async acceptQuote(bookingId:string,user:ScopeUser){
