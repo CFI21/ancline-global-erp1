@@ -2,11 +2,13 @@ export async function evaluateReleaseSecurity(db:any,bookingId:string){
   const booking=await db.booking.findUnique({where:{id:bookingId},include:{financeLines:true}});
   if(!booking)return {clear:false,mode:'UNKNOWN',blockers:['Booking not found'],requiredPrepaidPct:0,paidAmount:0,requiredAmount:0,creditStatus:null};
   if(String(booking.businessModel||'NVOCC').toUpperCase()!=='FORWARDING')return {clear:true,mode:'NVOCC_SEPARATE_CONTROL',blockers:[],requiredPrepaidPct:0,paidAmount:0,requiredAmount:0,invoicedAmount:0,revenueAmount:0,creditStatus:booking.creditStatus||null,profileHold:false,freightTerms:booking.freightTerms||null,businessModel:booking.businessModel||'NVOCC'};
-  const selected=await db.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateOffer',eventType:'RATE_OFFER_SELECTED',externalId:bookingId},orderBy:{createdAt:'desc'}});
-  const terms=(selected?.payload&&typeof selected.payload==='object'?(selected.payload as any).commercialTerms:null)||{};
   const freightTerms=String(booking.freightTerms||'').toUpperCase();
-  let requiredPrepaidPct=Number(terms.prepaidPct||0);
-  if(freightTerms==='PREPAID'&&requiredPrepaidPct<=0)requiredPrepaidPct=100;
+  const creditEvent=await db.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CREDIT_CONTROL',objectType:'CreditProfile',objectId:booking.customerId,eventType:'CREDIT_PROFILE_SET'},orderBy:{createdAt:'desc'}});
+  const profile:any=creditEvent?.payload||{};
+  const customerPaymentMode=String(profile.customerPaymentMode||(freightTerms==='PREPAID'?'PREPAID':'CREDIT')).toUpperCase();
+  let requiredPrepaidPct=customerPaymentMode==='PREPAID'?100:Number(profile.prepaidPct||0);
+  if(customerPaymentMode==='PARTIAL_PREPAID'&&requiredPrepaidPct<=0)requiredPrepaidPct=Number(profile.prepaidPct||0);
+  if(customerPaymentMode==='CREDIT')requiredPrepaidPct=0;
   requiredPrepaidPct=Math.max(0,Math.min(100,requiredPrepaidPct));
 
   const invoiceEvents:any[]=await db.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_ACCOUNTING',objectType:'FinanceInvoice'},orderBy:{createdAt:'asc'}});
@@ -28,16 +30,14 @@ export async function evaluateReleaseSecurity(db:any,bookingId:string){
   const requiredAmount=Math.round(baseAmount*requiredPrepaidPct)/100;
   const paymentClear=requiredPrepaidPct<=0||securedByLine||(requiredAmount>0&&paidAmount+0.005>=requiredAmount);
 
-  const creditEvent=await db.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CREDIT_CONTROL',objectType:'CreditProfile',objectId:booking.customerId,eventType:'CREDIT_PROFILE_SET'},orderBy:{createdAt:'desc'}});
-  const profile:any=creditEvent?.payload||{};
   const profileHold=Boolean(profile.creditHold)||String(profile.riskRating||'').toUpperCase()==='RESTRICTED';
   const creditClear=String(booking.creditStatus||'').toUpperCase()==='PASSED'&&!profileHold;
 
-  const mode=requiredPrepaidPct>0?'PREPAID':'CREDIT';
+  const mode=requiredPrepaidPct>0?(requiredPrepaidPct>=100?'PREPAID':'PARTIAL_PREPAID'):'CREDIT';
   const blockers:string[]=[];
   if(mode==='PREPAID'&&!paymentClear)blockers.push(requiredAmount>0?'Required prepaid amount is not secured ('+paidAmount.toFixed(2)+' / '+requiredAmount.toFixed(2)+')':'Prepaid shipment has no secured customer payment');
   if(mode==='CREDIT'&&!creditClear)blockers.push(profileHold?'Customer credit profile is on hold':'Customer credit/security status is not Passed');
   if(String(booking.status||'').toUpperCase()==='CANCELLED')blockers.push('Booking is cancelled');
 
-  return {clear:blockers.length===0,mode,blockers,requiredPrepaidPct,businessModel:'FORWARDING',bookingChannel:booking.bookingChannel||'INTERNAL',paidAmount:Math.round(paidAmount*100)/100,requiredAmount:Math.round(requiredAmount*100)/100,invoicedAmount:Math.round(invoicedAmount*100)/100,revenueAmount:Math.round(revenueAmount*100)/100,creditStatus:booking.creditStatus||null,profileHold,freightTerms:booking.freightTerms||null};
+  return {clear:blockers.length===0,mode,customerPaymentMode,blockers,requiredPrepaidPct,businessModel:'FORWARDING',bookingChannel:booking.bookingChannel||'INTERNAL',paidAmount:Math.round(paidAmount*100)/100,requiredAmount:Math.round(requiredAmount*100)/100,invoicedAmount:Math.round(invoicedAmount*100)/100,revenueAmount:Math.round(revenueAmount*100)/100,creditStatus:booking.creditStatus||null,profileHold,freightTerms:booking.freightTerms||null};
 }
