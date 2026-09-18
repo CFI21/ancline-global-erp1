@@ -68,9 +68,9 @@ export default function CarrierRatesPage(){
 
   const offers=useMemo(()=>ctx?.offers||[],[ctx]),booking=ctx?.booking,selectedQuote=booking?.rateQuote,selection=ctx?.selection,lastSearch=ctx?.lastSearch;
 
-  return <WorkspaceShell title="Carrier Buy Rates" subtitle="Authenticated carrier shopping, all-in buy-rate normalization, pricing governance and payment terms" active="/carrier-rates" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={searchRates}>{busy?'Working...':'Fetch Carrier Rates'}</button></>}>
+  return <WorkspaceShell title="Forwarding Global Carrier Rates" subtitle="FORWARDING ONLY · global carrier procurement, controlled sell pricing and payment/security terms" active="/carrier-rates" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={searchRates}>{busy?'Working...':'Fetch Carrier Rates'}</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    {!bookingId&&<div className="card">Open this workspace from a booking so ANCLINE can use the lane, equipment, sailing date and cargo details.</div>}
+    {!bookingId&&<div className="card">Open this workspace from a FORWARDING booking. NVOCC pricing and space control are maintained separately.</div>}
     {booking&&<>
       <div className="card" style={{marginBottom:12}}>
         <h3 style={sectionTitle}>Booking rate request</h3>
