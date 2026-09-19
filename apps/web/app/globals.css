@@ -1731,3 +1731,225 @@ html,body{font-size:11.5px;line-height:1.2}
   .workforce-party-grid{grid-template-columns:1fr}
   .workforce-alert-grids{grid-template-columns:1fr}
 }
+
+
+/* Booking Details — dense screenshot-style ERP composition */
+.booking-ref-layout{
+  display:grid;
+  grid-template-columns:minmax(0,3.35fr) minmax(285px,1fr);
+  gap:4px;
+  align-items:start;
+}
+.booking-ref-main,.booking-ref-right{min-width:0}
+.booking-party-row{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:3px;
+  margin-bottom:3px;
+}
+.booking-party-box,
+.booking-ref-panel,
+.booking-excel-panel{
+  min-width:0;
+  border:1px solid #cfd7de;
+  background:#fff;
+}
+.booking-box-title{
+  padding:2px 4px;
+  border-bottom:1px solid #cfd7de;
+  background:#eef2f5;
+  color:#173754;
+  font-size:10.25px;
+  font-weight:800;
+  line-height:1.2;
+}
+.booking-party-select,
+.booking-party-input{
+  display:block;
+  width:100%;
+}
+.booking-party-select select,
+.booking-party-input{
+  width:100%;
+  height:23px;
+  min-height:23px!important;
+  padding:1px 4px!important;
+  border:0;
+  border-bottom:1px solid #dde4e9;
+  border-radius:0!important;
+  background:#fff;
+  font-size:10.5px!important;
+}
+.booking-party-name{
+  padding:3px 4px 1px;
+  font-size:10.5px;
+  font-weight:800;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.booking-party-lines{
+  min-height:29px;
+  padding:1px 4px 3px;
+  color:#53687a;
+  font-size:9.5px;
+  line-height:1.15;
+  overflow:hidden;
+}
+.booking-mini-tabs{
+  display:flex;
+  gap:8px;
+  padding:2px 4px;
+  border-top:1px solid #e0e6eb;
+  background:#fafbfc;
+  color:#395b78;
+  font-size:9.25px;
+}
+.booking-mid-grid{
+  display:grid;
+  grid-template-columns:minmax(0,2.15fr) minmax(210px,.85fr);
+  gap:3px;
+  margin-bottom:3px;
+}
+.booking-dense-two{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:0 6px;
+  padding:3px;
+}
+.booking-schedule-panel{padding-bottom:2px}
+.booking-dense-field{
+  display:grid!important;
+  grid-template-columns:88px minmax(0,1fr);
+  align-items:center;
+  gap:3px;
+  min-height:24px;
+  margin:0!important;
+  padding:1px 3px;
+}
+.booking-dense-field>span{
+  min-width:0;
+  color:#40566a;
+  font-size:9.75px!important;
+  font-weight:600!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.booking-dense-field input,
+.booking-dense-field select,
+.booking-dense-read>b{
+  width:100%;
+  min-width:0;
+  height:22px!important;
+  min-height:22px!important;
+  padding:1px 4px!important;
+  border:1px solid #cbd5dd!important;
+  border-radius:1px!important;
+  background:#fff;
+  font-size:10.25px!important;
+  line-height:1.1!important;
+  font-weight:400;
+}
+.booking-dense-read>b{
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  background:#f7f9fa;
+}
+.booking-lower-blocks{
+  display:grid;
+  grid-template-columns:1fr 1fr 1.08fr;
+  gap:3px;
+  margin-bottom:3px;
+}
+.booking-lower-blocks .booking-ref-panel{
+  padding-bottom:2px;
+}
+.booking-bottom-grids{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:3px;
+}
+.booking-excel-panel .excel-grid-wrap{
+  border:0!important;
+  border-radius:0!important;
+  max-height:170px;
+}
+.booking-excel-panel .table{
+  min-width:640px;
+}
+.booking-excel-panel .table th,
+.booking-excel-panel .table td{
+  height:21px!important;
+  padding:2px 3px!important;
+  font-size:9.75px!important;
+}
+.booking-ref-right{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:3px;
+}
+.booking-ref-right .booking-ref-panel{
+  padding-bottom:2px;
+}
+.booking-order-ref{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:4px;
+  padding:3px 4px;
+  font-size:9.75px;
+}
+.booking-order-ref .btn,
+.booking-link-actions .btn{
+  min-height:21px!important;
+  padding:1px 5px!important;
+  font-size:9.75px!important;
+}
+.booking-links-table th,
+.booking-links-table td{
+  height:21px!important;
+  padding:2px 3px!important;
+  font-size:9.5px!important;
+}
+.booking-link-actions{
+  display:flex;
+  gap:2px;
+  padding:3px;
+  border-top:1px solid #dce3e8;
+}
+.booking-ref-right .booking-dense-field{
+  grid-template-columns:88px minmax(0,1fr);
+}
+.booking-addresses-layout .card{padding:5px!important}
+
+/* Keep screenshot-style Booking Details in one workstation view on wide screens */
+@media(min-width:1450px){
+  .booking-ref-layout{
+    grid-template-columns:minmax(0,3.6fr) minmax(300px,.95fr);
+  }
+  .booking-dense-field{
+    grid-template-columns:92px minmax(0,1fr);
+  }
+}
+@media(max-width:1150px){
+  .booking-ref-layout{
+    grid-template-columns:minmax(0,2.5fr) minmax(260px,1fr);
+  }
+  .booking-party-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .booking-bottom-grids{grid-template-columns:1fr}
+}
+@media(max-width:900px){
+  .booking-ref-layout{grid-template-columns:1fr}
+  .booking-ref-right{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .booking-mid-grid{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .booking-party-row,
+  .booking-lower-blocks,
+  .booking-ref-right{grid-template-columns:1fr}
+  .booking-dense-two{grid-template-columns:1fr}
+}

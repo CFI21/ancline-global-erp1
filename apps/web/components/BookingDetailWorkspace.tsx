@@ -24,7 +24,7 @@ const blank={
   etd:'',eta:'',atd:'',ata:'',cyClosing:'',siCutoff:'',vgmCutoff:'',docCutoff:'',portCutoff:'',carrier:'',vesselVoyage:'',equipment:'40HC',quantity:'1',containerOwner:'CARRIER',throughBL:'',commodity:'',packageCount:'',packageType:'',grossWeight:'',netWeight:'',volumeCbm:'',marksNumbers:'',hsCode:'',cargoDescription:'',
   incoterm:'',freightTerms:'PREPAID',currency:'USD',specialCargo:'NONE',dgUnNo:'',dgImoClass:'',dgPackingGroup:'',dgProperShippingName:'',reeferTemperatureC:'',reeferVentilation:'',reeferHumidityPct:'',oogLengthCm:'',oogWidthCm:'',oogHeightCm:'',oogWeightKg:'',notes:'',creditStatus:'',slotStatus:'',equipmentStatus:''
 };
-const tabs=['Details','Additional Details','Custom Fields','Document Selection','Workflow & Tracking','Quote Charges','eDocs','Notes','Logs'] as const;
+const tabs=['Details','Additional Details','Custom Fields','Document Selection','Workflow & Tracking','Quote Charges','Addresses','eDocs','Notes','Logs'] as const;
 type Tab=typeof tabs[number];
 const dateInput=(v?:string|null)=>v?new Date(v).toISOString().slice(0,10):'';
 const toIso=(v:string)=>v?new Date(`${v}T00:00:00Z`).toISOString():null;
@@ -123,6 +123,9 @@ export default function BookingDetailWorkspace({bookingId,onClose}:{bookingId:st
   const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof blank;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
   const Select=({l,k,children}:{l:string;k:keyof typeof blank;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
   const Mini=({l,v,onChange,type='text'}:{l:string;v:string;onChange:(v:string)=>void;type?:string})=><label><span style={label}>{l}</span><input type={type} value={v} onChange={e=>onChange(e.target.value)} style={field}/></label>;
+  const DenseInput=({l,k,type='text',ph=''}:{l:string;k:keyof typeof blank;type?:string;ph?:string})=><label className="booking-dense-field"><span>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)}/></label>;
+  const DenseSelect=({l,k,children}:{l:string;k:keyof typeof blank;children:React.ReactNode})=><label className="booking-dense-field"><span>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)}>{children}</select></label>;
+  const DenseRead=({l,v}:{l:string;v:any})=><div className="booking-dense-field booking-dense-read"><span>{l}</span><b>{v??'—'}</b></div>;
   const tabStyle=(active:boolean):React.CSSProperties=>({border:'1px solid #d6dee5',borderBottom:active?'2px solid #123b61':'1px solid #d6dee5',background:active?'#eef3f8':'#fff',padding:'4px 7px',fontSize:11,fontWeight:active?800:600,color:'#173754',cursor:'pointer',whiteSpace:'nowrap'});
   if(!booking)return <div className="card">{message||'Loading booking...'}</div>;
 
@@ -159,29 +162,160 @@ export default function BookingDetailWorkspace({bookingId,onClose}:{bookingId:st
     <div className="card" style={{padding:0,marginBottom:12,overflowX:'auto'}}><div style={{display:'flex',minWidth:820}}>{tabs.map(t=><button key={t} onClick={()=>setTab(t)} style={tabStyle(tab===t)}>{t}{t==='Additional Details'?` (${(booking.routingLegs?.length||0)+(booking.containers?.length||0)})`:t==='Document Selection'?` (${booking.documents?.length||0})`:t==='Quote Charges'?` (${booking.financeLines?.length||0})`:t==='Workflow & Tracking'?` (${(booking.tasks?.length||0)+(booking.approvals?.length||0)+(booking.milestones?.length||0)})`:t==='eDocs'?` (${booking.documents?.length||0})`:''}</button>)}</div></div>
 
     {tab==='Details'&&<>
-      <div className="booking-master-overview">
-        <div className="booking-master-headgrid">
-          <div><b>Client</b><span>{booking.customer?.name||'—'}</span><small>{form.customerReference||booking.customerId}</small></div>
-          <div><b>Consignor</b><span>{form.shipper||'—'}</span><small>{form.shipperReference||'—'}</small></div>
-          <div><b>Consignee</b><span>{form.consignee||'—'}</span><small>{form.notifyParty?('Notify: '+form.notifyParty):'—'}</small></div>
-        </div>
-        <aside className="booking-job-management">
-          <div className="booking-job-management-title">Job Management</div>
-          <div className="booking-job-management-grid">
-            <div><span>Booking No.</span><b>{booking.bookingNo}</b></div>
-            <div><span>Shipment No.</span><b>{booking.shipmentNo||'—'}</b></div>
-            <div><span>Booking Status</span><b>{booking.status||'—'}</b></div>
-            <div><span>Execution Status</span><b>{booking.shipmentStatus||'BOOKED'}</b></div>
-            <div><span>Operating Model</span><b>{booking.businessModel||'NVOCC'}</b></div>
-            <div><span>Booking Channel</span><b>{booking.bookingChannel||'INTERNAL'}</b></div>
-            <div><span>Booking Date</span><b>{fmt(booking.bookingDate||undefined)}</b></div>
-            <div><span>Carrier Booking Ref.</span><b>{form.carrierBookingNo||'—'}</b></div>
+      <div className="booking-ref-layout">
+        <main className="booking-ref-main">
+          <div className="booking-party-row">
+            <section className="booking-party-box">
+              <div className="booking-box-title">Client</div>
+              <label className="booking-party-select"><select value={form.customerId} onChange={e=>set('customerId',e.target.value)}>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+              <div className="booking-party-name">{booking.customer?.name||'—'}</div>
+              <div className="booking-party-lines">{form.customerReference||booking.customerId}</div>
+              <div className="booking-mini-tabs"><span>Address</span><span>Contact</span></div>
+            </section>
+
+            <section className="booking-party-box">
+              <div className="booking-box-title">Consignor</div>
+              <input className="booking-party-input" value={form.shipper} onChange={e=>set('shipper',e.target.value)} placeholder="Shipper / Consignor"/>
+              <div className="booking-party-name">{form.shipper||'—'}</div>
+              <div className="booking-party-lines">{form.placeOfReceipt||form.origin||'No origin address selected'}</div>
+              <div className="booking-mini-tabs"><span>Address</span><span>Contact</span></div>
+            </section>
+
+            <section className="booking-party-box">
+              <div className="booking-box-title">Consignee</div>
+              <input className="booking-party-input" value={form.consignee} onChange={e=>set('consignee',e.target.value)} placeholder="Consignee"/>
+              <div className="booking-party-name">{form.consignee||'—'}</div>
+              <div className="booking-party-lines">{form.placeOfDelivery||form.destination||'No destination address selected'}</div>
+              <div className="booking-mini-tabs"><span>Address</span><span>Contact</span></div>
+            </section>
           </div>
+
+          <div className="booking-mid-grid">
+            <section className="booking-ref-panel">
+              <div className="booking-box-title">Booking / Transport Details</div>
+              <div className="booking-dense-two">
+                <div>
+                  <DenseSelect l="Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></DenseSelect>
+                  <DenseSelect l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></DenseSelect>
+                  <DenseInput l="Incoterm" k="incoterm"/>
+                  <DenseSelect l="Service Level" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></DenseSelect>
+                  <DenseInput l="Shipper's Ref" k="shipperReference"/>
+                  <DenseInput l="Description" k="cargoDescription"/>
+                  <DenseInput l="Marks & Nums" k="marksNumbers"/>
+                  <DenseSelect l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></DenseSelect>
+                </div>
+                <div>
+                  <DenseInput l="Origin" k="origin"/>
+                  <DenseInput l="Destination" k="destination"/>
+                  <DenseInput l="Via" k="transshipmentPort"/>
+                  <DenseInput l="Carrier" k="carrier"/>
+                  <DenseInput l="Car./Svc. Lvl" k="vesselVoyage"/>
+                  <DenseInput l="Est Pickup / ETD" k="etd" type="date"/>
+                  <DenseInput l="Est Delivery / ETA" k="eta" type="date"/>
+                  <DenseInput l="Required By / Cutoff" k="portCutoff" type="date"/>
+                </div>
+              </div>
+            </section>
+
+            <section className="booking-ref-panel booking-schedule-panel">
+              <div className="booking-box-title">Schedule / References</div>
+              <DenseInput l="Booking No." k="bookingNo"/>
+              <DenseInput l="Booking Date" k="bookingDate" type="date"/>
+              <DenseInput l="Carrier Booking Ref." k="carrierBookingNo"/>
+              <DenseInput l="House B/L" k="houseBL"/>
+              <DenseInput l="Master B/L" k="masterBL"/>
+              <DenseInput l="ATD / On Board" k="atd" type="date"/>
+              <DenseInput l="ATA" k="ata" type="date"/>
+            </section>
+          </div>
+
+          <div className="booking-lower-blocks">
+            <section className="booking-ref-panel">
+              <div className="booking-box-title">Goods Details</div>
+              <DenseInput l="Outers / Packages" k="packageCount" type="number"/>
+              <DenseInput l="Package Type" k="packageType"/>
+              <DenseInput l="Weight kg" k="grossWeight" type="number"/>
+              <DenseInput l="Net Weight kg" k="netWeight" type="number"/>
+              <DenseInput l="Volume CBM" k="volumeCbm" type="number"/>
+            </section>
+            <section className="booking-ref-panel">
+              <div className="booking-box-title">Goods Details</div>
+              <DenseInput l="Commodity" k="commodity"/>
+              <DenseInput l="HS Code" k="hsCode"/>
+              <DenseSelect l="Special Cargo" k="specialCargo"><option value="NONE">General</option><option value="DG">Dangerous Goods</option><option value="REEFER">Reefer</option><option value="OOG">Out of Gauge</option></DenseSelect>
+              <DenseSelect l="Container Owner" k="containerOwner"><option>CARRIER</option><option>SHIPPER</option><option>ANCLINE</option><option>SOC</option></DenseSelect>
+              <DenseInput l="Equipment" k="equipment"/>
+            </section>
+            <section className="booking-ref-panel">
+              <div className="booking-box-title">Monetary Values</div>
+              <DenseRead l="Goods Value" v={booking.currency+' '+revenue.toFixed(2)}/>
+              <DenseRead l="Cost Value" v={booking.currency+' '+cost.toFixed(2)}/>
+              <DenseRead l="Gross Profit" v={booking.currency+' '+(revenue-cost).toFixed(2)}/>
+              <DenseSelect l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></DenseSelect>
+              <DenseRead l="Spot Rate" v={revenue?((revenue-cost)/revenue*100).toFixed(2)+'%':'0.00%'}/>
+            </section>
+          </div>
+
+          <div className="booking-bottom-grids">
+            <section className="booking-excel-panel">
+              <div className="booking-box-title">Containers</div>
+              <div className="excel-grid-wrap">
+                <table className="table"><thead><tr><th>Container #</th><th>Count</th><th>Type</th><th>Commodity</th><th>Release</th><th>Delivery Mode</th><th>Location</th><th>Seal</th><th>VGM</th><th>Status</th></tr></thead><tbody>
+                  {booking.containers?.map((c:any,i:number)=><tr key={c.id}><td><b>{c.containerNo}</b></td><td>{i+1}</td><td>{c.type}</td><td>{form.commodity||'—'}</td><td>{c.ownership||'—'}</td><td>{form.serviceType||'—'}</td><td>{c.location||'—'}</td><td>{c.sealNo||'—'}</td><td>{c.vgm??'—'}</td><td>{c.status}</td></tr>)}
+                  {!booking.containers?.length&&<tr><td colSpan={10}>No containers assigned.</td></tr>}
+                </tbody></table>
+              </div>
+            </section>
+            <section className="booking-excel-panel">
+              <div className="booking-box-title">Loose Cargo</div>
+              <div className="excel-grid-wrap">
+                <table className="table"><thead><tr><th>Packs</th><th>Pk. Type</th><th>Weight</th><th>UW</th><th>Volume</th><th>UV</th><th>Length</th><th>Width</th><th>Height</th><th>Commodity</th></tr></thead><tbody>
+                  <tr><td>{form.packageCount||'—'}</td><td>{form.packageType||'—'}</td><td>{form.grossWeight||'—'}</td><td>KG</td><td>{form.volumeCbm||'—'}</td><td>CBM</td><td>{form.oogLengthCm||'—'}</td><td>{form.oogWidthCm||'—'}</td><td>{form.oogHeightCm||'—'}</td><td>{form.commodity||form.cargoDescription||'—'}</td></tr>
+                </tbody></table>
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <aside className="booking-ref-right">
+          <section className="booking-ref-panel">
+            <div className="booking-box-title">Job Management Links</div>
+            <div className="booking-order-ref">Order Refs <button className="btn">More...</button></div>
+            <table className="table booking-links-table"><thead><tr><th>Job Number</th><th>Job Type</th><th>Description</th></tr></thead><tbody>
+              <tr><td>{booking.bookingNo}</td><td>BOOKING</td><td>{form.customerReference||'Customer booking'}</td></tr>
+              {booking.shipmentNo&&<tr><td>{booking.shipmentNo}</td><td>SHIPMENT</td><td>{booking.shipmentStatus||'BOOKED'}</td></tr>}
+              {form.houseBL&&<tr><td>{form.houseBL}</td><td>HOUSE BL</td><td>House bill reference</td></tr>}
+              {form.masterBL&&<tr><td>{form.masterBL}</td><td>MASTER BL</td><td>Master bill reference</td></tr>}
+            </tbody></table>
+            <div className="booking-link-actions"><button className="btn">New</button><button className="btn">Edit</button><button className="btn">Attach</button><button className="btn">Detach</button></div>
+          </section>
+
+          <section className="booking-ref-panel">
+            <div className="booking-box-title">Brokerage Details</div>
+            <DenseInput l="Customer Ref." k="customerReference"/>
+            <DenseSelect l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></DenseSelect>
+            <DenseInput l="POL Agent" k="polAgent"/>
+            <DenseInput l="POD Agent" k="podAgent"/>
+            <DenseInput l="Terminal" k="terminal"/>
+          </section>
+
+          <section className="booking-ref-panel">
+            <div className="booking-box-title">Security / Controls</div>
+            <DenseSelect l="Credit" k="creditStatus"><option value="">Not checked</option><option>Pending</option><option>Passed</option><option>Blocked</option></DenseSelect>
+            <DenseSelect l="Slot" k="slotStatus"><option value="">Not checked</option><option>Pending</option><option>Requested</option><option>Confirmed</option><option>Protected</option><option>Allocated</option><option>Waitlist</option></DenseSelect>
+            <DenseSelect l="Equipment" k="equipmentStatus"><option value="">Not checked</option><option>Pending</option><option>Available</option><option>Released</option><option>Shortage</option></DenseSelect>
+            <DenseRead l="NVOCC Display" v={booking.businessModel||'NVOCC'}/>
+          </section>
+
+          <section className="booking-ref-panel">
+            <div className="booking-box-title">Cut-offs</div>
+            <DenseInput l="CY Closing" k="cyClosing" type="date"/>
+            <DenseInput l="SI Cut-off" k="siCutoff" type="date"/>
+            <DenseInput l="VGM Cut-off" k="vgmCutoff" type="date"/>
+            <DenseInput l="Doc Cut-off" k="docCutoff" type="date"/>
+          </section>
         </aside>
       </div>
-      <div className="card" style={{marginBottom:12}}><h3 style={title}>Job Management & References</h3><div style={grid}>{isAdmin?<><Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select><label><span style={label}>Admin Conversion</span><button className="btn" style={{width:"100%"}} disabled={busy||String(form.businessModel).toUpperCase()===String(booking.businessModel||"NVOCC").toUpperCase()} onClick={convertModel}>Convert Job Model</button></label></>:<div><span style={label}>Operating Model</span><div className="status">{booking.businessModel||"NVOCC"}</div><div className="sub">Global Admin only can convert</div></div>}<Input l="Booking No." k="bookingNo"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/><Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select><Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select><Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select><Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select><Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select><Input l="Incoterm" k="incoterm"/></div></div>
-      <div className="card" style={{marginBottom:12}}><h3 style={title}>Client / Consignor / Consignee</h3><div style={grid}><label><span style={label}>Customer</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label><Input l="Shipper" k="shipper"/><Input l="Consignee" k="consignee"/><Input l="Notify Party" k="notifyParty"/><label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">-- Optional --</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label></div></div>
-      <div className="card"><h3 style={title}>Job Management Controls</h3><div style={grid}><Select l="Credit Status" k="creditStatus"><option value="">Not checked</option><option>Pending</option><option>Passed</option><option>Blocked</option></Select><Select l="Slot Status" k="slotStatus"><option value="">Not checked</option><option>Pending</option><option>Requested</option><option>Confirmed</option><option>Protected</option><option>Allocated</option><option>Waitlist</option></Select><Select l="Equipment Status" k="equipmentStatus"><option value="">Not checked</option><option>Pending</option><option>Available</option><option>Released</option><option>Shortage</option></Select></div><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} style={{...field,minHeight:90,marginTop:12}} placeholder="Operational remarks and handling instructions"/></div>
     </>}
 
     {tab==='Additional Details'&&<>
@@ -224,6 +358,25 @@ export default function BookingDetailWorkspace({bookingId,onClose}:{bookingId:st
         <div><span className="sub">Producing Agent</span><b>{booking.producingAgent?.name||'—'}</b></div>
       </div>
       <div className="sub" style={{marginTop:6}}>Job-specific attributes remain linked to the booking record and operational workflow.</div>
+    </div>}
+
+    {tab==='Addresses'&&<div className="booking-addresses-layout">
+      <section className="card"><h3 style={title}>Client / Consignor / Consignee Addresses</h3><div style={grid}>
+        <DenseRead l="Client" v={booking.customer?.name||'—'}/>
+        <DenseInput l="Consignor / Shipper" k="shipper"/>
+        <DenseInput l="Consignee" k="consignee"/>
+        <DenseInput l="Notify Party" k="notifyParty"/>
+        <DenseInput l="Place of Receipt" k="placeOfReceipt"/>
+        <DenseInput l="Origin" k="origin"/>
+        <DenseInput l="Port of Loading" k="portOfLoading"/>
+        <DenseInput l="POL Agent" k="polAgent"/>
+        <DenseInput l="Transshipment Port" k="transshipmentPort"/>
+        <DenseInput l="Port of Discharge" k="portOfDischarge"/>
+        <DenseInput l="POD Agent" k="podAgent"/>
+        <DenseInput l="Destination" k="destination"/>
+        <DenseInput l="Place of Delivery" k="placeOfDelivery"/>
+        <DenseInput l="Terminal" k="terminal"/>
+      </div></section>
     </div>}
 
     {tab==='eDocs'&&<div className="card">
