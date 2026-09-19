@@ -17,7 +17,7 @@ const menuGroups=[
     items:[
       ['/organizations','Organizations'],
       ['/sales-crm/leads','Sales Leads / Inquiries'],
-      ['/sales-crm','Opportunities / Pipeline'],
+      ['/sales-crm/opportunities','Opportunities / Pipeline'],
       ['/customer-service','Customer Service'],
     ],
   },

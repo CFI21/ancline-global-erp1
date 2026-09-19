@@ -649,3 +649,20 @@
   text-align:center;
   font-size:8.5px;
 }
+
+/* Classic Sales Opportunity workspace */
+.opp-headrow{gap:30px}
+.opp-status-head{background:#52db69!important;font-weight:700;text-align:center}
+.opp-inline-select{grid-column:3!important;width:calc(100% - 2px)!important;margin-left:2px!important}
+.opp-workflow-line{margin-top:12px;border:1px solid #c7c7c7;background:#f4f4f4;padding:8px;display:grid;grid-template-columns:190px 1fr;gap:8px}
+.opp-quote-page{min-height:520px}
+.opp-quote-form{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:5px;margin-bottom:6px}
+.opp-quote-form label span{display:block;font-size:9px;font-weight:700;margin-bottom:2px}
+.opp-quote-form input{width:100%;height:20px;border:1px solid #aaa;padding:1px 3px;font-size:9px}
+.opp-quotes-table{margin-top:8px;max-height:340px;border:1px solid #ccc}
+.opp-register-tools{display:flex;align-items:center;gap:4px;padding:5px;background:#efefef;border-bottom:1px solid #bbb}
+.opp-register-tools input,.opp-register-tools select{height:21px;border:1px solid #aaa;font-size:9px;padding:1px 4px}
+.opp-register-tools input{width:320px}.opp-register-tools select{width:130px}.opp-register-tools span{margin-left:auto;font-weight:700;font-size:9px}
+.opp-register-table{height:calc(100vh - 105px);background:#fff}
+.opp-register-table .cw-table td,.opp-register-table .cw-table th{white-space:nowrap}
+.opp-register-table a{color:#0047bf;text-decoration:none;font-weight:700}

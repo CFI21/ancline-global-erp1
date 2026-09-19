@@ -16,8 +16,43 @@ export class SalesCrmService{
  async customers(u:ScopeUser){this.internal(u);return this.db.organization.findMany({where:{roles:{has:'CUSTOMER'},active:true},select:{id:true,code:true,name:true,countryCode:true},orderBy:{name:'asc'}});}
  async organizations(u:ScopeUser){this.internal(u);return this.db.organization.findMany({where:{active:true},select:{id:true,code:true,name:true,roles:true,countryCode:true,registrationRef:true,kycData:true},orderBy:{name:'asc'}});}
  async opportunities(u:ScopeUser){this.internal(u);return this.latest(await this.events('Opportunity'),'OPPORTUNITY_CREATED','OPPORTUNITY_UPDATED').sort((a:any,b:any)=>new Date(b.updatedAt||b.createdAt).getTime()-new Date(a.updatedAt||a.createdAt).getTime());}
+ async opportunity(id:string,u:ScopeUser){
+  this.internal(u);
+  const row=(await this.opportunities(u)).find((x:any)=>x.opportunityId===id||x.id===id);
+  if(!row)throw new NotFoundException('Opportunity not found');
+  const [customer,leads]=await Promise.all([
+    row.customerId?this.db.organization.findUnique({where:{id:String(row.customerId)},select:{id:true,code:true,name:true,countryCode:true,registrationRef:true,kycData:true}}):null,
+    this.leads(u)
+  ]);
+  const sourceLead=leads.find((x:any)=>x.leadId===row.sourceLeadId||x.inquiryNo===row.sourceInquiryNo)||null;
+  return {...row,customer,sourceLead};
+ }
+ async opportunityActivities(id:string,u:ScopeUser){
+  await this.opportunity(id,u);
+  const rows=await this.events('OpportunityActivity');
+  return rows.map((e:any)=>({...this.p(e),createdAt:e.createdAt}))
+    .filter((x:any)=>String(x.opportunityId)===id)
+    .sort((a:any,b:any)=>new Date(b.createdAt||b.date).getTime()-new Date(a.createdAt||a.date).getTime());
+ }
+ async addOpportunityActivity(id:string,b:any,u:ScopeUser){
+  const opp=await this.opportunity(id,u);
+  if(!String(b?.subject||'').trim())throw new BadRequestException('Activity subject is required');
+  const activityId=`OACT-${Date.now()}`;
+  const payload={activityId,opportunityId:opp.opportunityId,date:b?.date?new Date(b.date).toISOString():new Date().toISOString(),type:String(b?.type||'FOLLOW_UP').toUpperCase(),contact:String(b?.contact||opp.inquiryContact||''),subject:String(b.subject).trim(),notes:b?.notes?String(b.notes):null,createdBy:u.sub};
+  await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'OPPORTUNITY_ACTIVITY_CREATED',externalId:activityId,objectType:'OpportunityActivity',objectId:activityId,status:'COMPLETED',payload,completedAt:new Date()}});
+  await this.audit.log({actorId:u.sub,action:'CRM_OPPORTUNITY_ACTIVITY',objectType:'Opportunity',objectId:opp.opportunityId,detail:{activityId,type:payload.type,subject:payload.subject}});
+  return payload;
+ }
+ async opportunityLogs(id:string,u:ScopeUser){
+  const opp=await this.opportunity(id,u);
+  const [events,audit]=await Promise.all([
+    this.db.integrationEvent.findMany({where:{sourceSystem:SOURCE,objectType:'Opportunity',objectId:opp.opportunityId},orderBy:{createdAt:'desc'}}),
+    this.db.auditEvent.findMany({where:{objectType:'Opportunity',objectId:opp.opportunityId},orderBy:{createdAt:'desc'},take:100})
+  ]);
+  return {events:events.map((e:any)=>({eventType:e.eventType,status:e.status,createdAt:e.createdAt,payload:e.payload})),audit};
+ }
  async createOpportunity(b:any,u:ScopeUser){this.internal(u);if(!b?.customerId||!b?.name)throw new BadRequestException('Customer and opportunity name are required');const value=Number(b?.value||0),probability=Math.max(0,Math.min(100,Number(b?.probability??20)));if(!Number.isFinite(value))throw new BadRequestException('Invalid opportunity value');const id=`OPP-${Date.now()}`;const payload={opportunityId:id,name:String(b.name),customerId:String(b.customerId),owner:String(b.owner||u.email||u.sub),stage:String(b.stage||'QUALIFY').toUpperCase(),probability,value,currency:String(b.currency||'USD').toUpperCase(),origin:b.origin?String(b.origin).toUpperCase():null,destination:b.destination?String(b.destination).toUpperCase():null,equipment:b.equipment?String(b.equipment).toUpperCase():null,expectedClose:b.expectedClose?new Date(b.expectedClose).toISOString():null,source:b.source?String(b.source):'DIRECT',notes:b.notes?String(b.notes):null,status:'OPEN',sourceLeadId:b.sourceLeadId?String(b.sourceLeadId):null,sourceInquiryNo:b.sourceInquiryNo?String(b.sourceInquiryNo):null,inquiryContact:b.inquiryContact?String(b.inquiryContact):null,inquiryEmail:b.inquiryEmail?String(b.inquiryEmail):null,inquiryPhone:b.inquiryPhone?String(b.inquiryPhone):null,leadInterest:b.leadInterest?String(b.leadInterest):null,leadSource:b.leadSource?String(b.leadSource):null,leadSourceDetails:b.leadSourceDetails?String(b.leadSourceDetails):null,referringOrganization:b.referringOrganization?String(b.referringOrganization):null,referringContact:b.referringContact?String(b.referringContact):null,createdBy:u.sub};await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'OPPORTUNITY_CREATED',externalId:id,objectType:'Opportunity',objectId:id,status:'OPEN',payload,completedAt:new Date()}});await this.audit.log({actorId:u.sub,action:'CRM_OPPORTUNITY_CREATE',objectType:'Opportunity',objectId:id,detail:{customerId:payload.customerId,value,currency:payload.currency}});return payload;}
- async updateOpportunity(id:string,b:any,u:ScopeUser){this.internal(u);const row=(await this.opportunities(u)).find((x:any)=>x.opportunityId===id||x.id===id);if(!row)throw new NotFoundException('Opportunity not found');const allowed=['name','owner','stage','probability','value','currency','origin','destination','equipment','expectedClose','source','notes','status','lossReason','competitor','wonQuoteId','sourceLeadId','sourceInquiryNo','inquiryContact','inquiryEmail','inquiryPhone','leadInterest','leadSource','leadSourceDetails','referringOrganization','referringContact'];const payload:any={opportunityId:id,updatedBy:u.sub};for(const k of allowed)if(Object.prototype.hasOwnProperty.call(b,k))payload[k]=b[k];if(payload.probability!=null)payload.probability=Math.max(0,Math.min(100,Number(payload.probability)));if(payload.value!=null)payload.value=Number(payload.value);if(payload.stage)payload.stage=String(payload.stage).toUpperCase();if(payload.status)payload.status=String(payload.status).toUpperCase();await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'OPPORTUNITY_UPDATED',externalId:id,objectType:'Opportunity',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}});return {...row,...payload};}
+ async updateOpportunity(id:string,b:any,u:ScopeUser){this.internal(u);const row=(await this.opportunities(u)).find((x:any)=>x.opportunityId===id||x.id===id);if(!row)throw new NotFoundException('Opportunity not found');const allowed=['name','owner','stage','probability','value','currency','origin','destination','equipment','expectedClose','source','notes','status','lossReason','competitor','wonQuoteId','sourceLeadId','sourceInquiryNo','inquiryContact','inquiryEmail','inquiryPhone','leadInterest','leadSource','leadSourceDetails','referringOrganization','referringContact'];const payload:any={opportunityId:id,updatedBy:u.sub};for(const k of allowed)if(Object.prototype.hasOwnProperty.call(b,k))payload[k]=b[k];if(payload.probability!=null)payload.probability=Math.max(0,Math.min(100,Number(payload.probability)));if(payload.value!=null)payload.value=Number(payload.value);if(payload.stage)payload.stage=String(payload.stage).toUpperCase();if(payload.status)payload.status=String(payload.status).toUpperCase();await this.db.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'OPPORTUNITY_UPDATED',externalId:id,objectType:'Opportunity',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}});await this.audit.log({actorId:u.sub,action:'CRM_OPPORTUNITY_UPDATE',objectType:'Opportunity',objectId:id,detail:payload});return {...row,...payload};}
  async leads(u:ScopeUser){
   this.internal(u);
   return this.latest(await this.events('SalesLead'),'LEAD_CREATED','LEAD_UPDATED')

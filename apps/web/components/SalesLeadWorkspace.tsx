@@ -181,7 +181,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             {relationTab==='Custom Fields'&&<textarea className="cw-notes" value={JSON.stringify(form.customFields||{},null,2)} onChange={e=>{try{set('customFields',JSON.parse(e.target.value||'{}'));}catch{}}}/>}
             {relationTab==='Sales Relations'&&<div className="cw-tablewrap"><table className="cw-table"><thead><tr><th>Relation</th><th>Summary</th><th>Created Time</th><th>Last Edit Time</th></tr></thead><tbody>
               {!isNew&&<tr><td><b>INQ&nbsp; {inquiryNo}</b></td><td><b>{relationSummary}</b></td><td>{String(lead.createdAt||'').replace('T',' ').slice(0,16)}</td><td>{String(lead.updatedAt||lead.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>}
-              {opportunityId&&<tr><td><a href={`/sales-crm?opportunity=${opportunityId}`}><b>OPP&nbsp; {opportunityId}</b></a></td><td>Sales Opportunity; {opportunity?.stage||'QUALIFY'}; {opportunity?.status||'OPEN'}</td><td>{String(opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td><td>{String(opportunity?.updatedAt||opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>}
+              {opportunityId&&<tr><td><a href={`/sales-crm/opportunities/${opportunityId}`}><b>OPP&nbsp; {opportunityId}</b></a></td><td>Sales Opportunity; {opportunity?.stage||'QUALIFY'}; {opportunity?.status||'OPEN'}</td><td>{String(opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td><td>{String(opportunity?.updatedAt||opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>}
             </tbody></table></div>}
             <div className="cw-lower-actions"><span>Popup</span><span className="cw-spacer"/><button>□ New</button><button>✎ Edit</button><button>● Attach</button><button>⊖ Detach</button></div>
           </div>
@@ -258,7 +258,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
         <div className="cw-action-row">
           <button onClick={()=>location.href='/sales-crm'}>Close</button>
           <button type="button" onClick={()=>setMessage('Client Intelligence workspace is available from the Sales Lead relation.')}>Set Client Intelligence</button>
-          {!opportunityId?<button className="cw-primary-action" disabled={busy||isNew} onClick={()=>void convert()}>Create Sales Opportunity</button>:<button className="cw-primary-action" onClick={()=>location.href=`/sales-crm?opportunity=${opportunityId}`}>Open Sales Opportunity</button>}
+          {!opportunityId?<button className="cw-primary-action" disabled={busy||isNew} onClick={()=>void convert()}>Create Sales Opportunity</button>:<button className="cw-primary-action" onClick={()=>location.href=`/sales-crm/opportunities/${opportunityId}`}>Open Sales Opportunity</button>}
         </div>
         <div className="cw-footerbar"><span className="cw-spacer"/><button onClick={()=>location.href='/sales-crm/leads/new'}>□ New</button><button disabled={busy} onClick={()=>void save(true)}>◉ Save & Close</button><button onClick={()=>location.href='/sales-crm'}>● Close</button></div>
       </>}

@@ -17,6 +17,10 @@ export class SalesCrmController{
  @Get('leads/:id/logs') leadLogs(@Param('id') id:string,@Req() req:any){return this.service.leadLogs(id,req.user);}
  @Post('leads/:id/opportunity') convertLead(@Param('id') id:string,@Body() b:any,@Req() req:any){return this.service.convertLeadToOpportunity(id,b,req.user);}
  @Get('opportunities') opportunities(@Req() req:any){return this.service.opportunities(req.user);}
+ @Get('opportunities/:id') opportunity(@Param('id') id:string,@Req() req:any){return this.service.opportunity(id,req.user);}
+ @Get('opportunities/:id/activities') opportunityActivities(@Param('id') id:string,@Req() req:any){return this.service.opportunityActivities(id,req.user);}
+ @Post('opportunities/:id/activities') addOpportunityActivity(@Param('id') id:string,@Body() b:any,@Req() req:any){return this.service.addOpportunityActivity(id,b,req.user);}
+ @Get('opportunities/:id/logs') opportunityLogs(@Param('id') id:string,@Req() req:any){return this.service.opportunityLogs(id,req.user);}
  @Post('opportunities') createOpportunity(@Body() b:any,@Req() req:any){return this.service.createOpportunity(b,req.user);}
  @Patch('opportunities/:id') updateOpportunity(@Param('id') id:string,@Body() b:any,@Req() req:any){return this.service.updateOpportunity(id,b,req.user);}
  @Post('opportunities/:id/close/:result') closeOpportunity(@Param('id') id:string,@Param('result') result:string,@Body() b:any,@Req() req:any){return this.service.closeOpportunity(id,result,b,req.user);}
