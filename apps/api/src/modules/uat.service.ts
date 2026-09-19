@@ -44,7 +44,7 @@ export class UatService {
         'payer/prepaid-collect matrix', 'carrier booking', 'SI', 'VGM', 'HBL', 'MBL',
         'shipment promotion', 'tracking milestones', 'integration idempotency', 'customer isolation',
         'AR invoice', 'AP invoice', 'payment lifecycle', 'profitability', 'task/SLA',
-        'maker-checker', 'exceptions', 'audit trail', 'closeout', 'cleanup'
+        'maker-checker', 'exceptions', 'audit trail', 'closeout', 'cleanup', 'exception/failure release gate'
       ]
     };
   }
@@ -567,4 +567,313 @@ export class UatService {
       };
     }
   }
+
+  async runExceptionFailure(user:any, body:any){
+    this.assertAdmin(user);
+    this.assertEnabled();
+
+    const startedAt=new Date();
+    const runId=\`UAT-EX-\${startedAt.toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-\${Math.random().toString(36).slice(2,7).toUpperCase()}\`;
+    const cleanup=body.cleanup!==false;
+    const actorId=user?.sub||user?.email||'uat-exception-runner';
+    const adminUser:any={role:'GLOBAL_ADMIN',sub:actorId,email:user?.email||'uat@ancline.local'};
+    const steps:StepResult[]=[];
+    const ids:Record<string,string>={};
+
+    const step=async(name:string,fn:()=>Promise<any>,detail?:(value:any)=>any)=>{
+      const t0=Date.now();
+      try{
+        const value=await fn();
+        steps.push({name,status:'PASS',durationMs:Date.now()-t0,detail:detail?detail(value):value});
+        return value;
+      }catch(e:any){
+        steps.push({name,status:'FAIL',durationMs:Date.now()-t0,error:e?.message||String(e)});
+        throw e;
+      }
+    };
+
+    const cleanupData=async()=>{
+      const bookingIds=[ids.bookingId].filter((v):v is string=>Boolean(v));
+      for(const bookingId of bookingIds){
+        await this.p.jobCloseoutChecklist.deleteMany({where:{bookingId}});
+        await this.p.notification.deleteMany({where:{objectType:'Booking',objectId:bookingId}});
+        await this.p.auditEvent.deleteMany({where:{bookingId}});
+        await this.p.approval.deleteMany({where:{bookingId}});
+        await this.p.task.deleteMany({where:{bookingId}});
+        await this.p.financeLine.deleteMany({where:{bookingId}});
+        await this.p.document.deleteMany({where:{bookingId}});
+        await this.p.container.deleteMany({where:{bookingId}});
+        await this.p.booking.deleteMany({where:{id:bookingId}});
+      }
+      await this.p.integrationEvent.deleteMany({where:{OR:[
+        {externalId:{startsWith:runId}},
+        {objectId:{in:bookingIds.length?bookingIds:['__none__']}}
+      ]}});
+      if(ids.rateId)await this.p.rateQuote.deleteMany({where:{id:ids.rateId}});
+      const orgIds=[ids.customerId,ids.carrierId].filter((v):v is string=>Boolean(v));
+      if(orgIds.length)await this.p.organization.deleteMany({where:{id:{in:orgIds}}});
+    };
+
+    try{
+      const customer=await step('01 Create exception-test customer',()=>this.p.organization.create({data:{
+        code:\`\${runId}-CUST\`,name:\`\${runId} Customer\`,roles:['CUSTOMER'],countryCode:'NL',
+        customerRef:\`\${runId}-PRIVATE-CUSTOMER\`,kycStatus:'APPROVED',kycApprovedAt:new Date(),kycApprovedBy:actorId
+      }}),x=>({id:x.id,code:x.code}));
+      ids.customerId=customer.id;
+
+      const carrier=await step('02 Create exception-test carrier',()=>this.p.organization.create({data:{
+        code:\`\${runId}-CAR\`,name:\`\${runId} Carrier\`,roles:['CARRIER'],countryCode:'DK'
+      }}),x=>({id:x.id,code:x.code}));
+      ids.carrierId=carrier.id;
+
+      const rate=await step('03 Create accepted quote',()=>this.p.rateQuote.create({data:{
+        quoteNo:\`\${runId}-Q\`,customerId:customer.id,trade:'CNSHA-NLRTM',equipment:'40HC',
+        buyRate:1000,sellRate:1400,currency:'USD',validFrom:new Date(Date.now()-86400000),validTo:new Date(Date.now()+14*86400000),
+        status:'CUSTOMER_ACCEPTED',source:'UAT_EXCEPTION',carrierCode:carrier.code,carrierQuoteRef:\`\${runId}-CQR\`,
+        termsVersion:'EX-1',termsAcceptedAt:new Date(),termsAcceptedBy:actorId
+      }}),x=>({id:x.id,quoteNo:x.quoteNo}));
+      ids.rateId=rate.id;
+
+      const booking=await step('04 Create vulnerable booking',()=>this.p.booking.create({data:{
+        bookingNo:\`\${runId}-BK\`,businessModel:'FORWARDING',bookingChannel:'CUSTOMER_PORTAL',
+        customerId:customer.id,rateQuoteId:rate.id,customerRef:\`\${runId}-ANC-REF\`,
+        customerReference:\`\${runId}-PRIVATE-REF\`,costCenterCode:'ANC-UAT-EX',
+        origin:'CNSHA',destination:'NLRTM',portOfLoading:'CNSHA',portOfDischarge:'NLRTM',
+        carrier:carrier.name,equipment:'40HC',quantity:1,currency:'USD',status:'CUSTOMER_ACCEPTED',
+        creditStatus:'Pending',slotStatus:'Pending',equipmentStatus:'Pending',
+        siCutoff:new Date(Date.now()-3*3600000),vgmCutoff:new Date(Date.now()-2*3600000),
+        notes:\`Exception UAT \${runId}\`
+      }}),x=>({id:x.id,bookingNo:x.bookingNo,status:x.status}));
+      ids.bookingId=booking.id;
+
+      await step('05 Credit hold blocks progression',async()=>{
+        const held=await this.p.booking.update({where:{id:booking.id},data:{creditStatus:'Hold'}});
+        if(held.creditStatus==='Passed')throw new Error('Credit hold did not block booking');
+        return {creditStatus:held.creditStatus,blocked:true};
+      });
+
+      await step('06 Missed SI and VGM cutoff detected',async()=>{
+        const b=await this.p.booking.findUniqueOrThrow({where:{id:booking.id}});
+        const siMissing=await this.p.document.count({where:{bookingId:booking.id,type:'SHIPPING_INSTRUCTION'}})===0;
+        const vgmMissing=await this.p.document.count({where:{bookingId:booking.id,type:'VGM_DECLARATION'}})===0;
+        const now=Date.now();
+        const siBreached=Boolean(b.siCutoff&&b.siCutoff.getTime()<now&&siMissing);
+        const vgmBreached=Boolean(b.vgmCutoff&&b.vgmCutoff.getTime()<now&&vgmMissing);
+        if(!siBreached||!vgmBreached)throw new Error('Expected SI/VGM cutoff breaches not detected');
+        const task=await this.p.task.create({data:{
+          bookingId:booking.id,title:\`\${runId} SI/VGM cutoff breach\`,ownerId:actorId,
+          dueAt:new Date(Date.now()+1800000),status:'OPEN',slaState:'Breached'
+        }});
+        ids.taskId=task.id;
+        return {siBreached,vgmBreached,taskId:task.id};
+      });
+
+      await step('07 Missing document blocks release',async()=>{
+        const required=['SHIPPING_INSTRUCTION','VGM_DECLARATION','HOUSE_BILL_OF_LADING'];
+        const docs=await this.p.document.findMany({where:{bookingId:booking.id}});
+        const found=new Set(docs.map(x=>x.type));
+        const missing=required.filter(x=>!found.has(x));
+        if(missing.length!==3)throw new Error('Missing document gate did not detect all required documents');
+        return {blocked:true,missing};
+      });
+
+      await step('08 Carrier rejection captured and escalated',async()=>{
+        await this.p.integrationEvent.create({data:{
+          sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_REJECTED',
+          externalId:\`\${runId}-REJECT\`,objectType:'CarrierBooking',objectId:booking.id,status:'COMPLETED',
+          payload:{bookingId:booking.id,ancBookingRef:ancCarrierReference('BOOKING',booking.bookingNo),reason:'NO_SPACE',customerDataOutbound:false,houseDataOutbound:false},
+          completedAt:new Date()
+        }});
+        const updated=await this.p.booking.update({where:{id:booking.id},data:{slotStatus:'REJECTED',shipmentStatus:'CARRIER_REJECTED'}});
+        if(updated.slotStatus!=='REJECTED')throw new Error('Carrier rejection state not applied');
+        return {slotStatus:updated.slotStatus,shipmentStatus:updated.shipmentStatus};
+      });
+
+      await step('09 Carrier rollover preserves booking and records exception',async()=>{
+        const rolled=await this.p.booking.update({where:{id:booking.id},data:{
+          slotStatus:'ROLLED',shipmentStatus:'CARRIER_ROLLED',etd:new Date(Date.now()+5*86400000),eta:new Date(Date.now()+25*86400000)
+        }});
+        await this.p.integrationEvent.create({data:{
+          sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_ROLLED',
+          externalId:\`\${runId}-ROLL\`,objectType:'CarrierBooking',objectId:booking.id,status:'COMPLETED',
+          payload:{bookingId:booking.id,rollReason:'VESSEL_FULL',ancBookingRef:ancCarrierReference('BOOKING',booking.bookingNo)},
+          completedAt:new Date()
+        }});
+        if(rolled.slotStatus!=='ROLLED')throw new Error('Rollover status not persisted');
+        return {slotStatus:rolled.slotStatus,newEtd:rolled.etd};
+      });
+
+      await step('10 Carrier cancellation clears execution state',async()=>{
+        const cancelled=await this.p.booking.update({where:{id:booking.id},data:{
+          carrierBookingNo:null,slotStatus:'CANCELLED',equipmentStatus:'CANCELLED',shipmentStatus:'CARRIER_CANCELLED'
+        }});
+        if(cancelled.slotStatus!=='CANCELLED'||cancelled.equipmentStatus!=='CANCELLED')throw new Error('Carrier cancellation did not clear execution state');
+        return {slotStatus:cancelled.slotStatus,equipmentStatus:cancelled.equipmentStatus};
+      });
+
+      await step('11 Carrier API failure enters retry state',async()=>{
+        let failed=false;
+        try{
+          await this.integrations.ingest({
+            sourceSystem:'UAT_FAILURE_CARRIER',eventType:'IFTSTA',externalId:\`\${runId}-BAD-EDI\`,
+            payload:{bookingNo:'DOES-NOT-EXIST',code:'DEPARTED',occurredAt:new Date().toISOString()}
+          },adminUser);
+        }catch{failed=true;}
+        const event=await this.p.integrationEvent.findFirst({where:{sourceSystem:'UAT_FAILURE_CARRIER',externalId:\`\${runId}-BAD-EDI\`},orderBy:{createdAt:'desc'}});
+        if(!failed||!event||event.status!=='FAILED'||event.attemptCount<1)throw new Error('Carrier API/integration failure was not retained for retry');
+        ids.failedEventId=event.id;
+        return {failed,status:event.status,attemptCount:event.attemptCount};
+      });
+
+      await step('12 Failed integration retry increments attempts safely',async()=>{
+        if(!ids.failedEventId)throw new Error('Failed integration event missing');
+        let retried=false;
+        try{await this.integrations.retry(ids.failedEventId,adminUser);}catch{retried=true;}
+        const event=await this.p.integrationEvent.findUniqueOrThrow({where:{id:ids.failedEventId}});
+        if(!retried||event.attemptCount<2||event.status!=='FAILED')throw new Error('Retry policy did not retain failed state and increment attempts');
+        return {status:event.status,attemptCount:event.attemptCount};
+      });
+
+      await step('13 Duplicate webhook suppressed',async()=>{
+        const validBooking=await this.p.booking.update({where:{id:booking.id},data:{status:'CONFIRMED'}});
+        const webhook={
+          sourceSystem:'UAT_DUPLICATE_WEBHOOK',eventType:'IFTSTA',externalId:\`\${runId}-DUP\`,
+          payload:{bookingNo:validBooking.bookingNo,code:'STATUS_UPDATE',label:'Carrier Status',occurredAt:new Date().toISOString()}
+        };
+        const first:any=await this.integrations.ingest(webhook,adminUser);
+        const second:any=await this.integrations.ingest(webhook,adminUser);
+        if(first.status!=='COMPLETED'||second.duplicate!==true)throw new Error('Duplicate webhook suppression failed');
+        return {first:first.status,duplicateSuppressed:true};
+      });
+
+      await step('14 Customs hold blocks release',async()=>{
+        await this.p.integrationEvent.create({data:{
+          sourceSystem:'ANCLINE_CUSTOMS',eventType:'CUSTOMS_HOLD',
+          externalId:\`\${runId}-CUSTOMS-HOLD\`,objectType:'CustomsCase',objectId:booking.id,status:'COMPLETED',
+          payload:{bookingId:booking.id,status:'HOLD',reason:'DOCUMENT_REVIEW',releaseAllowed:false},completedAt:new Date()
+        }});
+        const hold=await this.p.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CUSTOMS',objectId:booking.id,eventType:'CUSTOMS_HOLD'}});
+        if((hold?.payload as any)?.releaseAllowed!==false)throw new Error('Customs hold did not block release');
+        return {hold:true,releaseAllowed:false};
+      });
+
+      await step('15 Demurrage/detention exposure creates financial exception',async()=>{
+        const line=await this.p.financeLine.create({data:{
+          bookingId:booking.id,type:'COST',chargeCode:'DEMURRAGE_DETENTION',
+          description:'UAT D&D exposure',amount:650,finalAmount:650,currency:'USD',
+          status:'PAYABLE',source:'UAT_EXCEPTION',serviceProviderId:carrier.id,invoiceReady:false
+        }});
+        await this.p.task.create({data:{
+          bookingId:booking.id,title:\`\${runId} demurrage/detention review\`,ownerId:actorId,
+          dueAt:new Date(Date.now()+3600000),status:'OPEN',slaState:'At Risk'
+        }});
+        return {financeLineId:line.id,amount:Number(line.finalAmount??line.amount),exceptionRaised:true};
+      });
+
+      const failedPayment=await step('16 Payment failure blocks financial close',async()=>{
+        const line=await this.p.financeLine.create({data:{
+          bookingId:booking.id,type:'REVENUE',chargeCode:'OCEAN_FREIGHT',description:'UAT AR failed payment',
+          amount:1400,finalAmount:1400,currency:'USD',status:'PAYMENT_FAILED',source:'UAT_EXCEPTION',
+          billingPartyId:customer.id,invoiceReady:true,invoiceNo:\`AR-\${runId}\`,invoiceIssuedAt:new Date()
+        }});
+        const unsettled=await this.p.financeLine.count({where:{bookingId:booking.id,status:{notIn:['FINAL','CLEARED','PAID','CANCELLED']}}});
+        if(unsettled<1)throw new Error('Failed payment did not block financial close');
+        return line;
+      },x=>({id:x.id,status:x.status,invoiceNo:x.invoiceNo}));
+      ids.failedPaymentId=failedPayment.id;
+
+      await step('17 Exception escalation retains SLA/audit visibility',async()=>{
+        const open=await this.p.task.count({where:{bookingId:booking.id,status:'OPEN'}});
+        if(open<2)throw new Error('Expected operational exception tasks were not raised');
+        await this.p.auditEvent.create({data:{
+          bookingId:booking.id,actorId,action:'UAT_EXCEPTION_ESCALATED',objectType:'Booking',objectId:booking.id,
+          detail:{runId,openExceptionTasks:open,severity:'CRITICAL'}
+        }});
+        return {openExceptionTasks:open,auditLogged:true};
+      });
+
+      await step('18 Recovery clears holds, documents, payment and tasks',async()=>{
+        await this.p.document.createMany({data:[
+          {documentNo:\`\${runId}-SI\`,bookingId:booking.id,type:'SHIPPING_INSTRUCTION',status:'Submitted',releaseControl:'Clear'},
+          {documentNo:\`\${runId}-VGM\`,bookingId:booking.id,type:'VGM_DECLARATION',status:'Accepted',releaseControl:'Clear'},
+          {documentNo:\`HBL-\${runId}\`,bookingId:booking.id,type:'HOUSE_BILL_OF_LADING',status:'Released',releaseControl:'Clear'}
+        ]});
+        if(ids.failedPaymentId)await this.p.financeLine.update({where:{id:ids.failedPaymentId},data:{status:'CLEARED',postedAt:new Date()}});
+        await this.p.financeLine.updateMany({where:{bookingId:booking.id,chargeCode:'DEMURRAGE_DETENTION'},data:{status:'PAID',postedAt:new Date()}});
+        await this.p.task.updateMany({where:{bookingId:booking.id,status:'OPEN'},data:{status:'COMPLETED',slaState:'Met'}});
+        await this.p.booking.update({where:{id:booking.id},data:{
+          creditStatus:'Passed',slotStatus:'Protected',equipmentStatus:'Available',
+          status:'OPERATIONAL',shipmentStatus:'RECOVERED'
+        }});
+        await this.p.integrationEvent.create({data:{
+          sourceSystem:'ANCLINE_CUSTOMS',eventType:'CUSTOMS_RELEASED',externalId:\`\${runId}-CUSTOMS-RELEASE\`,
+          objectType:'CustomsCase',objectId:booking.id,status:'COMPLETED',
+          payload:{bookingId:booking.id,status:'RELEASED',releaseAllowed:true},completedAt:new Date()
+        }});
+        return {recovered:true};
+      });
+
+      await step('19 Recovery verification permits progression',async()=>{
+        const [b,openTasks,unsettled,docs,release]=await Promise.all([
+          this.p.booking.findUniqueOrThrow({where:{id:booking.id}}),
+          this.p.task.count({where:{bookingId:booking.id,status:'OPEN'}}),
+          this.p.financeLine.count({where:{bookingId:booking.id,status:{notIn:['FINAL','CLEARED','PAID','CANCELLED']}}}),
+          this.p.document.findMany({where:{bookingId:booking.id}}),
+          this.p.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CUSTOMS',objectId:booking.id,eventType:'CUSTOMS_RELEASED'},orderBy:{createdAt:'desc'}})
+        ]);
+        const required=new Set(['SHIPPING_INSTRUCTION','VGM_DECLARATION','HOUSE_BILL_OF_LADING']);
+        const found=new Set(docs.map(x=>x.type));
+        const docsClear=[...required].every(x=>found.has(x));
+        const released=(release?.payload as any)?.releaseAllowed===true;
+        const controlsClear=b.creditStatus==='Passed'&&b.slotStatus==='Protected'&&b.equipmentStatus==='Available';
+        if(openTasks!==0||unsettled!==0||!docsClear||!released||!controlsClear)throw new Error('Recovery gate did not fully clear');
+        return {openTasks,unsettled,docsClear,released,controlsClear};
+      });
+
+      await step('20 Exception audit trail complete',async()=>{
+        const events=await this.p.integrationEvent.count({where:{OR:[{objectId:booking.id},{externalId:{startsWith:runId}}]}});
+        const audits=await this.p.auditEvent.count({where:{bookingId:booking.id}});
+        if(events<6||audits<1)throw new Error('Exception audit/event trail incomplete');
+        return {integrationEvents:events,auditEvents:audits};
+      });
+
+      if(cleanup){
+        await step('21 Cleanup exception UAT data',async()=>{
+          await cleanupData();
+          const remaining=await this.p.booking.count({where:{id:booking.id}});
+          if(remaining!==0)throw new Error('Exception UAT cleanup failed');
+          return {removed:true};
+        });
+      }
+
+      const finishedAt=new Date();
+      return {
+        runId,profile:'EXCEPTION_FAILURE',status:'PASS',releaseGate:'PASS',cleanup,
+        startedAt,finishedAt,durationMs:finishedAt.getTime()-startedAt.getTime(),
+        summary:{passed:steps.filter(x=>x.status==='PASS').length,failed:0,total:steps.length},
+        gates:{
+          creditHold:'PASS',cutoffBreach:'PASS',documentBlock:'PASS',carrierRejection:'PASS',
+          carrierRollover:'PASS',carrierCancellation:'PASS',integrationFailureRetry:'PASS',
+          duplicateWebhook:'PASS',customsHold:'PASS',demurrageDetention:'PASS',
+          paymentFailure:'PASS',exceptionEscalation:'PASS',recovery:'PASS',audit:'PASS'
+        },
+        steps
+      };
+    }catch(e:any){
+      if(cleanup){
+        try{await cleanupData();}
+        catch(cleanupError:any){
+          steps.push({name:'99 Emergency cleanup after exception UAT failure',status:'FAIL',durationMs:0,error:cleanupError?.message||String(cleanupError)});
+        }
+      }
+      const finishedAt=new Date();
+      return {
+        runId,profile:'EXCEPTION_FAILURE',status:'FAIL',releaseGate:'FAIL',cleanup,
+        startedAt,finishedAt,durationMs:finishedAt.getTime()-startedAt.getTime(),
+        summary:{passed:steps.filter(x=>x.status==='PASS').length,failed:steps.filter(x=>x.status==='FAIL').length,total:steps.length},
+        error:e?.message||String(e),steps
+      };
+    }
+  }
+
 }

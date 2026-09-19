@@ -16,4 +16,9 @@ export class UatController {
   run(@Req() req: any, @Body() body: any = {}) {
     return this.uat.run(req.user, body || {});
   }
+
+  @Post('run-exceptions')
+  runExceptions(@Req() req:any,@Body() body:any={}){
+    return this.uat.runExceptionFailure(req.user,body||{});
+  }
 }

@@ -5,7 +5,7 @@ import WorkspaceShell from '../../components/WorkspaceShell';
 import {api,requireToken} from '../../lib/api';
 
 export default function TestingLabPage(){
-  const [token,setToken]=useState(''),[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const [token,setToken]=useState(''),[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[uatBusy,setUatBusy]=useState(''),[fullUat,setFullUat]=useState<any>(null),[exceptionUat,setExceptionUat]=useState<any>(null);
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
   async function load(t=token){
     setBusy(true);setMessage('');
@@ -22,6 +22,17 @@ export default function TestingLabPage(){
   }
   async function seed(){setBusy(true);setMessage('');try{const r=await api('/test-data/seed',token,{method:'POST'});setData(r);setMessage('Synthetic test pack seeded / refreshed successfully.');}catch(e:any){setMessage(e.message||'Test data seed failed.');}finally{setBusy(false);}}
   async function reset(){if(!window.confirm('Delete only ANCLINE synthetic TEST-* data?'))return;setBusy(true);setMessage('');try{await api('/test-data/reset',token,{method:'DELETE'});setMessage('Synthetic test data removed.');await load();}catch(e:any){setMessage(e.message||'Test data reset failed.');}finally{setBusy(false);}}
+  async function runUat(kind:'full'|'exception'){
+    setUatBusy(kind);setMessage('');
+    try{
+      const path=kind==='full'?'/uat/run':'/uat/run-exceptions';
+      const r=await api(path,token,{method:'POST',body:JSON.stringify({cleanup:true})});
+      if(kind==='full')setFullUat(r);else setExceptionUat(r);
+      const label=kind==='full'?'Full Transaction':'Exception & Failure';
+      setMessage(label+' UAT: '+r.status+' · '+(r.summary?.passed||0)+'/'+(r.summary?.total||0)+' passed');
+    }catch(e:any){setMessage(e.message||'UAT run failed.');}
+    finally{setUatBusy('');}
+  }
   return <WorkspaceShell title="ANCLINE Testing Lab" subtitle="Synthetic customers, carriers and full-field bookings · never for real operations" active="/testing-lab" actions={<><button className="btn" disabled={busy} onClick={seed}>Seed / Refresh Test Pack</button><button className="btn" disabled={busy} onClick={reset}>Reset Test Data</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
     <div className="card" style={{marginBottom:12,border:'2px solid #c9d6df'}}><b>SYNTHETIC TEST DATA ONLY</b><div className="sub">All records use TEST / ANC-TEST references and @ancline.invalid accounts. Do not send them to real carriers, banks, customs, customers or providers.</div></div>
@@ -30,6 +41,29 @@ export default function TestingLabPage(){
       <div className="card"><div className="sub">TEST CARRIERS</div><div className="kpi">{data?.summary?.carriers||0}</div></div>
       <div className="card"><div className="sub">TEST BOOKINGS</div><div className="kpi">{data?.summary?.bookings||0}</div></div>
       <div className="card"><div className="sub">TEST LOGIN ACCOUNTS</div><div className="kpi">{data?.summary?.testUsers||0}</div></div>
+    </div>
+
+    <div className="card" style={{marginBottom:12}}>
+      <h3 style={{marginTop:0}}>Release Gate UAT</h3>
+      <div className="sub" style={{marginBottom:10}}>Controlled synthetic end-to-end tests. Test records are cleaned up automatically.</div>
+      <div className="grid" style={{marginBottom:10}}>
+        <div className="card">
+          <div className="sub">FULL TRANSACTION</div>
+          <div className="kpi">{fullUat?.status||'—'}</div>
+          <div className="sub">{fullUat?(String(fullUat.summary?.passed||0)+'/'+String(fullUat.summary?.total||0)+' passed · '+String(fullUat.runId)):'Customer → booking → carrier → docs → tracking → finance → closeout'}</div>
+          <button className="btn" style={{marginTop:8}} disabled={Boolean(uatBusy)} onClick={()=>void runUat('full')}>{uatBusy==='full'?'Running…':'Run Full Transaction UAT'}</button>
+        </div>
+        <div className="card">
+          <div className="sub">EXCEPTION & FAILURE</div>
+          <div className="kpi">{exceptionUat?.status||'—'}</div>
+          <div className="sub">{exceptionUat?(String(exceptionUat.summary?.passed||0)+'/'+String(exceptionUat.summary?.total||0)+' passed · '+String(exceptionUat.runId)):'Holds, cutoffs, carrier failure/retry, customs, payment failure and recovery'}</div>
+          <button className="btn" style={{marginTop:8}} disabled={Boolean(uatBusy)} onClick={()=>void runUat('exception')}>{uatBusy==='exception'?'Running…':'Run Exception & Failure UAT'}</button>
+        </div>
+      </div>
+      {(fullUat||exceptionUat)&&<div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Profile</th><th>Gate</th><th>Passed</th><th>Failed</th><th>Run ID</th><th>Failed Step</th></tr></thead><tbody>
+        {fullUat&&<tr><td>FULL_TRANSACTION</td><td><span className="status">{fullUat.releaseGate}</span></td><td>{fullUat.summary?.passed}</td><td>{fullUat.summary?.failed}</td><td>{fullUat.runId}</td><td>{(fullUat.steps||[]).filter((x:any)=>x.status==='FAIL').map((x:any)=>x.name).join(', ')||'—'}</td></tr>}
+        {exceptionUat&&<tr><td>EXCEPTION_FAILURE</td><td><span className="status">{exceptionUat.releaseGate}</span></td><td>{exceptionUat.summary?.passed}</td><td>{exceptionUat.summary?.failed}</td><td>{exceptionUat.runId}</td><td>{(exceptionUat.steps||[]).filter((x:any)=>x.status==='FAIL').map((x:any)=>x.name).join(', ')||'—'}</td></tr>}
+      </tbody></table></div>}
     </div>
 
     <div className="card" style={{marginBottom:12}}>
