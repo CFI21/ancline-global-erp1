@@ -773,11 +773,17 @@ export class UatService {
       const failedPayment=await step('16 Payment failure blocks financial close',async()=>{
         const line=await this.p.financeLine.create({data:{
           bookingId:booking.id,type:'REVENUE',chargeCode:'OCEAN_FREIGHT',description:'UAT AR failed payment',
-          amount:1400,finalAmount:1400,currency:'USD',status:'PAYMENT_FAILED',source:'UAT_EXCEPTION',
+          amount:1400,finalAmount:1400,currency:'USD',status:'DISPUTED',source:'UAT_EXCEPTION',
           billingPartyId:customer.id,invoiceReady:true,invoiceNo:`AR-${runId}`,invoiceIssuedAt:new Date()
         }});
         const unsettled=await this.p.financeLine.count({where:{bookingId:booking.id,status:{notIn:['FINAL','CLEARED','PAID','CANCELLED']}}});
         if(unsettled<1)throw new Error('Failed payment did not block financial close');
+        await this.p.integrationEvent.create({data:{
+          sourceSystem:'ANCLINE_FINANCE',eventType:'PAYMENT_FAILED',externalId:`${runId}-PAYMENT-FAIL`,
+          objectType:'FinanceLine',objectId:line.id,status:'COMPLETED',
+          payload:{bookingId:booking.id,financeLineId:line.id,invoiceNo:line.invoiceNo,reason:'BANK_REJECTED',financeStatus:'DISPUTED'},
+          completedAt:new Date()
+        }});
         return line;
       },x=>({id:x.id,status:x.status,invoiceNo:x.invoiceNo}));
       ids.failedPaymentId=failedPayment.id;
