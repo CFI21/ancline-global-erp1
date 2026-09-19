@@ -709,3 +709,68 @@
   .quote-convert-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}
   .quote-stage-track{grid-template-columns:repeat(5,minmax(95px,1fr))}
 }
+
+/* Classic Inquiry / Sales Lead register */
+.inq-register-summary{
+  display:flex;
+  gap:2px;
+  padding:3px;
+  background:#dedede;
+  border-bottom:1px solid #aeb3b7;
+}
+.inq-register-summary span{
+  min-width:125px;
+  border:1px solid #c3c3c3;
+  background:#f4f4f4;
+  padding:3px 6px;
+  font-size:8.8px;
+  white-space:nowrap;
+}
+.inq-register-summary b{font-size:10px;margin-right:4px}
+.inq-register-tools{
+  height:27px;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  gap:3px;
+  padding:3px 5px;
+  background:#efefef;
+  border-bottom:1px solid #b8b8b8;
+  font-size:8.8px;
+}
+.inq-register-tools label{font-weight:700;margin-left:3px}
+.inq-register-tools input,
+.inq-register-tools select{
+  height:19px;
+  min-height:19px;
+  border:1px solid #a9a9a9;
+  background:#fff;
+  padding:0 3px;
+  font-size:8.8px;
+}
+.inq-register-tools input{width:270px}
+.inq-register-tools select{width:115px}
+.inq-register-table{
+  height:calc(100vh - 111px);
+  background:#fff;
+}
+.inq-register-table .cw-table th,
+.inq-register-table .cw-table td{
+  white-space:nowrap;
+  font-size:8.6px;
+  padding:2px 4px;
+}
+.inq-register-table a{color:#0047bf;text-decoration:none}
+.inq-status{
+  display:inline-block;
+  min-width:62px;
+  text-align:center;
+  border:1px solid #aaa;
+  background:#eee;
+  padding:1px 3px;
+}
+.inq-status.open{background:#52db69}
+.inq-status.qualified{background:#d9edff}
+.inq-status.converted{background:#c9e1ff}
+.inq-status.closed,.inq-status.lost{background:#ddd}
+.inq-open-link{font-weight:700}
