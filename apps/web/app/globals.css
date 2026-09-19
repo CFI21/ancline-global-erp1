@@ -1023,3 +1023,140 @@ html,body{font-size:13px}
   .shell{grid-template-columns:1fr}
   .main{padding:10px}
 }
+
+
+/* ANCLINE ultra-compact ERP density v2 */
+html,body{font-size:11.5px;line-height:1.2}
+.shell{grid-template-columns:195px minmax(0,1fr)}
+.side{padding:7px 6px}
+.main{padding:8px}
+.top{margin-bottom:7px;gap:7px}
+.top h1{font-size:18px!important;line-height:1.1}
+.top .sub{font-size:10.5px!important}
+.brand{font-size:15px;padding:2px 6px 7px;margin-bottom:5px}
+.brand span{font-size:8.5px;margin-top:1px}
+.menu-search-wrap{margin:4px 2px 5px}
+.menu-search{height:27px;font-size:10.5px;padding-left:26px}
+.menu-search-icon{top:4px;font-size:14px}
+.menu-search-clear{top:1px;height:23px;width:23px}
+.menu-caption{font-size:8px;padding:2px 6px 4px}
+.menu-home,.menu-group{padding:5px 6px;gap:6px;border-radius:5px}
+.menu-step{font-size:9px;min-width:20px}
+.menu-group-label{font-size:10.5px}
+.menu-chevron{font-size:13px}
+.menu-portal{padding:5px 6px;font-size:10.5px}
+.submenu{padding:1px 0 3px 24px}
+.submenu a{padding:3px 5px;font-size:10.5px;border-radius:4px}
+.workflow-caption{margin-top:4px;padding-top:5px}
+.grid{gap:6px}
+.card{border-radius:5px;padding:7px}
+.card+.card{margin-top:0}
+.kpi{font-size:19px}
+.sub{font-size:10.5px!important;line-height:1.2}
+.status{font-size:10px;padding:1px 5px;border-radius:8px}
+.btn{
+  min-height:24px!important;
+  height:auto;
+  padding:3px 6px!important;
+  border-radius:4px;
+  font-size:11px!important;
+  line-height:1.15;
+}
+.main label{font-size:10.5px!important}
+.main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.cw-input),
+.main select:not(.cw-input){
+  min-height:25px!important;
+  height:25px;
+  padding:2px 5px!important;
+  font-size:11.5px!important;
+  line-height:1.15!important;
+  border-radius:3px!important;
+}
+.main textarea:not(.cw-notes){
+  padding:4px 5px!important;
+  font-size:11.5px!important;
+  line-height:1.2!important;
+  border-radius:3px!important;
+}
+.booking-context-bar{
+  gap:3px;
+  margin:0 0 6px;
+  padding:4px 6px;
+  border-radius:4px;
+}
+
+/* Excel-density for every modern operational table */
+.main table:not(.cw-table),.table{
+  font-size:11px!important;
+  line-height:1.15!important;
+}
+.main table:not(.cw-table) th,
+.main table:not(.cw-table) td,
+.table th,.table td{
+  padding:3px 5px!important;
+  font-size:11px!important;
+  line-height:1.15!important;
+  border:1px solid #dce3e8;
+}
+.main table:not(.cw-table) th,.table th{
+  font-size:10.75px!important;
+  letter-spacing:0;
+}
+.main table:not(.cw-table) td,.table td{
+  height:24px!important;
+  min-height:24px!important;
+}
+.main table:not(.cw-table) input:not([type="checkbox"]):not([type="radio"]),
+.main table:not(.cw-table) select,
+.table input:not([type="checkbox"]):not([type="radio"]),
+.table select{
+  min-height:22px!important;
+  height:22px!important;
+  padding:1px 4px!important;
+  font-size:10.75px!important;
+}
+
+/* Dense modern subforms and tab strips */
+.erp-subform,.detail-subform{padding:6px;border-radius:4px}
+.erp-subform-title,.detail-subform-title{
+  margin:0 0 4px;
+  padding:0 0 3px;
+  font-size:11.75px;
+}
+.erp-detail-grid,.detail-grid{
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:4px;
+}
+.erp-tabs,.detail-tabs{gap:3px;margin-bottom:5px}
+.erp-tabs .btn,.detail-tabs .btn{min-height:23px!important;padding:2px 6px!important}
+
+/* Override large inline dashboard values used by generated pages */
+.card>div[style*="font-size:24px"],
+.card>div[style*="fontSize:24"],
+.card>div[style*="font-size:22px"],
+.card>div[style*="fontSize:22"],
+.card>div[style*="font-size:20px"],
+.card>div[style*="fontSize:20"]{
+  font-size:17px!important;
+  line-height:1.1!important;
+}
+.card h3{font-size:12px!important;margin-top:0}
+.main h2{font-size:14px!important}
+.main h3{font-size:12.5px!important}
+
+/* Reduce common generated inline spacing */
+.main [style*="gap:10px"]{gap:6px!important}
+.main [style*="gap:12px"]{gap:7px!important}
+.main [style*="marginBottom:12"]{margin-bottom:7px!important}
+.main [style*="margin-bottom:12"]{margin-bottom:7px!important}
+.main [style*="marginTop:12"]{margin-top:7px!important}
+.main [style*="margin-top:12"]{margin-top:7px!important}
+
+@media(max-width:1100px){
+  .shell{grid-template-columns:185px minmax(0,1fr)}
+  .main{padding:7px}
+}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .main{padding:7px}
+}
