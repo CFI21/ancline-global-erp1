@@ -1,0 +1,238 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+
+const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
+type Org={id:string;code:string;name:string;roles:string[]};
+type Container={id:string;containerNo:string;type:string;ownership:string;status:string;location?:string;sealNo?:string;vgm?:number;grossWeight?:number;pickupDate?:string;emptyDepot?:string;fullReturnTerminal?:string};
+type AuditEvent={id:string;action:string;actorId:string;createdAt:string;detail?:any};
+type RoutingLeg={id:string;sequence:number;legType:string;mode:string;origin:string;destination:string;carrier?:string;vessel?:string;voyage?:string;terminal?:string;etd?:string;eta?:string;atd?:string;ata?:string;status:string;remarks?:string};
+type Milestone={id:string;code:string;label:string;location?:string;plannedAt?:string;actualAt?:string;status:string};
+type Booking={
+  id:string;bookingNo:string;businessModel?:string;bookingChannel?:string;shipmentNo?:string|null;shipmentStatus?:string|null;customerId:string;producingAgentId?:string|null;bookingType?:string|null;transportMode?:string|null;serviceType?:string|null;bookingDate?:string|null;
+  customerReference?:string|null;shipperReference?:string|null;carrierBookingNo?:string|null;houseBL?:string|null;masterBL?:string|null;
+  shipper?:string|null;consignee?:string|null;notifyParty?:string|null;origin:string;destination:string;placeOfReceipt?:string|null;portOfLoading?:string|null;portOfDischarge?:string|null;placeOfDelivery?:string|null;transshipmentPort?:string|null;terminal?:string|null;
+  polAgent?:string|null;podAgent?:string|null;etd?:string|null;eta?:string|null;atd?:string|null;ata?:string|null;cyClosing?:string|null;siCutoff?:string|null;vgmCutoff?:string|null;docCutoff?:string|null;portCutoff?:string|null;
+  carrier?:string|null;vesselVoyage?:string|null;equipment?:string|null;quantity?:number|null;containerOwner?:string|null;throughBL?:string|null;commodity?:string|null;packageCount?:number|null;packageType?:string|null;grossWeight?:number|null;netWeight?:number|null;volumeCbm?:number|null;marksNumbers?:string|null;hsCode?:string|null;cargoDescription?:string|null;
+  incoterm?:string|null;freightTerms?:string|null;currency:string;specialCargo?:string|null;dgUnNo?:string|null;dgImoClass?:string|null;dgPackingGroup?:string|null;dgProperShippingName?:string|null;reeferTemperatureC?:number|null;reeferVentilation?:number|null;reeferHumidityPct?:number|null;oogLengthCm?:number|null;oogWidthCm?:number|null;oogHeightCm?:number|null;oogWeightKg?:number|null;notes?:string|null;status:string;creditStatus?:string|null;slotStatus?:string|null;equipmentStatus?:string|null;
+  customer?:{name:string};producingAgent?:{name:string};containers:Container[];documents:any[];financeLines:any[];tasks:any[];approvals:any[];auditEvents:AuditEvent[];routingLegs:RoutingLeg[];milestones:Milestone[];
+};
+
+const blank={
+  businessModel:'NVOCC',bookingNo:'',customerId:'',producingAgentId:'',bookingType:'FCL',transportMode:'SEA',serviceType:'CY/CY',bookingDate:'',customerReference:'',shipperReference:'',carrierBookingNo:'',houseBL:'',masterBL:'',
+  shipper:'',consignee:'',notifyParty:'',origin:'',destination:'',placeOfReceipt:'',portOfLoading:'',portOfDischarge:'',placeOfDelivery:'',transshipmentPort:'',terminal:'',polAgent:'',podAgent:'',
+  etd:'',eta:'',atd:'',ata:'',cyClosing:'',siCutoff:'',vgmCutoff:'',docCutoff:'',portCutoff:'',carrier:'',vesselVoyage:'',equipment:'40HC',quantity:'1',containerOwner:'CARRIER',throughBL:'',commodity:'',packageCount:'',packageType:'',grossWeight:'',netWeight:'',volumeCbm:'',marksNumbers:'',hsCode:'',cargoDescription:'',
+  incoterm:'',freightTerms:'PREPAID',currency:'USD',specialCargo:'NONE',dgUnNo:'',dgImoClass:'',dgPackingGroup:'',dgProperShippingName:'',reeferTemperatureC:'',reeferVentilation:'',reeferHumidityPct:'',oogLengthCm:'',oogWidthCm:'',oogHeightCm:'',oogWeightKg:'',notes:'',creditStatus:'',slotStatus:'',equipmentStatus:''
+};
+const tabs=['Details','Additional Details','Custom Fields','Document Selection','Workflow & Tracking','Quote Charges','eDocs','Notes','Logs'] as const;
+type Tab=typeof tabs[number];
+const dateInput=(v?:string|null)=>v?new Date(v).toISOString().slice(0,10):'';
+const toIso=(v:string)=>v?new Date(`${v}T00:00:00Z`).toISOString():null;
+const num=(v:string)=>v.trim()===''?null:Number(v);
+const fmt=(v?:string)=>v?new Date(v).toLocaleDateString():'-';
+
+export default function BookingDetailWorkspace({bookingId,onClose}:{bookingId:string;onClose?:()=>void}){
+  const id=String(bookingId||'');
+  const [token,setToken]=useState('');
+  const [booking,setBooking]=useState<Booking|null>(null);
+  const [form,setForm]=useState(blank);
+  const [orgs,setOrgs]=useState<Org[]>([]);
+  const [busy,setBusy]=useState(false);
+  const [userRole,setUserRole]=useState('');
+  const isAdmin=userRole==='GLOBAL_ADMIN';
+  const [message,setMessage]=useState('');
+  const [tab,setTab]=useState<Tab>('Details');
+  const [container,setContainer]=useState({containerNo:'',type:'40HC',ownership:'CARRIER',status:'PLANNED',location:'',sealNo:'',vgm:'',grossWeight:'',pickupDate:'',emptyDepot:'',fullReturnTerminal:''});
+  const [doc,setDoc]=useState({type:'BOOKING_CONFIRMATION',documentNo:'',status:'Draft',releaseControl:'Clear'});
+  const [charge,setCharge]=useState({type:'REVENUE',chargeCode:'OCEAN_FREIGHT',amount:'',currency:'USD',status:'PLANNED',partyId:''});
+  const [task,setTask]=useState({title:'',ownerId:'',dueAt:''});
+  const [approval,setApproval]=useState({type:'OPERATIONAL',approverId:'Operations Manager',reason:''});
+
+  const customers=useMemo(()=>orgs.filter(o=>o.roles?.includes('CUSTOMER')),[orgs]);
+  const agents=useMemo(()=>orgs.filter(o=>o.roles?.includes('AGENT')),[orgs]);
+  const revenue=useMemo(()=>booking?.financeLines?.filter((x:any)=>x.type==='REVENUE').reduce((s:number,x:any)=>s+Number(x.amount||0),0)||0,[booking]);
+  const cost=useMemo(()=>booking?.financeLines?.filter((x:any)=>x.type==='COST').reduce((s:number,x:any)=>s+Number(x.amount||0),0)||0,[booking]);
+
+  useEffect(()=>{const t=localStorage.getItem('ancline_token')||'';if(!t){location.href='/login';return;}setToken(t);try{setUserRole(String(JSON.parse(localStorage.getItem('ancline_user')||'{}')?.role||''));}catch{}void load(t);},[id]);
+
+  async function req(path:string,init:RequestInit={},t=token){
+    const headers=new Headers(init.headers);headers.set('content-type','application/json');if(t)headers.set('authorization',`Bearer ${t}`);
+    const r=await fetch(`${API}${path}`,{...init,headers,cache:'no-store'});const text=await r.text();let data:any={};
+    try{data=text?JSON.parse(text):{};}catch{data={message:text};}if(!r.ok)throw new Error(Array.isArray(data?.message)?data.message.join(', '):data?.message||`${r.status} ${r.statusText}`);return data;
+  }
+
+  async function load(t=token){
+    if(!id)return;
+    try{
+      const [b,o]=await Promise.all([req(`/bookings/${id}`,{},t),req('/organizations',{},t).catch(()=>[])]);
+      setBooking(b);setOrgs(Array.isArray(o)?o:[]);
+      setForm({
+        businessModel:b.businessModel||'NVOCC',bookingNo:b.bookingNo||'',customerId:b.customerId||'',producingAgentId:b.producingAgentId||'',bookingType:b.bookingType||'FCL',transportMode:b.transportMode||'SEA',serviceType:b.serviceType||'CY/CY',bookingDate:dateInput(b.bookingDate),customerReference:b.customerReference||'',shipperReference:b.shipperReference||'',carrierBookingNo:b.carrierBookingNo||'',houseBL:b.houseBL||'',masterBL:b.masterBL||'',
+        shipper:b.shipper||'',consignee:b.consignee||'',notifyParty:b.notifyParty||'',origin:b.origin||'',destination:b.destination||'',placeOfReceipt:b.placeOfReceipt||'',portOfLoading:b.portOfLoading||'',portOfDischarge:b.portOfDischarge||'',placeOfDelivery:b.placeOfDelivery||'',transshipmentPort:b.transshipmentPort||'',terminal:b.terminal||'',polAgent:b.polAgent||'',podAgent:b.podAgent||'',
+        etd:dateInput(b.etd),eta:dateInput(b.eta),atd:dateInput(b.atd),ata:dateInput(b.ata),cyClosing:dateInput(b.cyClosing),siCutoff:dateInput(b.siCutoff),vgmCutoff:dateInput(b.vgmCutoff),docCutoff:dateInput(b.docCutoff),portCutoff:dateInput(b.portCutoff),carrier:b.carrier||'',vesselVoyage:b.vesselVoyage||'',
+        equipment:b.equipment||'40HC',quantity:String(b.quantity||1),containerOwner:b.containerOwner||'CARRIER',throughBL:b.throughBL||'',commodity:b.commodity||'',packageCount:b.packageCount!=null?String(b.packageCount):'',packageType:b.packageType||'',grossWeight:b.grossWeight!=null?String(b.grossWeight):'',netWeight:b.netWeight!=null?String(b.netWeight):'',volumeCbm:b.volumeCbm!=null?String(b.volumeCbm):'',marksNumbers:b.marksNumbers||'',hsCode:b.hsCode||'',cargoDescription:b.cargoDescription||'',
+        incoterm:b.incoterm||'',freightTerms:b.freightTerms||'PREPAID',currency:b.currency||'USD',specialCargo:b.specialCargo||'NONE',dgUnNo:b.dgUnNo||'',dgImoClass:b.dgImoClass||'',dgPackingGroup:b.dgPackingGroup||'',dgProperShippingName:b.dgProperShippingName||'',reeferTemperatureC:b.reeferTemperatureC!=null?String(b.reeferTemperatureC):'',reeferVentilation:b.reeferVentilation!=null?String(b.reeferVentilation):'',reeferHumidityPct:b.reeferHumidityPct!=null?String(b.reeferHumidityPct):'',oogLengthCm:b.oogLengthCm!=null?String(b.oogLengthCm):'',oogWidthCm:b.oogWidthCm!=null?String(b.oogWidthCm):'',oogHeightCm:b.oogHeightCm!=null?String(b.oogHeightCm):'',oogWeightKg:b.oogWeightKg!=null?String(b.oogWeightKg):'',notes:b.notes||'',creditStatus:b.creditStatus||'',slotStatus:b.slotStatus||'',equipmentStatus:b.equipmentStatus||''
+      });
+      setCharge(x=>({...x,currency:b.currency||'USD'}));
+    }catch(e:any){setMessage(e?.message||'Unable to load booking');}
+  }
+
+  function set(k:keyof typeof blank,v:string){setForm(x=>({...x,[k]:v}));}
+  function bookingPayload(){const {businessModel:_businessModel,...editable}=form;return {...editable,producingAgentId:form.producingAgentId||null,bookingDate:toIso(form.bookingDate),etd:toIso(form.etd),eta:toIso(form.eta),atd:toIso(form.atd),ata:toIso(form.ata),cyClosing:toIso(form.cyClosing),siCutoff:toIso(form.siCutoff),vgmCutoff:toIso(form.vgmCutoff),docCutoff:toIso(form.docCutoff),portCutoff:toIso(form.portCutoff),quantity:num(form.quantity),packageCount:num(form.packageCount),grossWeight:num(form.grossWeight),netWeight:num(form.netWeight),volumeCbm:num(form.volumeCbm),specialCargo:form.specialCargo==='NONE'?null:form.specialCargo,dgUnNo:form.specialCargo==='DG'?(form.dgUnNo||null):null,dgImoClass:form.specialCargo==='DG'?(form.dgImoClass||null):null,dgPackingGroup:form.specialCargo==='DG'?(form.dgPackingGroup||null):null,dgProperShippingName:form.specialCargo==='DG'?(form.dgProperShippingName||null):null,reeferTemperatureC:form.specialCargo==='REEFER'?num(form.reeferTemperatureC):null,reeferVentilation:form.specialCargo==='REEFER'?num(form.reeferVentilation):null,reeferHumidityPct:form.specialCargo==='REEFER'?num(form.reeferHumidityPct):null,oogLengthCm:form.specialCargo==='OOG'?num(form.oogLengthCm):null,oogWidthCm:form.specialCargo==='OOG'?num(form.oogWidthCm):null,oogHeightCm:form.specialCargo==='OOG'?num(form.oogHeightCm):null,oogWeightKg:form.specialCargo==='OOG'?num(form.oogWeightKg):null};}
+  function validateCargo(){if(form.specialCargo==='DG'&&(!form.dgUnNo.trim()||!form.dgImoClass.trim()))return 'DG cargo requires UN No. and IMO Class.';if(form.specialCargo==='REEFER'&&form.reeferTemperatureC.trim()==='')return 'Reefer cargo requires a set temperature.';return '';}
+  async function save(close=false){
+    if(!form.origin.trim()||!form.destination.trim()){setMessage('Origin and Destination are required.');return;}const cargoError=validateCargo();if(cargoError){setMessage(cargoError);setTab('Additional Details');return;}
+    setBusy(true);setMessage('');
+    try{await req(`/bookings/${id}`,{method:'PATCH',body:JSON.stringify(bookingPayload())});if(close){onClose?.();return;}setMessage('Booking changes saved successfully.');await load();}
+    catch(e:any){setMessage(e?.message||'Could not save booking');}finally{setBusy(false);}
+  }
+  async function advance(){
+    if(!form.origin.trim()||!form.destination.trim()){setMessage('Origin and Destination are required.');return;}const cargoError=validateCargo();if(cargoError){setMessage(cargoError);setTab('Additional Details');return;}
+    setBusy(true);setMessage('');
+    try{await req(`/bookings/${id}`,{method:'PATCH',body:JSON.stringify(bookingPayload())});await req(`/bookings/${id}/advance`,{method:'POST'});setMessage('Booking saved and workflow advanced.');await load();}
+    catch(e:any){setMessage(e?.message||'Could not advance workflow');}finally{setBusy(false);}
+  }
+  async function convertModel(){
+    if(!booking||!isAdmin)return;
+    const target=String(form.businessModel||'').toUpperCase();
+    if(target===String(booking.businessModel||'NVOCC').toUpperCase()){setMessage('Job is already '+target+'.');return;}
+    setBusy(true);setMessage('');
+    try{
+      await req(`/bookings/${id}/convert-model`,{method:'POST',body:JSON.stringify({businessModel:target})});
+      setMessage('Operating model converted to '+target+' by Global Admin.');await load();
+    }catch(e:any){setMessage(e?.message||'Could not convert operating model');}
+    finally{setBusy(false);}
+  }
+
+  async function addContainer(){if(!container.containerNo.trim()){setMessage('Enter a container number first.');return;}setBusy(true);try{await req(`/bookings/${id}/containers`,{method:'POST',body:JSON.stringify({...container,vgm:num(container.vgm),grossWeight:num(container.grossWeight),pickupDate:toIso(container.pickupDate)})});setContainer({containerNo:'',type:'40HC',ownership:'CARRIER',status:'PLANNED',location:'',sealNo:'',vgm:'',grossWeight:'',pickupDate:'',emptyDepot:'',fullReturnTerminal:''});setMessage('Container added.');await load();}catch(e:any){setMessage(e?.message||'Could not add container');}finally{setBusy(false);}}
+  async function updateContainer(containerId:string,data:any){setBusy(true);try{await req(`/bookings/${id}/containers/${containerId}`,{method:'PATCH',body:JSON.stringify(data)});setMessage('Container updated.');await load();}catch(e:any){setMessage(e?.message||'Could not update container');}finally{setBusy(false);}}
+  async function removeContainer(containerId:string){if(!confirm('Remove this container from the booking?'))return;setBusy(true);try{await req(`/bookings/${id}/containers/${containerId}`,{method:'DELETE'});await load();}catch(e:any){setMessage(e?.message||'Could not remove container');}finally{setBusy(false);}}
+  async function createDocument(){if(!doc.documentNo.trim()){setMessage('Document number is required.');return;}setBusy(true);try{await req('/documents',{method:'POST',body:JSON.stringify({...doc,bookingId:id})});setDoc({type:'BOOKING_CONFIRMATION',documentNo:'',status:'Draft',releaseControl:'Clear'});setMessage('Document created.');await load();}catch(e:any){setMessage(e?.message||'Could not create document');}finally{setBusy(false);}}
+  async function releaseDocument(docId:string){setBusy(true);try{await req(`/documents/${docId}/release`,{method:'POST'});await load();}catch(e:any){setMessage(e?.message||'Could not release document');}finally{setBusy(false);}}
+  async function createCharge(){if(!charge.amount||!charge.chargeCode.trim()){setMessage('Charge code and amount are required.');return;}setBusy(true);try{await req('/finance',{method:'POST',body:JSON.stringify({...charge,bookingId:id,amount:Number(charge.amount),partyId:charge.partyId||null,source:'BOOKING_WORKSPACE'})});setCharge(x=>({...x,amount:'',partyId:''}));setMessage('Charge added.');await load();}catch(e:any){setMessage(e?.message||'Could not add charge');}finally{setBusy(false);}}
+  async function createTask(){if(!task.title.trim()){setMessage('Task title is required.');return;}setBusy(true);try{await req('/tasks',{method:'POST',body:JSON.stringify({bookingId:id,title:task.title,ownerId:task.ownerId||null,dueAt:task.dueAt?new Date(`${task.dueAt}T17:00:00Z`).toISOString():null,status:'Open',slaState:'On Track'})});setTask({title:'',ownerId:'',dueAt:''});setMessage('Task created.');await load();}catch(e:any){setMessage(e?.message||'Could not create task');}finally{setBusy(false);}}
+  async function completeTask(taskId:string){setBusy(true);try{await req(`/tasks/${taskId}/complete`,{method:'POST'});await load();}catch(e:any){setMessage(e?.message||'Could not complete task');}finally{setBusy(false);}}
+  async function createApproval(){setBusy(true);try{let actor='ANCLINE_USER';try{const u=JSON.parse(localStorage.getItem('ancline_user')||'{}');actor=u.email||u.sub||u.displayName||actor;}catch{}await req('/approvals',{method:'POST',body:JSON.stringify({bookingId:id,type:approval.type,requesterId:actor,approverId:approval.approverId||'Operations Manager',status:'Pending',reason:approval.reason||null})});setApproval({type:'OPERATIONAL',approverId:'Operations Manager',reason:''});setMessage('Approval requested.');await load();}catch(e:any){setMessage(e?.message||'Could not request approval');}finally{setBusy(false);}}
+  async function approvalAction(aid:string,action:'approve'|'reject'){setBusy(true);try{await req(`/approvals/${aid}/${action}`,{method:'POST'});await load();}catch(e:any){setMessage(e?.message||`Could not ${action} approval`);}finally{setBusy(false);}}
+  function signOut(){localStorage.removeItem('ancline_token');localStorage.removeItem('ancline_user');location.href='/login';}
+
+  const field:React.CSSProperties={width:'100%',padding:'3px 5px',border:'1px solid #cfd9e2',borderRadius:3,background:'#fff',minHeight:25,fontSize:11.5};
+  const label:React.CSSProperties={fontSize:11,fontWeight:700,color:'#4c6072',display:'block',marginBottom:1};
+  const title:React.CSSProperties={fontSize:12.5,fontWeight:800,color:'#153a5d',margin:'0 0 5px',paddingBottom:4,borderBottom:'1px solid #e2e8ee'};
+  const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:4};
+  const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof blank;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
+  const Select=({l,k,children}:{l:string;k:keyof typeof blank;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
+  const Mini=({l,v,onChange,type='text'}:{l:string;v:string;onChange:(v:string)=>void;type?:string})=><label><span style={label}>{l}</span><input type={type} value={v} onChange={e=>onChange(e.target.value)} style={field}/></label>;
+  const tabStyle=(active:boolean):React.CSSProperties=>({border:'1px solid #d6dee5',borderBottom:active?'2px solid #123b61':'1px solid #d6dee5',background:active?'#eef3f8':'#fff',padding:'4px 7px',fontSize:11,fontWeight:active?800:600,color:'#173754',cursor:'pointer',whiteSpace:'nowrap'});
+  if(!booking)return <div className="card">{message||'Loading booking...'}</div>;
+
+  return <div className="booking-master-detail">
+    <div className="booking-master-menubar">
+      <span>File</span><span>Edit</span><span>Actions</span><span>Documents</span><span>Quote Charges</span><span>Port Transport</span><span>Help</span>
+    </div>
+    <div className="booking-master-menu">
+      <button className="btn" onClick={()=>onClose?.()}>Close Detail</button>
+      <button className="btn" onClick={()=>save(false)} disabled={busy}>{busy?'Working...':'Save'}</button>
+      <button className="btn" onClick={()=>save(true)} disabled={busy}>Save & Close</button>
+      <button className="btn" onClick={advance} disabled={busy}>Save & Advance</button>
+      <a className="btn" href="/carrier-operations" style={{textDecoration:'none'}}>Carrier Space</a>
+      <a className="btn" href="/shipment-control" style={{textDecoration:'none'}}>Shipment Control</a>
+      <a className="btn" href="/container-control" style={{textDecoration:'none'}}>Container Control</a>
+    </div>
+    <div className="booking-context-bar">
+      <span className="status">{booking.businessModel||'NVOCC'}</span>
+      <span className="status">{booking.bookingChannel||'INTERNAL'}</span>
+      <span className="status">{booking.status}</span>
+      {booking.shipmentNo&&<span className="status">Shipment {booking.shipmentNo}</span>}
+      <span className="status">Execution {booking.shipmentStatus||'BOOKED'}</span>
+      <span className="status">{booking.customer?.name||'No customer'}</span>
+      <span className="status">{booking.origin} → {booking.destination}</span>
+      <span className="status">ETD {fmt(booking.etd||undefined)}</span>
+      <span className="status">Containers {booking.containers?.length||0}</span>
+      <span className="status">Legs {booking.routingLegs?.length||0}</span>
+      <span className="status">Milestones {booking.milestones?.length||0}</span>
+      <span className="status">Docs {booking.documents?.length||0}</span>
+      <span className="status">Tasks {booking.tasks?.length||0}</span>
+      {booking.specialCargo&&<span className="status">Cargo {booking.specialCargo}</span>}
+    </div>
+    {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    <div className="card" style={{padding:0,marginBottom:12,overflowX:'auto'}}><div style={{display:'flex',minWidth:820}}>{tabs.map(t=><button key={t} onClick={()=>setTab(t)} style={tabStyle(tab===t)}>{t}{t==='Additional Details'?` (${(booking.routingLegs?.length||0)+(booking.containers?.length||0)})`:t==='Document Selection'?` (${booking.documents?.length||0})`:t==='Quote Charges'?` (${booking.financeLines?.length||0})`:t==='Workflow & Tracking'?` (${(booking.tasks?.length||0)+(booking.approvals?.length||0)+(booking.milestones?.length||0)})`:t==='eDocs'?` (${booking.documents?.length||0})`:''}</button>)}</div></div>
+
+    {tab==='Details'&&<>
+      <div className="booking-master-headgrid">
+        <div><b>Client</b><span>{booking.customer?.name||'—'}</span><small>{form.customerReference||booking.customerId}</small></div>
+        <div><b>Consignor</b><span>{form.shipper||'—'}</span><small>{form.shipperReference||'—'}</small></div>
+        <div><b>Consignee</b><span>{form.consignee||'—'}</span><small>{form.notifyParty?('Notify: '+form.notifyParty):'—'}</small></div>
+        <div><b>Job Management</b><span>{booking.bookingNo}</span><small>{booking.status+' · '+(booking.shipmentNo||'No shipment')}</small></div>
+      </div>
+      <div className="card" style={{marginBottom:12}}><h3 style={title}>Job Management & References</h3><div style={grid}>{isAdmin?<><Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select><label><span style={label}>Admin Conversion</span><button className="btn" style={{width:"100%"}} disabled={busy||String(form.businessModel).toUpperCase()===String(booking.businessModel||"NVOCC").toUpperCase()} onClick={convertModel}>Convert Job Model</button></label></>:<div><span style={label}>Operating Model</span><div className="status">{booking.businessModel||"NVOCC"}</div><div className="sub">Global Admin only can convert</div></div>}<Input l="Booking No." k="bookingNo"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/><Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select><Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select><Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select><Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select><Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select><Input l="Incoterm" k="incoterm"/></div></div>
+      <div className="card" style={{marginBottom:12}}><h3 style={title}>Client / Consignor / Consignee</h3><div style={grid}><label><span style={label}>Customer</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label><Input l="Shipper" k="shipper"/><Input l="Consignee" k="consignee"/><Input l="Notify Party" k="notifyParty"/><label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">-- Optional --</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label></div></div>
+      <div className="card"><h3 style={title}>Job Management Controls</h3><div style={grid}><Select l="Credit Status" k="creditStatus"><option value="">Not checked</option><option>Pending</option><option>Passed</option><option>Blocked</option></Select><Select l="Slot Status" k="slotStatus"><option value="">Not checked</option><option>Pending</option><option>Requested</option><option>Confirmed</option><option>Protected</option><option>Allocated</option><option>Waitlist</option></Select><Select l="Equipment Status" k="equipmentStatus"><option value="">Not checked</option><option>Pending</option><option>Available</option><option>Released</option><option>Shortage</option></Select></div><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} style={{...field,minHeight:90,marginTop:12}} placeholder="Operational remarks and handling instructions"/></div>
+    </>}
+
+    {tab==='Additional Details'&&<>
+      <div className="card" style={{marginBottom:12}}><h3 style={title}>Routing / Origin / Destination / Agents</h3><div style={grid}><Input l="Place of Receipt" k="placeOfReceipt"/><Input l="Origin" k="origin"/><Input l="Port of Loading (POL)" k="portOfLoading"/><Input l="POL Agent" k="polAgent"/><Input l="Transshipment Port" k="transshipmentPort"/><Input l="Terminal" k="terminal"/><Input l="Port of Discharge (POD)" k="portOfDischarge"/><Input l="POD Agent" k="podAgent"/><Input l="Destination" k="destination"/><Input l="Place of Delivery" k="placeOfDelivery"/></div></div>
+      <div className="card" style={{marginBottom:12}}><h3 style={title}>Carrier / Vessel / Schedule</h3><div style={grid}><Input l="Carrier" k="carrier"/><Input l="Vessel / Voyage" k="vesselVoyage"/><Input l="ETD" k="etd" type="date"/><Input l="ETA" k="eta" type="date"/><Input l="ATD" k="atd" type="date"/><Input l="ATA" k="ata" type="date"/><Input l="Through B/L" k="throughBL"/></div></div>
+      <div className="card" style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center'}}><h3 style={{...title,flex:1}}>Multi-leg Voyage Plan</h3><a className="btn" href="/routing" style={{textDecoration:'none'}}>Open Routing Planner</a></div><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Seq</th><th>Leg</th><th>Mode</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Status</th></tr></thead><tbody>{!booking.routingLegs?.length?<tr><td colSpan={10}>No routing legs planned yet.</td></tr>:booking.routingLegs.map(l=><tr key={l.id}><td>{l.sequence}</td><td>{l.legType}</td><td>{l.mode}</td><td>{l.origin}</td><td>{l.destination}</td><td>{l.carrier||'-'}</td><td>{[l.vessel,l.voyage].filter(Boolean).join(' / ')||'-'}</td><td>{fmt(l.etd)}</td><td>{fmt(l.eta)}</td><td><span className="status">{l.status}</span></td></tr>)}</tbody></table></div></div>
+      <div className="card"><h3 style={title}>Operational Cut-offs</h3><div style={grid}><Input l="CY Closing" k="cyClosing" type="date"/><Input l="SI Cut-off" k="siCutoff" type="date"/><Input l="VGM Cut-off" k="vgmCutoff" type="date"/><Input l="Document Cut-off" k="docCutoff" type="date"/><Input l="Port Cut-off" k="portCutoff" type="date"/></div></div>
+    </>}
+
+    {tab==='Additional Details'&&<>
+      <div className="card" style={{marginBottom:12}}><h3 style={title}>Add Container</h3><div style={grid}><Mini l="Container No." v={container.containerNo} onChange={v=>setContainer(x=>({...x,containerNo:v}))}/><label><span style={label}>Type</span><select value={container.type} onChange={e=>setContainer(x=>({...x,type:e.target.value}))} style={field}><option>20GP</option><option>40GP</option><option>40HC</option><option>45HC</option><option>20RF</option><option>40RF</option><option>20OT</option><option>40OT</option><option>20FR</option><option>40FR</option></select></label><label><span style={label}>Ownership</span><select value={container.ownership} onChange={e=>setContainer(x=>({...x,ownership:e.target.value}))} style={field}><option>CARRIER</option><option>SHIPPER</option><option>ANCLINE</option><option>SOC</option></select></label><Mini l="Seal No." v={container.sealNo} onChange={v=>setContainer(x=>({...x,sealNo:v}))}/><Mini l="VGM kg" v={container.vgm} type="number" onChange={v=>setContainer(x=>({...x,vgm:v}))}/><Mini l="Gross Weight kg" v={container.grossWeight} type="number" onChange={v=>setContainer(x=>({...x,grossWeight:v}))}/><Mini l="Pickup Date" v={container.pickupDate} type="date" onChange={v=>setContainer(x=>({...x,pickupDate:v}))}/><Mini l="Empty Depot" v={container.emptyDepot} onChange={v=>setContainer(x=>({...x,emptyDepot:v}))}/><Mini l="Full Return Terminal" v={container.fullReturnTerminal} onChange={v=>setContainer(x=>({...x,fullReturnTerminal:v}))}/><Mini l="Location" v={container.location} onChange={v=>setContainer(x=>({...x,location:v}))}/><label><span style={label}>Status</span><select value={container.status} onChange={e=>setContainer(x=>({...x,status:e.target.value}))} style={field}><option>PLANNED</option><option>ALLOCATED</option><option>RELEASED</option><option>PICKED_UP</option><option>GATED_IN</option><option>VGM_SUBMITTED</option><option>LOADED</option><option>DEPARTED</option><option>TRANSSHIPMENT</option><option>DISCHARGED</option><option>GATED_OUT</option><option>DELIVERED</option><option>EMPTY_RETURNED</option></select></label></div><div style={{textAlign:'right',marginTop:12}}><button className="btn" onClick={addContainer} disabled={busy}>+ Add Container</button></div></div>
+      <div className="card"><h3 style={title}>Container Register — Inline Operations</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Container</th><th>Type</th><th>Owner</th><th>Seal</th><th>Location</th><th>VGM</th><th>Weight</th><th>Pickup</th><th>Status</th><th></th></tr></thead><tbody>{!booking.containers?.length?<tr><td colSpan={10}>No containers assigned.</td></tr>:booking.containers.map(c=><tr key={c.id}><td><b>{c.containerNo}</b></td><td>{c.type}</td><td>{c.ownership}</td><td><input defaultValue={c.sealNo||''} onBlur={e=>{if(e.target.value!==(c.sealNo||''))void updateContainer(c.id,{sealNo:e.target.value});}} style={{...field,minWidth:110}}/></td><td><input defaultValue={c.location||''} onBlur={e=>{if(e.target.value!==(c.location||''))void updateContainer(c.id,{location:e.target.value});}} style={{...field,minWidth:140}}/></td><td>{c.vgm??'-'}</td><td>{c.grossWeight??'-'}</td><td>{fmt(c.pickupDate)}</td><td><select value={c.status} onChange={e=>void updateContainer(c.id,{status:e.target.value})} style={{...field,minWidth:135}}><option>PLANNED</option><option>ALLOCATED</option><option>RELEASED</option><option>PICKED_UP</option><option>GATED_IN</option><option>VGM_SUBMITTED</option><option>LOADED</option><option>DEPARTED</option><option>TRANSSHIPMENT</option><option>DISCHARGED</option><option>GATED_OUT</option><option>DELIVERED</option><option>EMPTY_RETURNED</option></select></td><td><button className="btn" onClick={()=>removeContainer(c.id)}>Remove</button></td></tr>)}</tbody></table></div></div>
+    </>}
+
+    {tab==='Additional Details'&&<><div className="card" style={{marginBottom:12}}><h3 style={title}>Goods / Equipment / Cargo</h3><div style={grid}><Select l="Equipment" k="equipment"><option>20GP</option><option>40GP</option><option>40HC</option><option>45HC</option><option>20RF</option><option>40RF</option><option>20OT</option><option>40OT</option><option>20FR</option><option>40FR</option></Select><Input l="Quantity" k="quantity" type="number"/><Select l="Container Owner" k="containerOwner"><option>CARRIER</option><option>SHIPPER</option><option>ANCLINE</option><option>SOC</option></Select><Input l="Commodity" k="commodity"/><Input l="HS Code" k="hsCode"/><Input l="Packages" k="packageCount" type="number"/><Input l="Package Type" k="packageType"/><Input l="Gross Weight kg" k="grossWeight" type="number"/><Input l="Net Weight kg" k="netWeight" type="number"/><Input l="Volume CBM" k="volumeCbm" type="number"/><Select l="Special Cargo" k="specialCargo"><option value="NONE">None / General</option><option value="DG">Dangerous Goods (DG)</option><option value="REEFER">Reefer</option><option value="OOG">Out of Gauge (OOG)</option></Select><Input l="Marks & Numbers" k="marksNumbers"/></div><textarea value={form.cargoDescription} onChange={e=>set('cargoDescription',e.target.value)} style={{...field,minHeight:90,marginTop:12}} placeholder="Cargo description"/></div>
+      {form.specialCargo==='DG'&&<div className="card"><h3 style={title}>Dangerous Goods Details</h3><div style={grid}><Input l="UN No." k="dgUnNo" ph="e.g. UN 1263"/><Input l="IMO Class" k="dgImoClass" ph="e.g. 3"/><Select l="Packing Group" k="dgPackingGroup"><option value="">-- Select --</option><option>I</option><option>II</option><option>III</option></Select><Input l="Proper Shipping Name" k="dgProperShippingName"/></div></div>}
+      {form.specialCargo==='REEFER'&&<div className="card"><h3 style={title}>Reefer Settings</h3><div style={grid}><Input l="Set Temperature °C" k="reeferTemperatureC" type="number"/><Input l="Ventilation CBM/H" k="reeferVentilation" type="number"/><Input l="Humidity %" k="reeferHumidityPct" type="number"/></div></div>}
+      {form.specialCargo==='OOG'&&<div className="card"><h3 style={title}>Out of Gauge Dimensions</h3><div style={grid}><Input l="Length cm" k="oogLengthCm" type="number"/><Input l="Width cm" k="oogWidthCm" type="number"/><Input l="Height cm" k="oogHeightCm" type="number"/><Input l="Cargo Weight kg" k="oogWeightKg" type="number"/></div></div>}
+    </>}
+
+    {tab==='Document Selection'&&<><div className="card" style={{marginBottom:12}}><h3 style={title}>Create Document</h3><div style={grid}><label><span style={label}>Type</span><select value={doc.type} onChange={e=>setDoc(x=>({...x,type:e.target.value}))} style={field}><option>BOOKING_CONFIRMATION</option><option>SHIPPING_INSTRUCTION</option><option>HOUSE_BL</option><option>MASTER_BL</option><option>VGM</option><option>MANIFEST</option><option>DELIVERY_ORDER</option></select></label><Mini l="Document No." v={doc.documentNo} onChange={v=>setDoc(x=>({...x,documentNo:v}))}/><label><span style={label}>Release Control</span><select value={doc.releaseControl} onChange={e=>setDoc(x=>({...x,releaseControl:e.target.value}))} style={field}><option>Clear</option><option>Hold</option></select></label></div><div style={{textAlign:'right',marginTop:12}}><button className="btn" onClick={createDocument} disabled={busy}>Create Document</button></div></div><div className="card"><h3 style={title}>Document Selection</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Document No.</th><th>Type</th><th>Version</th><th>Status</th><th>Release</th><th></th></tr></thead><tbody>{!booking.documents?.length?<tr><td colSpan={6}>No documents yet.</td></tr>:booking.documents.map((d:any)=><tr key={d.id}><td><b>{d.documentNo}</b></td><td>{d.type}</td><td>{d.version}</td><td><span className="status">{d.status}</span></td><td>{d.releaseControl||'-'}</td><td>{d.status!=='Released'&&<button className="btn" onClick={()=>releaseDocument(d.id)}>Release</button>}</td></tr>)}</tbody></table></div></div></>}
+
+    {tab==='Quote Charges'&&<><div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:12,marginBottom:12}}><div className="card"><div className="sub">Revenue</div><div className="kpi">{booking.currency} {revenue.toFixed(2)}</div></div><div className="card"><div className="sub">Cost</div><div className="kpi">{booking.currency} {cost.toFixed(2)}</div></div><div className="card"><div className="sub">Gross Profit</div><div className="kpi">{booking.currency} {(revenue-cost).toFixed(2)}</div></div></div><div className="card" style={{marginBottom:12}}><h3 style={title}>Add Charge</h3><div style={grid}><label><span style={label}>Type</span><select value={charge.type} onChange={e=>setCharge(x=>({...x,type:e.target.value}))} style={field}><option>REVENUE</option><option>COST</option></select></label><Mini l="Charge Code" v={charge.chargeCode} onChange={v=>setCharge(x=>({...x,chargeCode:v}))}/><Mini l="Amount" v={charge.amount} type="number" onChange={v=>setCharge(x=>({...x,amount:v}))}/><label><span style={label}>Currency</span><select value={charge.currency} onChange={e=>setCharge(x=>({...x,currency:e.target.value}))} style={field}><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></select></label><Mini l="Party / Vendor Ref." v={charge.partyId} onChange={v=>setCharge(x=>({...x,partyId:v}))}/></div><div style={{textAlign:'right',marginTop:12}}><button className="btn" onClick={createCharge} disabled={busy}>+ Add Charge</button></div></div><div className="card"><h3 style={title}>Quote Charges / Job Costing</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Type</th><th>Charge</th><th>Party</th><th>Amount</th><th>Currency</th><th>Status</th></tr></thead><tbody>{!booking.financeLines?.length?<tr><td colSpan={6}>No charges yet.</td></tr>:booking.financeLines.map((x:any)=><tr key={x.id}><td>{x.type}</td><td><b>{x.chargeCode}</b></td><td>{x.partyId||'-'}</td><td>{Number(x.amount).toFixed(2)}</td><td>{x.currency}</td><td><span className="status">{x.status}</span></td></tr>)}</tbody></table></div></div></>}
+
+    {tab==='Workflow & Tracking'&&<><div className="card" style={{marginBottom:12}}><h3 style={title}>Create Task</h3><div style={grid}><Mini l="Task" v={task.title} onChange={v=>setTask(x=>({...x,title:v}))}/><Mini l="Owner" v={task.ownerId} onChange={v=>setTask(x=>({...x,ownerId:v}))}/><Mini l="Due Date" v={task.dueAt} type="date" onChange={v=>setTask(x=>({...x,dueAt:v}))}/></div><div style={{textAlign:'right',marginTop:12}}><button className="btn" onClick={createTask} disabled={busy}>+ Create Task</button></div></div><div className="card"><h3 style={title}>Booking Tasks</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Task</th><th>Owner</th><th>Due</th><th>Status</th><th>SLA</th><th></th></tr></thead><tbody>{!booking.tasks?.length?<tr><td colSpan={6}>No tasks yet.</td></tr>:booking.tasks.map((x:any)=><tr key={x.id}><td><b>{x.title}</b></td><td>{x.ownerId||'-'}</td><td>{x.dueAt?new Date(x.dueAt).toLocaleDateString():'-'}</td><td><span className="status">{x.status}</span></td><td>{x.slaState||'-'}</td><td>{x.status!=='Completed'&&<button className="btn" onClick={()=>completeTask(x.id)}>Complete</button>}</td></tr>)}</tbody></table></div></div></>}
+
+    {tab==='Workflow & Tracking'&&<><div className="card" style={{marginBottom:12}}><h3 style={title}>Request Approval</h3><div style={grid}><label><span style={label}>Approval Type</span><select value={approval.type} onChange={e=>setApproval(x=>({...x,type:e.target.value}))} style={field}><option>OPERATIONAL</option><option>RATE</option><option>CREDIT</option><option>FINANCE</option><option>DOCUMENT_RELEASE</option><option>EXCEPTION</option></select></label><Mini l="Approver" v={approval.approverId} onChange={v=>setApproval(x=>({...x,approverId:v}))}/><Mini l="Reason" v={approval.reason} onChange={v=>setApproval(x=>({...x,reason:v}))}/></div><div style={{textAlign:'right',marginTop:12}}><button className="btn" onClick={createApproval} disabled={busy}>Request Approval</button></div></div><div className="card"><h3 style={title}>Approval History</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Type</th><th>Requester</th><th>Approver</th><th>Status</th><th>Reason</th><th></th></tr></thead><tbody>{!booking.approvals?.length?<tr><td colSpan={6}>No approvals yet.</td></tr>:booking.approvals.map((x:any)=><tr key={x.id}><td>{x.type}</td><td>{x.requesterId}</td><td>{x.approverId}</td><td><span className="status">{x.status}</span></td><td>{x.reason||'-'}</td><td>{x.status==='Pending'&&<div style={{display:'flex',gap:6}}><button className="btn" onClick={()=>approvalAction(x.id,'approve')}>Approve</button><button className="btn" onClick={()=>approvalAction(x.id,'reject')}>Reject</button></div>}</td></tr>)}</tbody></table></div></div></>}
+
+    
+    {tab==='Custom Fields'&&<div className="card">
+      <h3 style={title}>Custom Fields / Job Attributes</h3>
+      <div className="booking-custom-grid">
+        <div><span className="sub">Operating Model</span><b>{booking.businessModel||'NVOCC'}</b></div>
+        <div><span className="sub">Booking Channel</span><b>{booking.bookingChannel||'INTERNAL'}</b></div>
+        <div><span className="sub">Shipment No.</span><b>{booking.shipmentNo||'—'}</b></div>
+        <div><span className="sub">Shipment Status</span><b>{booking.shipmentStatus||'BOOKED'}</b></div>
+        <div><span className="sub">Credit Status</span><b>{form.creditStatus||'—'}</b></div>
+        <div><span className="sub">Slot Status</span><b>{form.slotStatus||'—'}</b></div>
+        <div><span className="sub">Equipment Status</span><b>{form.equipmentStatus||'—'}</b></div>
+        <div><span className="sub">Producing Agent</span><b>{booking.producingAgent?.name||'—'}</b></div>
+      </div>
+      <div className="sub" style={{marginTop:6}}>Job-specific attributes remain linked to the booking record and operational workflow.</div>
+    </div>}
+
+    {tab==='eDocs'&&<div className="card">
+      <h3 style={title}>eDocs Register</h3>
+      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Document No.</th><th>Type</th><th>Version</th><th>Status</th><th>Release</th><th>Action</th></tr></thead><tbody>
+        {!booking.documents?.length?<tr><td colSpan={6}>No eDocs attached to this booking.</td></tr>:booking.documents.map((d:any)=><tr key={d.id}><td><b>{d.documentNo}</b></td><td>{d.type}</td><td>{d.version}</td><td><span className="status">{d.status}</span></td><td>{d.releaseControl||'-'}</td><td>{d.status!=='Released'?<button className="btn" onClick={()=>releaseDocument(d.id)}>Release</button>:'Released'}</td></tr>)}
+      </tbody></table></div>
+    </div>}
+
+    {tab==='Notes'&&<div className="card">
+      <h3 style={title}>Booking Notes</h3>
+      <textarea value={form.notes} onChange={e=>set('notes',e.target.value)} style={{...field,minHeight:150,resize:'vertical'}} placeholder="Operational notes, customer instructions and internal remarks"/>
+      <div style={{textAlign:'right',marginTop:6}}><button className="btn" onClick={()=>save(false)} disabled={busy}>Save Notes</button></div>
+    </div>}
+
+{tab==='Logs'&&<div className="card"><h3 style={title}>Audit Trail</h3><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Date / Time</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead><tbody>{!booking.auditEvents?.length?<tr><td colSpan={4}>No audit activity yet.</td></tr>:booking.auditEvents.slice().sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).map(a=><tr key={a.id}><td>{new Date(a.createdAt).toLocaleString()}</td><td><b>{a.action}</b></td><td>{a.actorId}</td><td style={{maxWidth:420,whiteSpace:'normal'}}>{a.detail?JSON.stringify(a.detail):'-'}</td></tr>)}</tbody></table></div></div>}
+    <div className="booking-master-footer">
+      <button className="btn" onClick={()=>window.print()}>Print</button>
+      <span/>
+      <button className="btn" disabled={busy} onClick={()=>save(false)}>Save</button>
+      <button className="btn" disabled={busy} onClick={()=>save(true)}>Save & Close</button>
+      <button className="btn" onClick={()=>onClose?.()}>Cancel</button>
+    </div>
+
+  </div>;
+}
