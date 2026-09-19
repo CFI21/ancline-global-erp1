@@ -186,7 +186,7 @@ export default function SalesOpportunityWorkspace({opportunityId}:{opportunityId
               <div className="cw-lower-panel cw-related-communication-panel">
                 <div className="cw-lower-title">Quote Versions</div>
                 <div className="cw-tablewrap"><table className="cw-table"><thead><tr><th>Version</th><th>Sell</th><th>Margin</th><th>Status</th></tr></thead><tbody>
-                  {quotes.slice(0,6).map((q:any)=><tr key={q.quoteVersionId}><td>v{q.version}</td><td>{q.currency} {Number(q.sellRate||0).toFixed(2)}</td><td>{Number(q.marginPct||0).toFixed(1)}%</td><td>{q.rateQuoteId?'PUBLISHED':q.status}</td></tr>)}
+                  {quotes.slice(0,6).map((q:any)=><tr key={q.quoteVersionId}><td>v{q.version}</td><td>{q.currency} {Number(q.sellRate||0).toFixed(2)}</td><td>{Number(q.marginPct||0).toFixed(1)}%</td><td>{q.rateQuoteId?<a href={`/rates/${q.rateQuoteId}`}><b>PUBLISHED</b></a>:q.status}</td></tr>)}
                   {!quotes.length&&<tr><td colSpan={4}>No quote versions.</td></tr>}
                 </tbody></table></div>
                 <div className="cw-lower-actions"><span className="cw-spacer"/><button disabled={isNew} onClick={()=>setTab('Quotes')}>New Quote</button></div>
@@ -234,7 +234,7 @@ export default function SalesOpportunityWorkspace({opportunityId}:{opportunityId
         </div>
         <button className="cw-classic-btn" disabled={busy||isNew} onClick={()=>void createQuote()}>Create Quote Version</button>
         <div className="cw-tablewrap opp-quotes-table"><table className="cw-table"><thead><tr><th>Version</th><th>Buy</th><th>Sell</th><th>GP</th><th>Margin</th><th>Validity</th><th>Status</th><th>Commercial Quote</th><th>Action</th></tr></thead><tbody>
-          {quotes.map((q:any)=><tr key={q.quoteVersionId}><td>v{q.version}</td><td>{q.currency} {q.buyRate}</td><td>{q.currency} {q.sellRate}</td><td>{q.currency} {Number(q.grossProfit||0).toFixed(2)}</td><td>{Number(q.marginPct||0).toFixed(1)}%</td><td>{String(q.validTo||'').slice(0,10)}</td><td>{q.status}</td><td>{q.rateQuoteId||'—'}</td><td>{q.status==='DRAFT'?<button className="cw-classic-btn" onClick={()=>void quoteAction(q.quoteVersionId,'approve')}>Approve</button>:!q.rateQuoteId?<button className="cw-classic-btn" onClick={()=>void quoteAction(q.quoteVersionId,'publish')}>Publish</button>:'Published'}</td></tr>)}
+          {quotes.map((q:any)=><tr key={q.quoteVersionId}><td>v{q.version}</td><td>{q.currency} {q.buyRate}</td><td>{q.currency} {q.sellRate}</td><td>{q.currency} {Number(q.grossProfit||0).toFixed(2)}</td><td>{Number(q.marginPct||0).toFixed(1)}%</td><td>{String(q.validTo||'').slice(0,10)}</td><td>{q.status}</td><td>{q.rateQuoteId?<a href={`/rates/${q.rateQuoteId}`}><b>{q.rateQuoteId}</b></a>:'—'}</td><td>{q.status==='DRAFT'?<button className="cw-classic-btn" onClick={()=>void quoteAction(q.quoteVersionId,'approve')}>Approve</button>:!q.rateQuoteId?<button className="cw-classic-btn" onClick={()=>void quoteAction(q.quoteVersionId,'publish')}>Publish</button>:'Published'}</td></tr>)}
           {!quotes.length&&<tr><td colSpan={9}>No quote versions.</td></tr>}
         </tbody></table></div>
       </div>}
