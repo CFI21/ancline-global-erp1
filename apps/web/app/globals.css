@@ -1372,3 +1372,60 @@ html,body{font-size:11.5px;line-height:1.2}
   .main{padding:0!important}
   #booking-register{border:0!important}
 }
+
+
+/* Separate Job Management summary grid */
+.booking-master-headgrid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+.booking-job-management{
+  margin:0 0 4px;
+  border:1px solid #cfd7de;
+  background:#fff;
+}
+.booking-job-management-title{
+  padding:3px 5px;
+  border-bottom:1px solid #cfd7de;
+  background:#eef2f5;
+  color:#153a5d;
+  font-size:10.75px;
+  font-weight:800;
+}
+.booking-job-management-grid{
+  display:grid;
+  grid-template-columns:repeat(8,minmax(95px,1fr));
+  gap:0;
+}
+.booking-job-management-grid>div{
+  min-width:0;
+  padding:4px 5px;
+  border-right:1px solid #dce3e8;
+  border-bottom:1px solid #dce3e8;
+  background:#fff;
+}
+.booking-job-management-grid>div:nth-child(8n){border-right:0}
+.booking-job-management-grid span,
+.booking-job-management-grid b{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.booking-job-management-grid span{
+  color:#657785;
+  font-size:9.5px;
+}
+.booking-job-management-grid b{
+  margin-top:1px;
+  color:#1d3448;
+  font-size:10.75px;
+}
+@media(max-width:1350px){
+  .booking-job-management-grid{grid-template-columns:repeat(4,minmax(120px,1fr))}
+  .booking-job-management-grid>div:nth-child(8n){border-right:1px solid #dce3e8}
+  .booking-job-management-grid>div:nth-child(4n){border-right:0}
+}
+@media(max-width:850px){
+  .booking-job-management-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}
+  .booking-master-headgrid{grid-template-columns:1fr!important}
+}

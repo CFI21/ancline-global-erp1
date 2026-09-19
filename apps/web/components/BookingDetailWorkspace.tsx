@@ -163,7 +163,19 @@ export default function BookingDetailWorkspace({bookingId,onClose}:{bookingId:st
         <div><b>Client</b><span>{booking.customer?.name||'—'}</span><small>{form.customerReference||booking.customerId}</small></div>
         <div><b>Consignor</b><span>{form.shipper||'—'}</span><small>{form.shipperReference||'—'}</small></div>
         <div><b>Consignee</b><span>{form.consignee||'—'}</span><small>{form.notifyParty?('Notify: '+form.notifyParty):'—'}</small></div>
-        <div><b>Job Management</b><span>{booking.bookingNo}</span><small>{booking.status+' · '+(booking.shipmentNo||'No shipment')}</small></div>
+      </div>
+      <div className="booking-job-management">
+        <div className="booking-job-management-title">Job Management</div>
+        <div className="booking-job-management-grid">
+          <div><span>Booking No.</span><b>{booking.bookingNo}</b></div>
+          <div><span>Shipment No.</span><b>{booking.shipmentNo||'—'}</b></div>
+          <div><span>Booking Status</span><b>{booking.status||'—'}</b></div>
+          <div><span>Execution Status</span><b>{booking.shipmentStatus||'BOOKED'}</b></div>
+          <div><span>Operating Model</span><b>{booking.businessModel||'NVOCC'}</b></div>
+          <div><span>Booking Channel</span><b>{booking.bookingChannel||'INTERNAL'}</b></div>
+          <div><span>Booking Date</span><b>{fmt(booking.bookingDate||undefined)}</b></div>
+          <div><span>Carrier Booking Ref.</span><b>{form.carrierBookingNo||'—'}</b></div>
+        </div>
       </div>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Job Management & References</h3><div style={grid}>{isAdmin?<><Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select><label><span style={label}>Admin Conversion</span><button className="btn" style={{width:"100%"}} disabled={busy||String(form.businessModel).toUpperCase()===String(booking.businessModel||"NVOCC").toUpperCase()} onClick={convertModel}>Convert Job Model</button></label></>:<div><span style={label}>Operating Model</span><div className="status">{booking.businessModel||"NVOCC"}</div><div className="sub">Global Admin only can convert</div></div>}<Input l="Booking No." k="bookingNo"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/><Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select><Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select><Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select><Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select><Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select><Input l="Incoterm" k="incoterm"/></div></div>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Client / Consignor / Consignee</h3><div style={grid}><label><span style={label}>Customer</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label><Input l="Shipper" k="shipper"/><Input l="Consignee" k="consignee"/><Input l="Notify Party" k="notifyParty"/><label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">-- Optional --</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label></div></div>
