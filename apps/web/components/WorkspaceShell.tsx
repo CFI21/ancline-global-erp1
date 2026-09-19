@@ -16,7 +16,7 @@ const menuGroups=[
     label:'Customer & Sales',
     items:[
       ['/organizations','Organizations'],
-      ['/sales-crm/leads','Sales Leads / Inquiries'],
+      ['/sales-crm','Sales Leads / Inquiries'],
       ['/sales-crm/opportunities','Opportunities / Pipeline'],
       ['/customer-service','Customer Service'],
     ],

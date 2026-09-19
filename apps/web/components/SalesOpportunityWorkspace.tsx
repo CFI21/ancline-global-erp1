@@ -136,7 +136,7 @@ export default function SalesOpportunityWorkspace({opportunityId}:{opportunityId
     subtitle="Commercial pipeline, inquiry relationship, activity management, quote versioning and win/loss control"
     active="/sales-crm/opportunities"
     actions={<>
-      {form.sourceLeadId&&<button className="btn" onClick={()=>location.href=`/sales-crm/leads/${form.sourceLeadId}`}>Open Inquiry</button>}
+      {form.sourceLeadId&&<button className="btn" onClick={()=>location.href=`/sales-crm?lead=${form.sourceLeadId}#inquiries`}>Open Inquiry</button>}
       <button className="btn" onClick={()=>location.href='/sales-crm/opportunities'}>Opportunity Register</button>
       <button className="btn" onClick={()=>location.href='/sales-crm'}>Pipeline Dashboard</button>
     </>}
@@ -204,7 +204,7 @@ export default function SalesOpportunityWorkspace({opportunityId}:{opportunityId
           <div className="card" style={{marginBottom:12}}>
             <h3 style={sectionTitle}>Inquiry / Lead Source</h3>
             <div style={formGrid}>
-              {modernField('Inquiry ID',form.sourceLeadId?<button className="btn" style={{width:'100%',minHeight:36,textAlign:'left'}} onClick={()=>location.href=`/sales-crm/leads/${form.sourceLeadId}`}>{form.sourceInquiryNo||form.sourceLeadId}</button>:<input style={fieldStyle} value={form.sourceInquiryNo||''} readOnly/>)}
+              {modernField('Inquiry ID',form.sourceLeadId?<button className="btn" style={{width:'100%',minHeight:36,textAlign:'left'}} onClick={()=>location.href=`/sales-crm?lead=${form.sourceLeadId}#inquiries`}>{form.sourceInquiryNo||form.sourceLeadId}</button>:<input style={fieldStyle} value={form.sourceInquiryNo||''} readOnly/>)}
               {modernField('Inquiry Contact',input('inquiryContact'))}
               {modernField('Inquiry E-Mail',input('inquiryEmail'))}
               {modernField('Inquiry Phone',input('inquiryPhone'))}
@@ -219,7 +219,7 @@ export default function SalesOpportunityWorkspace({opportunityId}:{opportunityId
           <div className="card">
             <h3 style={sectionTitle}>Sales Relations</h3>
             <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Relation</th><th>Reference</th><th>Summary</th><th>Status</th><th>Open</th></tr></thead><tbody>
-              {form.sourceLeadId&&<tr><td>Inquiry</td><td><b>{form.sourceInquiryNo||form.sourceLeadId}</b></td><td>{opp?.sourceLead?.organizationName||customer?.name||'Inquiry'} / {form.inquiryContact||'—'}</td><td>{opp?.sourceLead?.status||'CONVERTED'}</td><td><button className="btn" onClick={()=>location.href=`/sales-crm/leads/${form.sourceLeadId}`}>Open</button></td></tr>}
+              {form.sourceLeadId&&<tr><td>Inquiry</td><td><b>{form.sourceInquiryNo||form.sourceLeadId}</b></td><td>{opp?.sourceLead?.organizationName||customer?.name||'Inquiry'} / {form.inquiryContact||'—'}</td><td>{opp?.sourceLead?.status||'CONVERTED'}</td><td><button className="btn" onClick={()=>location.href=`/sales-crm?lead=${form.sourceLeadId}#inquiries`}>Open</button></td></tr>}
               {!isNew&&<tr><td>Opportunity</td><td><b>{opportunityId}</b></td><td>{form.name} / {form.origin||'—'} → {form.destination||'—'}</td><td>{form.status}</td><td>Current</td></tr>}
               {quotes.filter((q:any)=>q.rateQuoteId).map((q:any)=><tr key={q.quoteVersionId}><td>ANC Quote</td><td><b>{q.rateQuoteId}</b></td><td>Published from quote version v{q.version}</td><td>Published</td><td><button className="btn" onClick={()=>location.href=`/rates/${q.rateQuoteId}`}>Open</button></td></tr>)}
             </tbody></table></div>

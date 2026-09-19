@@ -80,7 +80,7 @@ export default function OpportunitiesPage(){
           return <tr key={x.opportunityId}>
             <td><b>{x.name}</b><div className="sub">{x.opportunityId}</div></td>
             <td>{customerName(x.customerId)}</td>
-            <td>{x.sourceLeadId?<button className="btn" onClick={()=>location.href=`/sales-crm/leads/${x.sourceLeadId}`}>{x.sourceInquiryNo||x.sourceLeadId}</button>:(x.sourceInquiryNo||'—')}</td>
+            <td>{x.sourceLeadId?<button className="btn" onClick={()=>location.href=`/sales-crm?lead=${x.sourceLeadId}#inquiries`}>{x.sourceInquiryNo||x.sourceLeadId}</button>:(x.sourceInquiryNo||'—')}</td>
             <td>{x.owner||'—'}</td><td>{x.stage}</td><td>{x.probability}%</td><td>{x.currency} {Number(x.value||0).toFixed(2)}</td><td>{x.currency} {weighted.toFixed(2)}</td>
             <td>{x.origin||'—'} → {x.destination||'—'}</td><td><span className="status">{x.status}</span></td><td><button className="btn" onClick={()=>location.href=`/sales-crm/opportunities/${x.opportunityId}`}>Open</button></td>
           </tr>;
