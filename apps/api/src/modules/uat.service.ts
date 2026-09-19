@@ -573,7 +573,7 @@ export class UatService {
     this.assertEnabled();
 
     const startedAt=new Date();
-    const runId=\`UAT-EX-\${startedAt.toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-\${Math.random().toString(36).slice(2,7).toUpperCase()}\`;
+    const runId=`UAT-EX-${startedAt.toISOString().replace(/[-:.TZ]/g,'').slice(0,14)}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
     const cleanup=body.cleanup!==false;
     const actorId=user?.sub||user?.email||'uat-exception-runner';
     const adminUser:any={role:'GLOBAL_ADMIN',sub:actorId,email:user?.email||'uat@ancline.local'};
@@ -616,33 +616,33 @@ export class UatService {
 
     try{
       const customer=await step('01 Create exception-test customer',()=>this.p.organization.create({data:{
-        code:\`\${runId}-CUST\`,name:\`\${runId} Customer\`,roles:['CUSTOMER'],countryCode:'NL',
-        customerRef:\`\${runId}-PRIVATE-CUSTOMER\`,kycStatus:'APPROVED',kycApprovedAt:new Date(),kycApprovedBy:actorId
+        code:`${runId}-CUST`,name:`${runId} Customer`,roles:['CUSTOMER'],countryCode:'NL',
+        customerRef:`${runId}-PRIVATE-CUSTOMER`,kycStatus:'APPROVED',kycApprovedAt:new Date(),kycApprovedBy:actorId
       }}),x=>({id:x.id,code:x.code}));
       ids.customerId=customer.id;
 
       const carrier=await step('02 Create exception-test carrier',()=>this.p.organization.create({data:{
-        code:\`\${runId}-CAR\`,name:\`\${runId} Carrier\`,roles:['CARRIER'],countryCode:'DK'
+        code:`${runId}-CAR`,name:`${runId} Carrier`,roles:['CARRIER'],countryCode:'DK'
       }}),x=>({id:x.id,code:x.code}));
       ids.carrierId=carrier.id;
 
       const rate=await step('03 Create accepted quote',()=>this.p.rateQuote.create({data:{
-        quoteNo:\`\${runId}-Q\`,customerId:customer.id,trade:'CNSHA-NLRTM',equipment:'40HC',
+        quoteNo:`${runId}-Q`,customerId:customer.id,trade:'CNSHA-NLRTM',equipment:'40HC',
         buyRate:1000,sellRate:1400,currency:'USD',validFrom:new Date(Date.now()-86400000),validTo:new Date(Date.now()+14*86400000),
-        status:'CUSTOMER_ACCEPTED',source:'UAT_EXCEPTION',carrierCode:carrier.code,carrierQuoteRef:\`\${runId}-CQR\`,
+        status:'CUSTOMER_ACCEPTED',source:'UAT_EXCEPTION',carrierCode:carrier.code,carrierQuoteRef:`${runId}-CQR`,
         termsVersion:'EX-1',termsAcceptedAt:new Date(),termsAcceptedBy:actorId
       }}),x=>({id:x.id,quoteNo:x.quoteNo}));
       ids.rateId=rate.id;
 
       const booking=await step('04 Create vulnerable booking',()=>this.p.booking.create({data:{
-        bookingNo:\`\${runId}-BK\`,businessModel:'FORWARDING',bookingChannel:'CUSTOMER_PORTAL',
-        customerId:customer.id,rateQuoteId:rate.id,customerRef:\`\${runId}-ANC-REF\`,
-        customerReference:\`\${runId}-PRIVATE-REF\`,costCenterCode:'ANC-UAT-EX',
+        bookingNo:`${runId}-BK`,businessModel:'FORWARDING',bookingChannel:'CUSTOMER_PORTAL',
+        customerId:customer.id,rateQuoteId:rate.id,customerRef:`${runId}-ANC-REF`,
+        customerReference:`${runId}-PRIVATE-REF`,costCenterCode:'ANC-UAT-EX',
         origin:'CNSHA',destination:'NLRTM',portOfLoading:'CNSHA',portOfDischarge:'NLRTM',
         carrier:carrier.name,equipment:'40HC',quantity:1,currency:'USD',status:'CUSTOMER_ACCEPTED',
         creditStatus:'Pending',slotStatus:'Pending',equipmentStatus:'Pending',
         siCutoff:new Date(Date.now()-3*3600000),vgmCutoff:new Date(Date.now()-2*3600000),
-        notes:\`Exception UAT \${runId}\`
+        notes:`Exception UAT ${runId}`
       }}),x=>({id:x.id,bookingNo:x.bookingNo,status:x.status}));
       ids.bookingId=booking.id;
 
@@ -661,7 +661,7 @@ export class UatService {
         const vgmBreached=Boolean(b.vgmCutoff&&b.vgmCutoff.getTime()<now&&vgmMissing);
         if(!siBreached||!vgmBreached)throw new Error('Expected SI/VGM cutoff breaches not detected');
         const task=await this.p.task.create({data:{
-          bookingId:booking.id,title:\`\${runId} SI/VGM cutoff breach\`,ownerId:actorId,
+          bookingId:booking.id,title:`${runId} SI/VGM cutoff breach`,ownerId:actorId,
           dueAt:new Date(Date.now()+1800000),status:'OPEN',slaState:'Breached'
         }});
         ids.taskId=task.id;
@@ -680,7 +680,7 @@ export class UatService {
       await step('08 Carrier rejection captured and escalated',async()=>{
         await this.p.integrationEvent.create({data:{
           sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_REJECTED',
-          externalId:\`\${runId}-REJECT\`,objectType:'CarrierBooking',objectId:booking.id,status:'COMPLETED',
+          externalId:`${runId}-REJECT`,objectType:'CarrierBooking',objectId:booking.id,status:'COMPLETED',
           payload:{bookingId:booking.id,ancBookingRef:ancCarrierReference('BOOKING',booking.bookingNo),reason:'NO_SPACE',customerDataOutbound:false,houseDataOutbound:false},
           completedAt:new Date()
         }});
@@ -695,7 +695,7 @@ export class UatService {
         }});
         await this.p.integrationEvent.create({data:{
           sourceSystem:'ANCLINE_CARRIER_OPERATIONS',eventType:'CARRIER_BOOKING_ROLLED',
-          externalId:\`\${runId}-ROLL\`,objectType:'CarrierBooking',objectId:booking.id,status:'COMPLETED',
+          externalId:`${runId}-ROLL`,objectType:'CarrierBooking',objectId:booking.id,status:'COMPLETED',
           payload:{bookingId:booking.id,rollReason:'VESSEL_FULL',ancBookingRef:ancCarrierReference('BOOKING',booking.bookingNo)},
           completedAt:new Date()
         }});
@@ -715,11 +715,11 @@ export class UatService {
         let failed=false;
         try{
           await this.integrations.ingest({
-            sourceSystem:'UAT_FAILURE_CARRIER',eventType:'IFTSTA',externalId:\`\${runId}-BAD-EDI\`,
+            sourceSystem:'UAT_FAILURE_CARRIER',eventType:'IFTSTA',externalId:`${runId}-BAD-EDI`,
             payload:{bookingNo:'DOES-NOT-EXIST',code:'DEPARTED',occurredAt:new Date().toISOString()}
           },adminUser);
         }catch{failed=true;}
-        const event=await this.p.integrationEvent.findFirst({where:{sourceSystem:'UAT_FAILURE_CARRIER',externalId:\`\${runId}-BAD-EDI\`},orderBy:{createdAt:'desc'}});
+        const event=await this.p.integrationEvent.findFirst({where:{sourceSystem:'UAT_FAILURE_CARRIER',externalId:`${runId}-BAD-EDI`},orderBy:{createdAt:'desc'}});
         if(!failed||!event||event.status!=='FAILED'||event.attemptCount<1)throw new Error('Carrier API/integration failure was not retained for retry');
         ids.failedEventId=event.id;
         return {failed,status:event.status,attemptCount:event.attemptCount};
@@ -737,7 +737,7 @@ export class UatService {
       await step('13 Duplicate webhook suppressed',async()=>{
         const validBooking=await this.p.booking.update({where:{id:booking.id},data:{status:'CONFIRMED'}});
         const webhook={
-          sourceSystem:'UAT_DUPLICATE_WEBHOOK',eventType:'IFTSTA',externalId:\`\${runId}-DUP\`,
+          sourceSystem:'UAT_DUPLICATE_WEBHOOK',eventType:'IFTSTA',externalId:`${runId}-DUP`,
           payload:{bookingNo:validBooking.bookingNo,code:'STATUS_UPDATE',label:'Carrier Status',occurredAt:new Date().toISOString()}
         };
         const first:any=await this.integrations.ingest(webhook,adminUser);
@@ -749,7 +749,7 @@ export class UatService {
       await step('14 Customs hold blocks release',async()=>{
         await this.p.integrationEvent.create({data:{
           sourceSystem:'ANCLINE_CUSTOMS',eventType:'CUSTOMS_HOLD',
-          externalId:\`\${runId}-CUSTOMS-HOLD\`,objectType:'CustomsCase',objectId:booking.id,status:'COMPLETED',
+          externalId:`${runId}-CUSTOMS-HOLD`,objectType:'CustomsCase',objectId:booking.id,status:'COMPLETED',
           payload:{bookingId:booking.id,status:'HOLD',reason:'DOCUMENT_REVIEW',releaseAllowed:false},completedAt:new Date()
         }});
         const hold=await this.p.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_CUSTOMS',objectId:booking.id,eventType:'CUSTOMS_HOLD'}});
@@ -764,7 +764,7 @@ export class UatService {
           status:'PAYABLE',source:'UAT_EXCEPTION',serviceProviderId:carrier.id,invoiceReady:false
         }});
         await this.p.task.create({data:{
-          bookingId:booking.id,title:\`\${runId} demurrage/detention review\`,ownerId:actorId,
+          bookingId:booking.id,title:`${runId} demurrage/detention review`,ownerId:actorId,
           dueAt:new Date(Date.now()+3600000),status:'OPEN',slaState:'At Risk'
         }});
         return {financeLineId:line.id,amount:Number(line.finalAmount??line.amount),exceptionRaised:true};
@@ -774,7 +774,7 @@ export class UatService {
         const line=await this.p.financeLine.create({data:{
           bookingId:booking.id,type:'REVENUE',chargeCode:'OCEAN_FREIGHT',description:'UAT AR failed payment',
           amount:1400,finalAmount:1400,currency:'USD',status:'PAYMENT_FAILED',source:'UAT_EXCEPTION',
-          billingPartyId:customer.id,invoiceReady:true,invoiceNo:\`AR-\${runId}\`,invoiceIssuedAt:new Date()
+          billingPartyId:customer.id,invoiceReady:true,invoiceNo:`AR-${runId}`,invoiceIssuedAt:new Date()
         }});
         const unsettled=await this.p.financeLine.count({where:{bookingId:booking.id,status:{notIn:['FINAL','CLEARED','PAID','CANCELLED']}}});
         if(unsettled<1)throw new Error('Failed payment did not block financial close');
@@ -794,9 +794,9 @@ export class UatService {
 
       await step('18 Recovery clears holds, documents, payment and tasks',async()=>{
         await this.p.document.createMany({data:[
-          {documentNo:\`\${runId}-SI\`,bookingId:booking.id,type:'SHIPPING_INSTRUCTION',status:'Submitted',releaseControl:'Clear'},
-          {documentNo:\`\${runId}-VGM\`,bookingId:booking.id,type:'VGM_DECLARATION',status:'Accepted',releaseControl:'Clear'},
-          {documentNo:\`HBL-\${runId}\`,bookingId:booking.id,type:'HOUSE_BILL_OF_LADING',status:'Released',releaseControl:'Clear'}
+          {documentNo:`${runId}-SI`,bookingId:booking.id,type:'SHIPPING_INSTRUCTION',status:'Submitted',releaseControl:'Clear'},
+          {documentNo:`${runId}-VGM`,bookingId:booking.id,type:'VGM_DECLARATION',status:'Accepted',releaseControl:'Clear'},
+          {documentNo:`HBL-${runId}`,bookingId:booking.id,type:'HOUSE_BILL_OF_LADING',status:'Released',releaseControl:'Clear'}
         ]});
         if(ids.failedPaymentId)await this.p.financeLine.update({where:{id:ids.failedPaymentId},data:{status:'CLEARED',postedAt:new Date()}});
         await this.p.financeLine.updateMany({where:{bookingId:booking.id,chargeCode:'DEMURRAGE_DETENTION'},data:{status:'PAID',postedAt:new Date()}});
@@ -806,7 +806,7 @@ export class UatService {
           status:'OPERATIONAL',shipmentStatus:'RECOVERED'
         }});
         await this.p.integrationEvent.create({data:{
-          sourceSystem:'ANCLINE_CUSTOMS',eventType:'CUSTOMS_RELEASED',externalId:\`\${runId}-CUSTOMS-RELEASE\`,
+          sourceSystem:'ANCLINE_CUSTOMS',eventType:'CUSTOMS_RELEASED',externalId:`${runId}-CUSTOMS-RELEASE`,
           objectType:'CustomsCase',objectId:booking.id,status:'COMPLETED',
           payload:{bookingId:booking.id,status:'RELEASED',releaseAllowed:true},completedAt:new Date()
         }});
