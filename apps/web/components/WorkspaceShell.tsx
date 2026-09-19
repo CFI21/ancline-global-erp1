@@ -214,4 +214,4 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
 export const fieldStyle:React.CSSProperties={width:'100%',padding:'3px 5px',border:'1px solid #cfd9e2',borderRadius:3,background:'#fff',minHeight:25,fontSize:11.5,lineHeight:1.2};
 export const labelStyle:React.CSSProperties={fontSize:11,fontWeight:700,color:'#4c6072',display:'block',marginBottom:1};
 export const sectionTitle:React.CSSProperties={fontSize:12.5,fontWeight:800,color:'#153a5d',margin:'0 0 5px',paddingBottom:4,borderBottom:'1px solid #e2e8ee'};
-export const formGrid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(155px,1fr))',gap:5};
+export const formGrid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:4};

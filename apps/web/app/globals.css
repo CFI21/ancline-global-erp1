@@ -1160,3 +1160,58 @@ html,body{font-size:11.5px;line-height:1.2}
   .shell{grid-template-columns:1fr}
   .main{padding:7px}
 }
+
+
+/* ANCLINE wide-workspace standard: reserve width for more operational grids */
+.shell{
+  grid-template-columns:178px minmax(0,1fr)!important;
+  width:100%;
+  max-width:none!important;
+}
+.side{
+  width:178px;
+  min-width:178px;
+  padding-left:5px!important;
+  padding-right:5px!important;
+}
+.main{
+  width:100%;
+  max-width:none!important;
+  min-width:0;
+  padding:5px 5px 6px!important;
+}
+.main>*,.top,.card,.grid,.booking-context-bar,
+.erp-subform,.detail-subform,.erp-table-wrap,.excel-grid-wrap{
+  max-width:none!important;
+}
+.top{margin-left:0!important;margin-right:0!important}
+.card{width:100%}
+.grid{
+  grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+  gap:4px!important;
+}
+.erp-detail-grid,.detail-grid{
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr))!important;
+  gap:4px!important;
+}
+.main table:not(.cw-table),.table{
+  width:100%!important;
+  max-width:none!important;
+  table-layout:auto;
+}
+.erp-table-wrap,.excel-grid-wrap{
+  width:100%!important;
+  overflow:auto;
+}
+
+/* Use almost the full desktop width; collapse nav only on smaller devices */
+@media(max-width:1100px){
+  .shell{grid-template-columns:168px minmax(0,1fr)!important}
+  .side{width:168px;min-width:168px}
+  .main{padding:4px!important}
+}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr!important}
+  .side{display:none}
+  .main{padding:5px!important}
+}
