@@ -211,7 +211,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   </div>;
 }
 
-export const fieldStyle:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
-export const labelStyle:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
-export const sectionTitle:React.CSSProperties={fontSize:14,fontWeight:800,color:'#153a5d',margin:'0 0 12px',paddingBottom:8,borderBottom:'1px solid #e2e8ee'};
-export const formGrid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))',gap:10};
+export const fieldStyle:React.CSSProperties={width:'100%',padding:'5px 7px',border:'1px solid #cfd9e2',borderRadius:5,background:'#fff',minHeight:30,fontSize:12.5,lineHeight:1.25};
+export const labelStyle:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:3};
+export const sectionTitle:React.CSSProperties={fontSize:14,fontWeight:800,color:'#153a5d',margin:'0 0 8px',paddingBottom:6,borderBottom:'1px solid #e2e8ee'};
+export const formGrid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:7};
