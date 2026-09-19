@@ -319,7 +319,35 @@ export default function BookingDetailWorkspace({bookingId,onClose}:{bookingId:st
     </>}
 
     {tab==='Additional Details'&&<>
-      <div className="card" style={{marginBottom:12}}><h3 style={title}>Routing / Origin / Destination / Agents</h3><div style={grid}><Input l="Place of Receipt" k="placeOfReceipt"/><Input l="Origin" k="origin"/><Input l="Port of Loading (POL)" k="portOfLoading"/><Input l="POL Agent" k="polAgent"/><Input l="Transshipment Port" k="transshipmentPort"/><Input l="Terminal" k="terminal"/><Input l="Port of Discharge (POD)" k="portOfDischarge"/><Input l="POD Agent" k="podAgent"/><Input l="Destination" k="destination"/><Input l="Place of Delivery" k="placeOfDelivery"/></div></div>
+      <div className="booking-sixty-example">
+        <section className="booking-example-grid">
+          <div className="booking-box-title">Customer & Parties</div>
+          <div className="booking-example-fields">
+            <label className="booking-dense-field"><span>Customer</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)}>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+            <DenseInput l="Shipper" k="shipper"/>
+            <DenseInput l="Consignee" k="consignee"/>
+            <DenseInput l="Notify Party" k="notifyParty"/>
+            <label className="booking-dense-field"><span>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)}><option value="">-- Optional --</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+            <DenseInput l="Customer Ref." k="customerReference"/>
+          </div>
+        </section>
+
+        <section className="booking-example-grid">
+          <div className="booking-box-title">Routing & Agents</div>
+          <div className="booking-example-fields">
+            <DenseInput l="Place of Receipt" k="placeOfReceipt"/>
+            <DenseInput l="Origin" k="origin"/>
+            <DenseInput l="Port of Loading" k="portOfLoading"/>
+            <DenseInput l="POL Agent" k="polAgent"/>
+            <DenseInput l="Transshipment" k="transshipmentPort"/>
+            <DenseInput l="Terminal" k="terminal"/>
+            <DenseInput l="Port of Discharge" k="portOfDischarge"/>
+            <DenseInput l="POD Agent" k="podAgent"/>
+            <DenseInput l="Destination" k="destination"/>
+            <DenseInput l="Place of Delivery" k="placeOfDelivery"/>
+          </div>
+        </section>
+      </div>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Carrier / Vessel / Schedule</h3><div style={grid}><Input l="Carrier" k="carrier"/><Input l="Vessel / Voyage" k="vesselVoyage"/><Input l="ETD" k="etd" type="date"/><Input l="ETA" k="eta" type="date"/><Input l="ATD" k="atd" type="date"/><Input l="ATA" k="ata" type="date"/><Input l="Through B/L" k="throughBL"/></div></div>
       <div className="card" style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center'}}><h3 style={{...title,flex:1}}>Multi-leg Voyage Plan</h3><a className="btn" href="/routing" style={{textDecoration:'none'}}>Open Routing Planner</a></div><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Seq</th><th>Leg</th><th>Mode</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Status</th></tr></thead><tbody>{!booking.routingLegs?.length?<tr><td colSpan={10}>No routing legs planned yet.</td></tr>:booking.routingLegs.map(l=><tr key={l.id}><td>{l.sequence}</td><td>{l.legType}</td><td>{l.mode}</td><td>{l.origin}</td><td>{l.destination}</td><td>{l.carrier||'-'}</td><td>{[l.vessel,l.voyage].filter(Boolean).join(' / ')||'-'}</td><td>{fmt(l.etd)}</td><td>{fmt(l.eta)}</td><td><span className="status">{l.status}</span></td></tr>)}</tbody></table></div></div>
       <div className="card"><h3 style={title}>Operational Cut-offs</h3><div style={grid}><Input l="CY Closing" k="cyClosing" type="date"/><Input l="SI Cut-off" k="siCutoff" type="date"/><Input l="VGM Cut-off" k="vgmCutoff" type="date"/><Input l="Document Cut-off" k="docCutoff" type="date"/><Input l="Port Cut-off" k="portCutoff" type="date"/></div></div>

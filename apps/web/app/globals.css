@@ -1953,3 +1953,53 @@ html,body{font-size:11.5px;line-height:1.2}
   .booking-ref-right{grid-template-columns:1fr}
   .booking-dense-two{grid-template-columns:1fr}
 }
+
+
+/* Booking 60% example: two compact grids, 40% intentionally left free */
+.booking-sixty-example{
+  width:60%;
+  max-width:60%;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:3px;
+  margin-bottom:3px;
+}
+.booking-example-grid{
+  min-width:0;
+  border:1px solid #cfd7de;
+  background:#fff;
+}
+.booking-example-fields{
+  padding:2px 3px 3px;
+}
+.booking-example-fields .booking-dense-field{
+  grid-template-columns:82px minmax(0,1fr);
+  min-height:22px;
+  padding:1px 2px;
+}
+.booking-example-fields .booking-dense-field input,
+.booking-example-fields .booking-dense-field select{
+  height:21px!important;
+  min-height:21px!important;
+  font-size:10px!important;
+}
+.booking-example-fields .booking-dense-field>span{
+  font-size:9.5px!important;
+}
+@media(max-width:1150px){
+  .booking-sixty-example{
+    width:72%;
+    max-width:72%;
+  }
+}
+@media(max-width:900px){
+  .booking-sixty-example{
+    width:100%;
+    max-width:100%;
+  }
+}
+@media(max-width:650px){
+  .booking-sixty-example{
+    grid-template-columns:1fr;
+  }
+}
