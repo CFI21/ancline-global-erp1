@@ -884,3 +884,142 @@ table:not(.cw-table) th,table:not(.cw-table) td{
   .main{padding:10px}
   .card{padding:9px}
 }
+
+
+/* ANCLINE global compact ERP standard: modern shell + Excel/detail subforms */
+html,body{font-size:13px}
+.shell{grid-template-columns:210px minmax(0,1fr)}
+.main{padding:12px}
+.top{margin-bottom:10px;gap:10px}
+.top h1{font-size:20px;line-height:1.15}
+.grid{gap:8px}
+.card{border-radius:7px;padding:10px}
+.card+.card{margin-top:0}
+.kpi{font-size:22px}
+.sub{font-size:12px;line-height:1.3}
+.status{font-size:11.5px;padding:2px 6px;border-radius:9px}
+.btn{
+  min-height:28px;
+  padding:4px 8px;
+  border-radius:5px;
+  font-size:12.5px;
+  line-height:1.2;
+  white-space:nowrap;
+}
+.main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.main select{
+  min-height:28px;
+  font-size:12.5px;
+  line-height:1.2;
+}
+.main textarea{
+  font-size:12.5px;
+  line-height:1.3;
+}
+.main label{font-size:12px}
+.booking-context-bar{
+  gap:5px;
+  margin:-2px 0 8px;
+  padding:6px 8px;
+  border-radius:6px;
+}
+
+/* Excel-style operational detail grids */
+.main table:not(.cw-table),
+.table{
+  width:100%;
+  border-collapse:collapse;
+  border-spacing:0;
+  background:#fff;
+  font-size:12.5px;
+}
+.main table:not(.cw-table) th,
+.main table:not(.cw-table) td,
+.table th,
+.table td{
+  padding:5px 6px;
+  border:1px solid #dfe5ea;
+  text-align:left;
+  vertical-align:middle;
+  line-height:1.25;
+}
+.main table:not(.cw-table) th,
+.table th{
+  background:#f2f5f8;
+  color:#334b60;
+  font-weight:800;
+  white-space:nowrap;
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+.main table:not(.cw-table) tbody tr:nth-child(even),
+.table tbody tr:nth-child(even){background:#fbfcfd}
+.main table:not(.cw-table) tbody tr:hover,
+.table tbody tr:hover{background:#f3f7fa}
+.main table:not(.cw-table) td,
+.table td{height:28px}
+.main table:not(.cw-table) input:not([type="checkbox"]):not([type="radio"]),
+.main table:not(.cw-table) select,
+.table input:not([type="checkbox"]):not([type="radio"]),
+.table select{
+  min-height:25px;
+  height:25px;
+  padding:2px 5px;
+  font-size:12px;
+}
+
+/* Reusable sub-form/detail treatment for modern ANCLINE pages */
+.erp-subform,.detail-subform{
+  border:1px solid #dce4eb;
+  border-radius:6px;
+  background:#fff;
+  padding:8px;
+}
+.erp-subform-title,.detail-subform-title{
+  margin:0 0 6px;
+  padding:0 0 5px;
+  border-bottom:1px solid #e2e8ee;
+  color:#153a5d;
+  font-size:13px;
+  font-weight:800;
+}
+.erp-detail-grid,.detail-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+  gap:6px;
+}
+.erp-tabs,.detail-tabs{
+  display:flex;
+  gap:4px;
+  flex-wrap:wrap;
+  margin-bottom:7px;
+}
+.erp-tabs .btn,.detail-tabs .btn{min-height:27px;padding:3px 8px}
+.erp-table-wrap,.excel-grid-wrap{
+  overflow:auto;
+  max-width:100%;
+  border:1px solid #dfe5ea;
+  border-radius:5px;
+}
+.erp-table-wrap table,.excel-grid-wrap table{border:0}
+.erp-table-wrap table th:first-child,.erp-table-wrap table td:first-child,
+.excel-grid-wrap table th:first-child,.excel-grid-wrap table td:first-child{border-left:0}
+.erp-table-wrap table th:last-child,.erp-table-wrap table td:last-child,
+.excel-grid-wrap table th:last-child,.excel-grid-wrap table td:last-child{border-right:0}
+
+/* Compact dashboard summary cards */
+.card>div[style*="font-size:24px"],
+.card>div[style*="fontSize:24"]{font-size:20px!important}
+.card>div[style*="font-size:22px"],
+.card>div[style*="fontSize:22"]{font-size:20px!important}
+
+/* Keep forms dense on desktop but responsive on smaller screens */
+@media(max-width:1100px){
+  .shell{grid-template-columns:200px minmax(0,1fr)}
+  .main{padding:10px}
+}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .main{padding:10px}
+}
