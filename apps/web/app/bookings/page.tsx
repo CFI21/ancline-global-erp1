@@ -175,7 +175,7 @@ export default function BookingsPage(){
         <section className="erp-panel booking-entry-panel">
           <h3 className="erp-section-title">Booking & Customer</h3>
           <div className="booking-clean-fields">
-            <label><span style={label}>Job Ref</span><input inputMode="numeric" maxLength={5} pattern="\\d{5}" value={form.bookingNo} onChange={e=>set('bookingNo',e.target.value.replace(/\\D/g,'').slice(0,5))} style={field} placeholder="Auto 5-digit"/></label>
+            <label><span style={label}>Job Ref</span><input inputMode="numeric" maxLength={5} pattern="[0-9]{5}" value={form.bookingNo} onChange={e=>set('bookingNo',e.target.value.replace(/\D/g,'').slice(0,5))} style={field} placeholder="Auto 5-digit"/></label>
             <Input l="Booking Date" k="bookingDate" type="date"/>
             <label><span style={label}>Customer *</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">Select / new customer</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
             {!form.customerId&&<Input l="New Customer" k="customerName"/>}
