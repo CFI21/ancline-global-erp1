@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
-import JobFlowNav from '../../../components/JobFlowNav';
+import JobContextRail from '../../../components/JobContextRail';
 
 const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 type Org={id:string;code:string;name:string;roles:string[]};
@@ -164,7 +164,19 @@ export default function EditBookingPage(){
       {booking.specialCargo&&<span className="status">Cargo {booking.specialCargo}</span>}
     </div>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    <JobFlowNav bookingId={id} bookingNo={booking.bookingNo} active="BOOKING"/>
+    <JobContextRail
+      bookingId={id}
+      bookingNo={booking.bookingNo}
+      active="BOOKING"
+      customer={booking.customer?.name||''}
+      route={`${booking.origin} → ${booking.destination}`}
+      carrier={booking.carrier||''}
+      vessel={booking.vesselVoyage||''}
+      equipment={booking.equipment?`${booking.quantity||1} × ${booking.equipment}`:''}
+      status={booking.shipmentStatus||booking.status}
+      etd={fmt(booking.etd||undefined)}
+      eta={fmt(booking.eta||undefined)}
+    />
     <div className="card" style={{padding:0,marginBottom:12,overflowX:'auto'}}><div style={{display:'flex',minWidth:820}}>{tabs.map(t=><button key={t} onClick={()=>setTab(t)} style={tabStyle(tab===t)}>{t}{t==='Containers'?` (${booking.containers?.length||0})`:t==='Routing'?` (${booking.routingLegs?.length||0})`:t==='Documents'?` (${booking.documents?.length||0})`:t==='Charges'?` (${booking.financeLines?.length||0})`:t==='Tasks'?` (${booking.tasks?.length||0})`:t==='Approvals'?` (${booking.approvals?.length||0})`:''}</button>)}</div></div>
 
     {tab==='Details'&&<>
