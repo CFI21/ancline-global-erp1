@@ -140,14 +140,13 @@ export default function BookingsPage(){
   const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',columnGap:8,rowGap:6};
   const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof initialForm;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
   const Select=({l,k,children}:{l:string;k:keyof typeof initialForm;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
-  const selectedCustomer=customers.find(o=>o.id===form.customerId);
-  const readinessItems=[
-    ['Customer / Parties',Boolean(form.customerId||form.customerName.trim())],
-    ['Route',Boolean(form.origin.trim()&&form.destination.trim())],
-    ['Carrier / Schedule',Boolean(form.carrier.trim()&&form.vesselVoyage.trim()&&form.etd&&form.eta)],
-    ['Cargo / Equipment',Boolean(form.equipment&&form.quantity&&form.commodity.trim())],
-  ] as const;
-  const readinessDone=readinessItems.filter(([,ok])=>ok).length;
+  const coreReadiness=[
+    Boolean(form.customerId||form.customerName.trim()),
+    Boolean(form.origin.trim()&&form.destination.trim()),
+    Boolean(form.carrier.trim()&&form.etd&&form.eta),
+    Boolean(form.equipment&&form.quantity&&form.commodity.trim()),
+  ];
+  const readinessDone=coreReadiness.filter(Boolean).length;
 
   return <WorkspaceShell
     title="Bookings"
@@ -161,138 +160,140 @@ export default function BookingsPage(){
     </>}
   >
     {message&&<div className="card" style={{marginBottom:14}}>{message}</div>}
-    {showForm&&<div className="booking-entry-layout booking-compact-fields">
-      <div className="booking-entry-main">
-        <section id="new-booking" className="card booking-reference-strip">
-          <h3 style={title}>Booking Details & References</h3>
-          <div className="booking-reference-grid">
-            {isAdmin?<Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select>:<div><span style={label}>Operating Model</span><div className="status">NVOCC</div></div>}
-            <Input l="Booking No." k="bookingNo" ph="Auto generated if blank"/>
+    {showForm&&<div className="booking-clean-workspace booking-compact-fields">
+      <div className="booking-summary-strip">
+        <div><span>ENTRY READY</span><b>{readinessDone}/4</b></div>
+        <div><span>MODEL</span><b>{form.businessModel}</b></div>
+        <div><span>MODE</span><b>{form.transportMode}</b></div>
+        <div><span>SERVICE</span><b>{form.serviceType}</b></div>
+        <div><span>CARGO</span><b>{form.specialCargo==='NONE'?'GENERAL':form.specialCargo}</b></div>
+      </div>
+
+      <div className="booking-capa-grid">
+        <section className="erp-panel booking-entry-panel">
+          <h3 className="erp-section-title">Booking & Customer</h3>
+          <div className="booking-clean-fields">
+            <Input l="Booking No." k="bookingNo" ph="Auto if blank"/>
             <Input l="Booking Date" k="bookingDate" type="date"/>
-            <Input l="Carrier Booking No." k="carrierBookingNo"/>
+            <label><span style={label}>Customer *</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">Select / new customer</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+            {!form.customerId&&<Input l="New Customer" k="customerName"/>}
             <Input l="Customer Ref." k="customerReference"/>
+            <Input l="Shipper" k="shipper"/>
+            <Input l="Consignee" k="consignee"/>
+            <Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select>
+          </div>
+        </section>
+
+        <section className="erp-panel booking-entry-panel">
+          <h3 className="erp-section-title">Routing & Agents</h3>
+          <div className="booking-clean-fields">
+            <Input l="Origin *" k="origin"/>
+            <Input l="POL" k="portOfLoading"/>
+            <Input l="POL Agent" k="polAgent"/>
+            <Input l="POD" k="portOfDischarge"/>
+            <Input l="POD Agent" k="podAgent"/>
+            <Input l="Destination *" k="destination"/>
+            <Input l="Terminal" k="terminal"/>
+            <Input l="Transshipment" k="transshipmentPort"/>
+          </div>
+        </section>
+
+        <section className="erp-panel booking-entry-panel">
+          <h3 className="erp-section-title">Carrier / Vessel / Schedule</h3>
+          <div className="booking-clean-fields">
+            <Input l="Carrier" k="carrier"/>
+            <Input l="Vessel / Voyage" k="vesselVoyage"/>
+            <Input l="ETD" k="etd" type="date"/>
+            <Input l="ETA" k="eta" type="date"/>
+            <Input l="CY Closing" k="cyClosing" type="date"/>
+            <Input l="SI Cut-off" k="siCutoff" type="date"/>
+            <Input l="VGM Cut-off" k="vgmCutoff" type="date"/>
+            <Input l="Carrier Booking No." k="carrierBookingNo"/>
+          </div>
+        </section>
+
+        <section className="erp-panel booking-entry-panel">
+          <h3 className="erp-section-title">Equipment & Cargo</h3>
+          <div className="booking-clean-fields">
+            <Select l="Equipment" k="equipment"><option>20GP</option><option>40GP</option><option>40HC</option><option>45HC</option><option>20RF</option><option>40RF</option><option>20OT</option><option>40OT</option><option>20FR</option><option>40FR</option></Select>
+            <Input l="Quantity" k="quantity" type="number"/>
+            <Input l="Commodity *" k="commodity"/>
+            <Input l="Packages" k="packageCount" type="number"/>
+            <Input l="Gross Weight kg" k="grossWeight" type="number"/>
+            <Input l="Volume CBM" k="volumeCbm" type="number"/>
+            <Input l="HS Code" k="hsCode"/>
+            <Select l="Special Cargo" k="specialCargo"><option value="NONE">General</option><option value="DG">DG</option><option value="REEFER">Reefer</option><option value="OOG">OOG</option></Select>
+          </div>
+        </section>
+      </div>
+
+      <div className="booking-additional-grid">
+        <details className="booking-detail-section">
+          <summary>References & Commercial Details</summary>
+          <div className="booking-detail-fields">
+            {isAdmin?<Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select>:<div><span style={label}>Operating Model</span><div className="status">NVOCC</div></div>}
             <Input l="Shipper Ref." k="shipperReference"/>
             <Input l="House B/L" k="houseBL"/>
             <Input l="Master B/L" k="masterBL"/>
-            <Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select>
             <Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select>
             <Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select>
             <Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select>
             <Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select>
-            <Input l="Incoterm" k="incoterm" ph="FOB / CIF / EXW"/>
+            <Input l="Incoterm" k="incoterm"/>
+            <Input l="Through B/L" k="throughBL"/>
           </div>
-        </section>
+        </details>
 
-        <div className="booking-core-grid">
-          <section className="card booking-core-panel">
-            <h3 style={title}>Customer & Parties</h3>
-            <div className="booking-field-grid">
-              <label><span style={label}>Customer</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">-- New / select customer --</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
-              {!form.customerId&&<Input l="New Customer Name" k="customerName" ph="Customer company name"/>}
-              <Input l="Shipper" k="shipper"/>
-              <Input l="Consignee" k="consignee"/>
-              <Input l="Notify Party" k="notifyParty"/>
-              <label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">-- Optional --</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
-            </div>
-          </section>
+        <details className="booking-detail-section">
+          <summary>Additional Route / Schedule Details</summary>
+          <div className="booking-detail-fields">
+            <Input l="Place of Receipt" k="placeOfReceipt"/>
+            <Input l="Place of Delivery" k="placeOfDelivery"/>
+            <Input l="ATD" k="atd" type="date"/>
+            <Input l="ATA" k="ata" type="date"/>
+            <Input l="Documentation Cut-off" k="docCutoff" type="date"/>
+            <Input l="Port Cut-off" k="portCutoff" type="date"/>
+            <label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">Optional</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+            <Input l="Notify Party" k="notifyParty"/>
+          </div>
+        </details>
 
-          <section className="card booking-core-panel">
-            <h3 style={title}>Routing & Agents</h3>
-            <div className="booking-field-grid">
-              <Input l="Place of Receipt" k="placeOfReceipt"/>
-              <Input l="Origin" k="origin" ph="Required"/>
-              <Input l="Port of Loading (POL)" k="portOfLoading"/>
-              <Input l="POL Agent" k="polAgent"/>
-              <Input l="Transshipment Port" k="transshipmentPort"/>
-              <Input l="Port of Discharge (POD)" k="portOfDischarge"/>
-              <Input l="POD Agent" k="podAgent"/>
-              <Input l="Destination" k="destination" ph="Required"/>
-              <Input l="Place of Delivery" k="placeOfDelivery"/>
-              <Input l="Terminal" k="terminal"/>
-            </div>
-          </section>
+        <details className="booking-detail-section">
+          <summary>Additional Cargo Details</summary>
+          <div className="booking-detail-fields">
+            <Select l="Container Owner" k="containerOwner"><option>CARRIER</option><option>SHIPPER</option><option>ANCLINE</option><option>SOC</option></Select>
+            <Input l="Package Type" k="packageType"/>
+            <Input l="Net Weight kg" k="netWeight" type="number"/>
+            <Input l="Marks & Numbers" k="marksNumbers"/>
+            <Input l="Cargo Description" k="cargoDescription"/>
+            {form.specialCargo==='DG'&&<><Input l="UN No." k="dgUnNo"/><Input l="IMO Class" k="dgImoClass"/><Select l="Packing Group" k="dgPackingGroup"><option value="">Select</option><option>I</option><option>II</option><option>III</option></Select><Input l="Shipping Name" k="dgProperShippingName"/></>}
+            {form.specialCargo==='REEFER'&&<><Input l="Temperature °C" k="reeferTemperatureC" type="number"/><Input l="Ventilation" k="reeferVentilation" type="number"/><Input l="Humidity %" k="reeferHumidityPct" type="number"/></>}
+            {form.specialCargo==='OOG'&&<><Input l="Length cm" k="oogLengthCm" type="number"/><Input l="Width cm" k="oogWidthCm" type="number"/><Input l="Height cm" k="oogHeightCm" type="number"/><Input l="Weight kg" k="oogWeightKg" type="number"/></>}
+          </div>
+        </details>
 
-          <section className="card booking-core-panel">
-            <h3 style={title}>Carrier / Vessel / Schedule & Cut-offs</h3>
-            <div className="booking-field-grid">
-              <Input l="Carrier" k="carrier"/>
-              <Input l="Vessel / Voyage" k="vesselVoyage"/>
-              <Input l="ETD" k="etd" type="date"/>
-              <Input l="ETA" k="eta" type="date"/>
-              <Input l="ATD" k="atd" type="date"/>
-              <Input l="ATA" k="ata" type="date"/>
-              <Input l="CY Closing" k="cyClosing" type="date"/>
-              <Input l="SI Cut-off" k="siCutoff" type="date"/>
-              <Input l="VGM Cut-off" k="vgmCutoff" type="date"/>
-              <Input l="Documentation Cut-off" k="docCutoff" type="date"/>
-              <Input l="Port Cut-off" k="portCutoff" type="date"/>
-              <Input l="Through B/L" k="throughBL"/>
-            </div>
-          </section>
-
-          <section className="card booking-core-panel">
-            <h3 style={title}>Equipment & Cargo</h3>
-            <div className="booking-field-grid">
-              <Select l="Equipment" k="equipment"><option>20GP</option><option>40GP</option><option>40HC</option><option>45HC</option><option>20RF</option><option>40RF</option><option>20OT</option><option>40OT</option><option>20FR</option><option>40FR</option></Select>
-              <Input l="Quantity" k="quantity" type="number"/>
-              <Select l="Container Owner" k="containerOwner"><option>CARRIER</option><option>SHIPPER</option><option>ANCLINE</option><option>SOC</option></Select>
-              <Input l="Commodity" k="commodity"/>
-              <Input l="Packages" k="packageCount" type="number"/>
-              <Input l="Package Type" k="packageType"/>
-              <Input l="Gross Weight (kg)" k="grossWeight" type="number"/>
-              <Input l="Net Weight (kg)" k="netWeight" type="number"/>
-              <Input l="Volume (CBM)" k="volumeCbm" type="number"/>
-              <Input l="HS Code" k="hsCode"/>
-              <Select l="Special Cargo" k="specialCargo"><option value="NONE">None / General</option><option value="DG">Dangerous Goods (DG)</option><option value="REEFER">Reefer</option><option value="OOG">Out of Gauge (OOG)</option></Select>
-              <Input l="Marks & Numbers" k="marksNumbers"/>
-              <Input l="Cargo Description" k="cargoDescription"/>
-            </div>
-            {form.specialCargo==='DG'&&<div className="booking-special-grid"><Input l="UN No." k="dgUnNo" ph="e.g. UN 1263"/><Input l="IMO Class" k="dgImoClass" ph="e.g. 3"/><Select l="Packing Group" k="dgPackingGroup"><option value="">-- Select --</option><option>I</option><option>II</option><option>III</option></Select><Input l="Proper Shipping Name" k="dgProperShippingName"/></div>}
-            {form.specialCargo==='REEFER'&&<div className="booking-special-grid"><Input l="Set Temperature °C" k="reeferTemperatureC" type="number"/><Input l="Ventilation CBM/H" k="reeferVentilation" type="number"/><Input l="Humidity %" k="reeferHumidityPct" type="number"/></div>}
-            {form.specialCargo==='OOG'&&<div className="booking-special-grid"><Input l="Length cm" k="oogLengthCm" type="number"/><Input l="Width cm" k="oogWidthCm" type="number"/><Input l="Height cm" k="oogHeightCm" type="number"/><Input l="Cargo Weight kg" k="oogWeightKg" type="number"/></div>}
-          </section>
-        </div>
+        <details className="booking-detail-section">
+          <summary>Operational Notes</summary>
+          <div className="booking-notes-section">
+            <textarea value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Operational instructions, exceptions or handover notes"/>
+          </div>
+        </details>
       </div>
 
-      <aside className="booking-detail-rail">
-        <section className="booking-rail-panel">
-          <div className="booking-rail-title">Booking Snapshot</div>
-          <div className="booking-rail-row"><span>Booking</span><b>{form.bookingNo||'New / Auto'}</b></div>
-          <div className="booking-rail-row"><span>Customer</span><b>{selectedCustomer?.name||form.customerName||'Not selected'}</b></div>
-          <div className="booking-rail-row"><span>Route</span><b>{form.origin||'—'} → {form.destination||'—'}</b></div>
-          <div className="booking-rail-row"><span>Carrier</span><b>{form.carrier||'—'}</b></div>
-          <div className="booking-rail-row"><span>Vessel</span><b>{form.vesselVoyage||'—'}</b></div>
-          <div className="booking-rail-row"><span>Equipment</span><b>{form.quantity||'1'} × {form.equipment||'—'}</b></div>
-          <div className="booking-rail-row"><span>Cargo</span><b>{form.specialCargo==='NONE'?'GENERAL':form.specialCargo}</b></div>
-        </section>
-
-        <section className="booking-rail-panel">
-          <div className="booking-rail-title">Entry Readiness <span>{readinessDone}/4</span></div>
-          {readinessItems.map(([name,ok])=><div className="booking-check" key={name}><span className={ok?'ok':'pending'}>{ok?'✓':'○'}</span><span>{name}</span></div>)}
-        </section>
-
-        <section className="booking-rail-panel">
-          <div className="booking-rail-title">Related Tasks</div>
-          <div className="booking-task-grid">
-            <a href="/rates">Rates / Quote</a>
-            <a href="/schedules">Vessel Schedule</a>
-            <a href="/routing">Routing Plan</a>
-            <a href="/carrier-operations">Carrier Space</a>
-            <a href="/shipment-control">Shipment / Consol</a>
-            <a href="/documents">Documents</a>
-          </div>
-        </section>
-
-        <section className="booking-rail-panel">
-          <div className="booking-rail-title">Operational Notes</div>
-          <textarea value={form.notes} onChange={e=>set('notes',e.target.value)} className="booking-rail-notes" placeholder="Operational instructions, exceptions or handover notes"/>
-        </section>
-
-        <div className="booking-rail-actions">
+      <div className="booking-clean-actions">
+        <div className="booking-related-links">
+          <a href="/rates">Quote</a>
+          <a href="/schedules">Vessel Schedule</a>
+          <a href="/routing">Routing</a>
+          <a href="/carrier-operations">Carrier Space</a>
+          <a href="/shipment-control">Shipment</a>
+          <a href="/documents">Documents</a>
+        </div>
+        <div className="booking-save-actions">
           <button className="btn booking-secondary-action" onClick={()=>setForm(initialForm)} disabled={busy}>Clear</button>
           <button className="btn" onClick={saveBooking} disabled={busy}>{busy?'Saving...':'Save Booking'}</button>
         </div>
-      </aside>
+      </div>
     </div>}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:12}}>
