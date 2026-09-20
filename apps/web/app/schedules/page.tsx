@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
-import JobFlowNav from '../../components/JobFlowNav';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Schedule={id:string;scheduleNo:string;carrier:string;serviceName?:string;vessel:string;imoNo?:string;voyage:string;direction?:string;portOfLoading:string;portOfDischarge:string;terminal?:string;etd:string;eta:string;atd?:string;ata?:string;cyClosing?:string;siCutoff?:string;vgmCutoff?:string;docCutoff?:string;capacityTeu?:number;status:string;source:string;remarks?:string;createdBy?:string};
@@ -79,7 +79,13 @@ export default function SchedulesPage(){
 
   return <WorkspaceShell title="Vessel / Voyage Schedules" subtitle="Carrier schedules, voyage control, cut-offs and booking assignment" active="/schedules" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    {bookingId&&<JobFlowNav bookingId={bookingId} bookingNo={bookings.find(b=>b.id===bookingId)?.bookingNo} active="SCHEDULE"/>}
+    {bookingId&&<JobContextRail
+      bookingId={bookingId}
+      bookingNo={bookings.find(b=>b.id===bookingId)?.bookingNo}
+      active="SCHEDULE"
+      route={(()=>{const b=bookings.find(x=>x.id===bookingId);return b?`${b.origin} → ${b.destination}`:''})()}
+      status={bookings.find(b=>b.id===bookingId)?.status||''}
+    />}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:12}}>
       {[['Schedules',rows.length],['Upcoming',upcoming],['Sailing',sailing],['Delayed',delayed]].map(([k,v])=><div className="card" key={String(k)}><div className="sub">{k}</div><div style={{fontSize:26,fontWeight:800}}>{v}</div></div>)}
