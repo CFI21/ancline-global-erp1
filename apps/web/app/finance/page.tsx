@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtMoney,requireToken} from '../../lib/api';
 
 type RateQuote={id:string;quoteNo:string;buyRate:any;sellRate:any;currency:string;status:string};
@@ -25,7 +26,9 @@ export default function FinancePage(){
   async function loadBookings(t=token){
     try{
       const b=await api('/bookings',t);const arr=Array.isArray(b)?b:[];setBookings(arr);
-      if(!bookingId&&arr[0]?.id){setBookingId(arr[0].id);void loadFinance(arr[0].id,t);}
+      const contextId=new URLSearchParams(location.search).get('bookingId')||'';
+      const target=contextId&&arr.some((x:Booking)=>x.id===contextId)?contextId:(!bookingId&&arr[0]?.id?arr[0].id:bookingId);
+      if(target){setBookingId(target);void loadFinance(target,t);}
     }catch(e:any){setMessage(e.message||'Unable to load bookings');}
   }
   async function loadFinance(id=bookingId,t=token){
@@ -68,6 +71,7 @@ export default function FinancePage(){
 
   return <WorkspaceShell title="Finance / Job Costing" subtitle="Commercial handover, revenue, cost, margin, accruals, invoicing readiness and financial close" active="/finance" actions={<button className="btn" onClick={()=>void loadFinance()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {bookingId&&<JobContextRail bookingId={bookingId} bookingNo={selected?.bookingNo} route={selected?`${selected.origin} → ${selected.destination}`:''} status={selected?.status||''} active="FINANCE"/>}
 
     <div className="card" style={{marginBottom:12}}><div style={formGrid}>
       <label><span style={labelStyle}>Job / Booking</span><select style={fieldStyle} value={bookingId} onChange={e=>{setBookingId(e.target.value);void loadFinance(e.target.value);}}><option value="">Select booking</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo} · {b.origin} → {b.destination} · {b.status}</option>)}</select></label>
