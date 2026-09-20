@@ -202,16 +202,26 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
       </nav>
     </aside>
     <main className="main">
-      {!hideHeader&&<div className="top">
-        <div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
-      </div>}
+      {!hideHeader&&<>
+        <div className="top">
+          <div className="top-title-wrap"><h1>{title}</h1><div className="sub">{subtitle}</div></div>
+          <div className="top-actions">{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
+        </div>
+        <div className="erp-commandbar" role="toolbar" aria-label="Workspace commands">
+          <div className="erp-commandbar-left">
+            <button type="button" onClick={()=>history.back()}>← Back</button>
+            <button type="button" onClick={()=>location.reload()}>↻ Reload</button>
+            <button type="button" onClick={()=>window.print()}>Print</button>
+          </div>
+          <div className="erp-commandbar-status">READY</div>
+        </div>
+      </>}
       {children}
     </main>
   </div>;
 }
 
-export const fieldStyle:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
-export const labelStyle:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
-export const sectionTitle:React.CSSProperties={fontSize:14,fontWeight:800,color:'#153a5d',margin:'0 0 12px',paddingBottom:8,borderBottom:'1px solid #e2e8ee'};
-export const formGrid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))',gap:10};
+export const fieldStyle:React.CSSProperties={width:'100%',padding:'3px 6px',border:'1px solid #b8c3cc',borderRadius:2,background:'#fff',minHeight:27,height:27,fontSize:12,lineHeight:'19px',boxShadow:'none'};
+export const labelStyle:React.CSSProperties={fontSize:11.5,fontWeight:700,color:'#31485a',display:'block',marginBottom:3,lineHeight:1.15};
+export const sectionTitle:React.CSSProperties={fontSize:12,fontWeight:800,color:'#183a57',margin:'-1px -1px 8px',padding:'5px 8px',background:'#e3e8ec',borderBottom:'1px solid #aeb9c2'};
+export const formGrid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',columnGap:8,rowGap:6};
