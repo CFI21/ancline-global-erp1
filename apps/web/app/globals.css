@@ -1460,3 +1460,69 @@ body{
   .booking-clean-fields,.booking-detail-fields{grid-template-columns:1fr}
   .booking-summary-strip{grid-template-columns:1fr 1fr}
 }
+
+
+/* BOOKING JOB FLOW NAVIGATION */
+.job-flow-nav{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 0 8px;
+  padding:4px 5px;
+  border:1px solid #bcc7cf;
+  border-radius:5px;
+  background:#f7f9fa;
+  overflow:auto;
+}
+.job-flow-context{
+  min-width:138px;
+  padding:2px 7px 2px 3px;
+  border-right:1px solid #cbd3d9;
+}
+.job-flow-context span{
+  display:block;
+  color:#748491;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.45px;
+}
+.job-flow-context b{
+  display:block;
+  max-width:165px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#173b59;
+  font-size:10.5px;
+}
+.job-flow-links{
+  display:flex;
+  gap:3px;
+  align-items:center;
+  white-space:nowrap;
+}
+.job-flow-links a{
+  min-height:23px;
+  display:inline-flex;
+  align-items:center;
+  padding:3px 7px;
+  border:1px solid transparent;
+  border-radius:3px;
+  color:#29485f;
+  text-decoration:none;
+  font-size:9.5px;
+  font-weight:700;
+}
+.job-flow-links a:hover{
+  border-color:#afbdc8;
+  background:#fff;
+}
+.job-flow-links a.active{
+  border-color:#315f82;
+  background:#e3edf4;
+  color:#123b61;
+}
+@media(max-width:780px){
+  .job-flow-context{min-width:112px}
+}
