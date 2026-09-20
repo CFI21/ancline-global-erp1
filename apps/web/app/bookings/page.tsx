@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, currentUser } from '../../lib/api';
 import WorkspaceShell from '../../components/WorkspaceShell';
-import BookingDetailWorkspace from '../../components/BookingDetailWorkspace';
 
 type Org={id:string;code:string;name:string;roles:string[]};
 type Booking={id:string;bookingNo:string;businessModel?:string;bookingChannel?:string;shipmentNo?:string;shipmentStatus?:string;carrierBookingNo?:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;equipment?:string;etd?:string;eta?:string;atd?:string;specialCargo?:string;creditStatus?:string;slotStatus?:string;equipmentStatus?:string;cyClosing?:string;siCutoff?:string;vgmCutoff?:string;docCutoff?:string;portCutoff?:string;customer?:{name:string}};
@@ -45,8 +44,7 @@ export default function BookingsPage(){
   const [form,setForm]=useState(initialForm);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
-  const [showForm,setShowForm]=useState(false);
-  const [selectedBookingId,setSelectedBookingId]=useState('');
+  const [showForm,setShowForm]=useState(true);
   const [search,setSearch]=useState('');
   const [statusFilter,setStatusFilter]=useState('ALL');
   const [customerFilter,setCustomerFilter]=useState('ALL');
@@ -91,8 +89,6 @@ export default function BookingsPage(){
       setForm({...initialForm,bookingNo:`ANL-${Date.now().toString().slice(-8)}`,bookingDate:new Date().toISOString().slice(0,10)});
       setShowForm(true);
     }
-    const selected=params.get('booking');
-    if(selected){setSelectedBookingId(selected);setShowForm(false);}
     void load(t);
   },[]);
 
@@ -103,9 +99,7 @@ export default function BookingsPage(){
     try{const [b,o]=await Promise.all([request('/bookings',{},true,t),request('/organizations',{},true,t).catch(()=>[])]);setBookings(Array.isArray(b)?b:[]);setOrgs(Array.isArray(o)?o:[]);}catch(e:any){setMessage(e?.message||'Unable to load booking data');}
   }
   function set(k:keyof typeof initialForm,v:string){setForm(x=>({...x,[k]:v}));}
-  function newBooking(){setSelectedBookingId('');setForm({...initialForm,bookingNo:`ANL-${Date.now().toString().slice(-8)}`,bookingDate:new Date().toISOString().slice(0,10)});setMessage('');setShowForm(true);window.scrollTo({top:0,behavior:'smooth'});}
-  function openBooking(id:string){setShowForm(false);setSelectedBookingId(id);history.replaceState(null,'',`/bookings?booking=${encodeURIComponent(id)}`);setTimeout(()=>document.getElementById('booking-register')?.scrollIntoView({behavior:'smooth',block:'start'}),20);}
-  function closeBookingDetail(){setSelectedBookingId('');history.replaceState(null,'','/bookings');}
+  function newBooking(){setForm({...initialForm,bookingNo:`ANL-${Date.now().toString().slice(-8)}`,bookingDate:new Date().toISOString().slice(0,10)});setMessage('');setShowForm(true);window.scrollTo({top:0,behavior:'smooth'});}
 
   async function saveBooking(){
     if(!form.origin.trim()||!form.destination.trim()){setMessage('Origin and Destination are required.');return;}
@@ -130,7 +124,7 @@ export default function BookingsPage(){
         oogLengthCm:form.specialCargo==='OOG'?num(form.oogLengthCm):null,oogWidthCm:form.specialCargo==='OOG'?num(form.oogWidthCm):null,oogHeightCm:form.specialCargo==='OOG'?num(form.oogHeightCm):null,oogWeightKg:form.specialCargo==='OOG'?num(form.oogWeightKg):null,
         notes:form.notes||null,status:'DRAFT'
       };
-      const created=await request('/bookings',{method:'POST',body:JSON.stringify(body)});setMessage(`Booking ${bookingNo} saved successfully.`);setForm(initialForm);await load(token);setShowForm(false);if(created?.id)openBooking(created.id);
+      const created=await request('/bookings',{method:'POST',body:JSON.stringify(body)});setMessage(`Booking ${bookingNo} saved successfully.`);setForm(initialForm);await load(token);setShowForm(false);if(created?.id)location.href=`/bookings/${created.id}`;
     }catch(e:any){setMessage(e?.message||'Booking could not be saved.');}finally{setBusy(false);}
   }
 
@@ -140,10 +134,10 @@ export default function BookingsPage(){
   }
   function clearFilters(){setSearch('');setStatusFilter('ALL');setCustomerFilter('ALL');setCarrierFilter('ALL');setAttentionFilter('ALL');setEtdFrom('');setEtdTo('');}
   function signOut(){localStorage.removeItem('ancline_token');localStorage.removeItem('ancline_user');location.href='/login';}
-  const field:React.CSSProperties={width:'100%',padding:'3px 5px',border:'1px solid #cfd9e2',borderRadius:3,background:'#fff',minHeight:25,fontSize:11.5};
-  const label:React.CSSProperties={fontSize:11,fontWeight:700,color:'#4c6072',display:'block',marginBottom:1};
-  const title:React.CSSProperties={fontSize:12.5,fontWeight:800,color:'#153a5d',margin:'0 0 5px',paddingBottom:4,borderBottom:'1px solid #e2e8ee'};
-  const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:4};
+  const field:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
+  const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
+  const title:React.CSSProperties={fontSize:14,fontWeight:800,color:'#153a5d',margin:'0 0 12px',paddingBottom:8,borderBottom:'1px solid #e2e8ee'};
+  const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))',gap:10};
   const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof initialForm;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
   const Select=({l,k,children}:{l:string;k:keyof typeof initialForm;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
 
@@ -181,10 +175,8 @@ export default function BookingsPage(){
       <div className="card"><div className="sub">Control gaps</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.controls}</div></div>
       <div className="card"><div className="sub">Special cargo</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.special}</div></div>
     </div>
-    <div id="booking-register" className="card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:10,flexWrap:'wrap'}}><div><h3 style={{margin:0}}>Booking Register</h3><span className="sub">Search, filter, export and open bookings for operations.</span></div><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className="btn" onClick={clearFilters}>Clear Filters</button><button className="btn" onClick={exportCsv} disabled={!visible.length}>Export CSV</button><span className="status">{visible.length} bookings</span></div></div>
+    <div className="card"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:10,flexWrap:'wrap'}}><div><h3 style={{margin:0}}>Booking Register</h3><span className="sub">Search, filter, export and open bookings for operations.</span></div><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><button className="btn" onClick={clearFilters}>Clear Filters</button><button className="btn" onClick={exportCsv} disabled={!visible.length}>Export CSV</button><span className="status">{visible.length} bookings</span></div></div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8,marginBottom:12}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bookings..." style={field}/><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={field}><option value="ALL">All statuses</option>{statuses.map(s=><option key={s}>{s}</option>)}</select><select value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} style={field}><option value="ALL">All customers</option>{customerNames.map(s=><option key={s}>{s}</option>)}</select><select value={carrierFilter} onChange={e=>setCarrierFilter(e.target.value)} style={field}><option value="ALL">All carriers</option>{carriers.map(s=><option key={s}>{s}</option>)}</select><select value={attentionFilter} onChange={e=>setAttentionFilter(e.target.value)} style={field}><option value="ALL">All attention states</option><option value="ACTION">Needs action</option><option value="CUTOFF">Cutoff risk</option><option value="CONTROLS">Control gaps</option><option value="SPECIAL">Special cargo</option></select><label><span style={label}>ETD From</span><input type="date" value={etdFrom} onChange={e=>setEtdFrom(e.target.value)} style={field}/></label><label><span style={label}>ETD To</span><input type="date" value={etdTo} onChange={e=>setEtdTo(e.target.value)} style={field}/></label></div>
-      {selectedBookingId
-        ? <BookingDetailWorkspace bookingId={selectedBookingId} onClose={closeBookingDetail}/>
-        : <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Model</th><th>Booking No.</th><th>Shipment</th><th>Carrier Ref.</th><th>Status</th><th>Customer</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>Equipment</th><th>Cargo</th><th>Controls</th><th>Next Cutoff</th><th>Attention</th><th>ETD</th><th>ETA</th><th>Action</th></tr></thead><tbody>{visible.length===0?<tr><td colSpan={18}>No bookings found.</td></tr>:visible.map(b=>{const op=operationalState(b);return <tr key={b.id}><td><span className="status">{b.businessModel||'NVOCC'}</span><div className="sub">{b.bookingChannel||'INTERNAL'}</div></td><td><button type="button" onClick={()=>openBooking(b.id)} style={{fontWeight:800,color:'#123b61',background:'transparent',border:0,padding:0,cursor:'pointer'}}>{b.bookingNo}</button></td><td>{b.shipmentNo||'-'}<div className="sub">{b.shipmentStatus||'BOOKED'}</div></td><td>{b.carrierBookingNo||'-'}</td><td><span className="status">{b.status}</span></td><td>{b.customer?.name||'-'}</td><td>{b.origin}</td><td>{b.destination}</td><td>{b.carrier||'-'}</td><td>{b.vesselVoyage||'-'}</td><td>{b.equipment||'-'}</td><td>{b.specialCargo||'GENERAL'}</td><td><div style={{minWidth:135,fontSize:12}}>Credit: {b.creditStatus||'-'}<br/>Slot: {b.slotStatus||'-'}<br/>Equipment: {b.equipmentStatus||'-'}</div></td><td>{op.cutoff?<><b>{op.cutoff.label}</b><div className="sub">{new Date(op.cutoff.value).toLocaleString()}</div><div className="sub">{op.cutoff.state}{op.cutoff.hours!=null?` · ${op.cutoff.hours}h`:''}</div></>:'-'}</td><td>{op.needsAction?<><span className="status">ACTION</span><div className="sub" style={{marginTop:4,maxWidth:190}}>{op.issues.join(', ')||op.cutoff?.state}</div></>:<span className="status">CLEAR</span>}</td><td>{b.etd?new Date(b.etd).toLocaleDateString():'-'}</td><td>{b.eta?new Date(b.eta).toLocaleDateString():'-'}</td><td><button className="btn" onClick={()=>openBooking(b.id)}>Open / Edit</button></td></tr>})}</tbody></table></div>}</div>
+      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Model</th><th>Booking No.</th><th>Shipment</th><th>Carrier Ref.</th><th>Status</th><th>Customer</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>Equipment</th><th>Cargo</th><th>Controls</th><th>Next Cutoff</th><th>Attention</th><th>ETD</th><th>ETA</th><th>Action</th></tr></thead><tbody>{visible.length===0?<tr><td colSpan={18}>No bookings found.</td></tr>:visible.map(b=>{const op=operationalState(b);return <tr key={b.id}><td><span className="status">{b.businessModel||'NVOCC'}</span><div className="sub">{b.bookingChannel||'INTERNAL'}</div></td><td><a href={`/bookings/${b.id}`} style={{fontWeight:800,color:'#123b61'}}>{b.bookingNo}</a></td><td>{b.shipmentNo||'-'}<div className="sub">{b.shipmentStatus||'BOOKED'}</div></td><td>{b.carrierBookingNo||'-'}</td><td><span className="status">{b.status}</span></td><td>{b.customer?.name||'-'}</td><td>{b.origin}</td><td>{b.destination}</td><td>{b.carrier||'-'}</td><td>{b.vesselVoyage||'-'}</td><td>{b.equipment||'-'}</td><td>{b.specialCargo||'GENERAL'}</td><td><div style={{minWidth:135,fontSize:12}}>Credit: {b.creditStatus||'-'}<br/>Slot: {b.slotStatus||'-'}<br/>Equipment: {b.equipmentStatus||'-'}</div></td><td>{op.cutoff?<><b>{op.cutoff.label}</b><div className="sub">{new Date(op.cutoff.value).toLocaleString()}</div><div className="sub">{op.cutoff.state}{op.cutoff.hours!=null?` · ${op.cutoff.hours}h`:''}</div></>:'-'}</td><td>{op.needsAction?<><span className="status">ACTION</span><div className="sub" style={{marginTop:4,maxWidth:190}}>{op.issues.join(', ')||op.cutoff?.state}</div></>:<span className="status">CLEAR</span>}</td><td>{b.etd?new Date(b.etd).toLocaleDateString():'-'}</td><td>{b.eta?new Date(b.eta).toLocaleDateString():'-'}</td><td><a className="btn" href={`/bookings/${b.id}`} style={{textDecoration:'none',display:'inline-block'}}>Open / Edit</a></td></tr>})}</tbody></table></div></div>
   </WorkspaceShell>;
 }
