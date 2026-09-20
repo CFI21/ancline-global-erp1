@@ -642,3 +642,199 @@ html,body{font-size:11px;background:#e9edf1;color:var(--anc-sap-text)}
   .main{padding:6px}
   .top{margin-bottom:5px}
 }
+
+
+/* ANCLINE SAP / EXCEL FIELD & FORM GRID STANDARD */
+/* Applies to standard ANCLINE cards/forms; classic CW inquiry screens keep their own geometry. */
+.main .card{
+  padding:0;
+  overflow:visible;
+  background:#f4f5f6;
+}
+.main .card>h2,
+.main .card>h3,
+.main .card>h4{
+  min-height:24px;
+  margin:0 !important;
+  padding:5px 7px 4px !important;
+  border-bottom:1px solid #aeb7bf !important;
+  background:#dfe4e8;
+  color:#1e3447;
+  font-size:10.5px !important;
+  font-weight:700 !important;
+  line-height:1.2;
+}
+.main .card>h2+*,
+.main .card>h3+*,
+.main .card>h4+*{
+  margin-top:0 !important;
+}
+.main .card>div:not(.table):not(.cw-tablewrap),
+.main .card>form{
+  box-sizing:border-box;
+}
+
+/* SAP-style label/value row */
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])){
+  display:grid !important;
+  grid-template-columns:minmax(72px,38%) minmax(0,62%) !important;
+  align-items:stretch !important;
+  gap:0 !important;
+  min-height:22px;
+  margin:0 !important;
+  border:1px solid #c7cdd2;
+  border-bottom:0;
+  background:#fff;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):last-child{
+  border-bottom:1px solid #c7cdd2;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>span:first-child{
+  display:flex !important;
+  align-items:center;
+  min-width:0;
+  margin:0 !important;
+  padding:2px 5px !important;
+  border-right:1px solid #c7cdd2;
+  background:#edf0f2;
+  color:#314555 !important;
+  font-size:9.5px !important;
+  font-weight:600 !important;
+  line-height:1.05 !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Excel-cell value controls */
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>input:not([type="checkbox"]):not([type="radio"]),
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>select,
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>textarea{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:21px !important;
+  height:21px !important;
+  margin:0 !important;
+  padding:1px 4px !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  outline:none;
+  background:#fff !important;
+  color:#102a3d;
+  font-size:9.5px !important;
+  line-height:19px !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>textarea{
+  height:auto !important;
+  min-height:48px !important;
+  line-height:1.2 !important;
+  resize:vertical;
+  padding-top:3px !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>input:focus,
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>select:focus,
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>textarea:focus{
+  outline:1px solid #3276a8;
+  outline-offset:-1px;
+  background:#fffef2 !important;
+}
+
+/* Read-only cells mirror SAP protected fields */
+.main .card input[readonly],
+.main .card textarea[readonly],
+.main .card input:disabled,
+.main .card select:disabled,
+.main .card textarea:disabled{
+  background:#e7e9eb !important;
+  color:#5c6972 !important;
+  cursor:default;
+}
+
+/* Flat action bars and compact form sections */
+.main .card .btn,
+.main .card button{
+  border-radius:1px !important;
+}
+.main .card hr{
+  border:0;
+  border-top:1px solid #c4cbd1;
+  margin:5px 0;
+}
+.main fieldset:not(.cw-panel){
+  min-width:0;
+  margin:0 0 5px;
+  padding:4px;
+  border:1px solid #b8c0c7;
+  border-radius:0;
+  background:#f5f6f7;
+}
+.main fieldset:not(.cw-panel)>legend{
+  padding:0 4px;
+  color:#2d4659;
+  font-size:9.5px;
+  font-weight:700;
+}
+
+/* Dense form grids: more columns, less whitespace */
+.main .card [style*="grid-template-columns"],
+.main .card [style*="gridTemplateColumns"]{
+  row-gap:2px !important;
+  column-gap:3px !important;
+}
+.main .card [style*="minmax(185px"],
+.main .card [style*="minmax(180px"],
+.main .card [style*="minmax(170px"]{
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr)) !important;
+}
+
+/* Excel-style section tables everywhere */
+.main .table,
+.main .card table:not(.cw-table){
+  table-layout:auto;
+}
+.main .table th,
+.main .card table:not(.cw-table) th{
+  height:21px !important;
+  padding:2px 4px !important;
+  background:#dfe4e8 !important;
+  border-color:#aeb7bf !important;
+  font-size:9.5px !important;
+  font-weight:700 !important;
+}
+.main .table td,
+.main .card table:not(.cw-table) td{
+  height:20px !important;
+  padding:2px 4px !important;
+  border-color:#c7cdd2 !important;
+  font-size:9.5px !important;
+}
+.main .table input,
+.main .table select,
+.main .card table:not(.cw-table) input,
+.main .card table:not(.cw-table) select{
+  height:19px !important;
+  min-height:19px !important;
+  padding:0 3px !important;
+  border:1px solid #b8c0c7 !important;
+  border-radius:0 !important;
+  font-size:9px !important;
+}
+
+/* SAP visual hierarchy for standard pages */
+.main>.top+*{
+  margin-top:0;
+}
+.main .card+.card{
+  margin-top:5px !important;
+}
+.main .status{
+  border:1px solid #b8c2ca;
+  background:#eef3f7;
+  border-radius:1px;
+}
+@media(max-width:900px){
+  .main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])){
+    grid-template-columns:minmax(90px,34%) minmax(0,66%) !important;
+  }
+}
