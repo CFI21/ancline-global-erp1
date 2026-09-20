@@ -3,7 +3,7 @@
 type Props={
   bookingId?:string;
   bookingNo?:string;
-  active?:'BOOKING'|'SCHEDULE'|'ROUTING'|'CARRIER'|'SHIPMENT'|'DOCUMENTS';
+  active?:'BOOKING'|'SCHEDULE'|'ROUTING'|'CARRIER'|'CONTAINERS'|'SHIPMENT'|'DOCUMENTS';
 };
 
 export default function JobFlowNav({bookingId='',bookingNo='',active}:Props){
@@ -13,6 +13,7 @@ export default function JobFlowNav({bookingId='',bookingNo='',active}:Props){
     {key:'SCHEDULE',label:'Vessel Schedule',href:`/schedules${q}`},
     {key:'ROUTING',label:'Routing',href:`/routing${q}`},
     {key:'CARRIER',label:'Carrier Space',href:`/carrier-operations${q}`},
+    {key:'CONTAINERS',label:'Containers',href:`/container-control${q}`},
     {key:'SHIPMENT',label:'Shipment / Consol',href:`/shipment-control${q}`},
     {key:'DOCUMENTS',label:'Documents',href:`/documents${q}`},
   ] as const;
