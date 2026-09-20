@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
-import JobFlowNav from '../../components/JobFlowNav';
+import JobContextRail from '../../components/JobContextRail';
 import {api,requireToken} from '../../lib/api';
 
 export default function CarrierOperationsPage(){
@@ -26,7 +26,15 @@ export default function CarrierOperationsPage(){
 
   return <WorkspaceShell title="Carrier Booking / Space Control" subtitle="Ocean carrier confirmation, allocation, equipment release, sailing capacity and cutoff exposure" active="/carrier-operations" actions={<button className="btn" disabled={busy} onClick={()=>load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    {form.bookingId&&<JobFlowNav bookingId={form.bookingId} bookingNo={selectedBooking?.bookingNo} active="CARRIER"/>}
+    {form.bookingId&&<JobContextRail
+      bookingId={form.bookingId}
+      bookingNo={selectedBooking?.bookingNo}
+      active="CARRIER"
+      route={selectedBooking?`${selectedBooking.origin} → ${selectedBooking.destination}`:''}
+      carrier={carriers.find((x:any)=>x.id===form.carrierId)?.name||''}
+      equipment={form.equipmentType?`${form.quantity||1} × ${form.equipmentType}`:''}
+      status={selectedBooking?.status||''}
+    />}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginBottom:14}}>{card('Active carrier bookings',dashboard.activeCarrierBookings)}{card('Awaiting confirmation',dashboard.awaitingConfirmation)}{card('Awaiting allocation',dashboard.awaitingAllocation)}{card('Awaiting release',dashboard.awaitingEquipmentRelease)}{card('Cutoff alerts',dashboard.cutoffAlerts)}{card('Tight sailings',dashboard.tightSailings)}</div>
 
     <div className="card" style={{marginBottom:14}}><h3 style={sectionTitle}>Create Carrier Booking Request</h3><div style={formGrid}>
