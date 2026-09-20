@@ -87,7 +87,7 @@ export default function BookingsPage(){
     setUserRole(String(currentUser()?.role||''));
     const params=new URLSearchParams(location.search);
     if(params.get('new')==='1'){
-      setForm({...initialForm,bookingNo:`ANL-${Date.now().toString().slice(-8)}`,bookingDate:new Date().toISOString().slice(0,10)});
+      setForm({...initialForm,bookingNo:'',bookingDate:new Date().toISOString().slice(0,10)});
       setShowForm(true);
     }
     void load(t);
@@ -100,7 +100,7 @@ export default function BookingsPage(){
     try{const [b,o]=await Promise.all([request('/bookings',{},true,t),request('/organizations',{},true,t).catch(()=>[])]);setBookings(Array.isArray(b)?b:[]);setOrgs(Array.isArray(o)?o:[]);}catch(e:any){setMessage(e?.message||'Unable to load booking data');}
   }
   function set(k:keyof typeof initialForm,v:string){setForm(x=>({...x,[k]:v}));}
-  function newBooking(){setForm({...initialForm,bookingNo:`ANL-${Date.now().toString().slice(-8)}`,bookingDate:new Date().toISOString().slice(0,10)});setMessage('');setShowForm(true);window.scrollTo({top:0,behavior:'smooth'});}
+  function newBooking(){setForm({...initialForm,bookingNo:'',bookingDate:new Date().toISOString().slice(0,10)});setMessage('');setShowForm(true);window.scrollTo({top:0,behavior:'smooth'});}
 
   async function saveBooking(){
     if(!form.origin.trim()||!form.destination.trim()){setMessage('Origin and Destination are required.');return;}
@@ -111,7 +111,7 @@ export default function BookingsPage(){
     try{
       let customerId=form.customerId;
       if(!customerId){const org=await request('/organizations',{method:'POST',body:JSON.stringify({code:`CUS-${Date.now().toString().slice(-7)}`,name:form.customerName.trim(),roles:['CUSTOMER'],active:true})});customerId=org.id;}
-      const bookingNo=form.bookingNo.trim()||`ANL-${Date.now().toString().slice(-8)}`;
+      const bookingNo=form.bookingNo.trim();
       const body:any={
         businessModel:form.businessModel,bookingNo,customerId,producingAgentId:form.producingAgentId||null,bookingType:form.bookingType||null,transportMode:form.transportMode||null,serviceType:form.serviceType||null,
         bookingDate:toIso(form.bookingDate),customerReference:form.customerReference||null,shipperReference:form.shipperReference||null,carrierBookingNo:form.carrierBookingNo||null,houseBL:form.houseBL||null,masterBL:form.masterBL||null,
@@ -125,7 +125,7 @@ export default function BookingsPage(){
         oogLengthCm:form.specialCargo==='OOG'?num(form.oogLengthCm):null,oogWidthCm:form.specialCargo==='OOG'?num(form.oogWidthCm):null,oogHeightCm:form.specialCargo==='OOG'?num(form.oogHeightCm):null,oogWeightKg:form.specialCargo==='OOG'?num(form.oogWeightKg):null,
         notes:form.notes||null,status:'DRAFT'
       };
-      const created=await request('/bookings',{method:'POST',body:JSON.stringify(body)});setMessage(`Booking ${bookingNo} saved successfully.`);setForm(initialForm);await load(token);setShowForm(false);if(created?.id)location.href=`/bookings/${created.id}`;
+      const created=await request('/bookings',{method:'POST',body:JSON.stringify(body)});setMessage(`Booking ${created?.bookingNo||bookingNo} saved successfully.`);setForm(initialForm);await load(token);setShowForm(false);if(created?.id)location.href=`/bookings/${created.id}`;
     }catch(e:any){setMessage(e?.message||'Booking could not be saved.');}finally{setBusy(false);}
   }
 
@@ -175,7 +175,7 @@ export default function BookingsPage(){
         <section className="erp-panel booking-entry-panel">
           <h3 className="erp-section-title">Booking & Customer</h3>
           <div className="booking-clean-fields">
-            <Input l="Booking No." k="bookingNo" ph="Auto if blank"/>
+            <label><span style={label}>Job Ref</span><input inputMode="numeric" maxLength={5} pattern="\\d{5}" value={form.bookingNo} onChange={e=>set('bookingNo',e.target.value.replace(/\\D/g,'').slice(0,5))} style={field} placeholder="Auto 5-digit"/></label>
             <Input l="Booking Date" k="bookingDate" type="date"/>
             <label><span style={label}>Customer *</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">Select / new customer</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
             {!form.customerId&&<Input l="New Customer" k="customerName"/>}
