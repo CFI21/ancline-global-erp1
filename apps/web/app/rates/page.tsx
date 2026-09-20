@@ -173,6 +173,7 @@ export default function RatesPage(){
     {contextBooking&&<JobContextRail
       bookingId={contextBooking.id}
       bookingNo={contextBooking.bookingNo}
+      active="RATES"
       customer={contextBooking.customer?.name||customerName(contextBooking.customerId)}
       route={`${contextBooking.origin||'—'} → ${contextBooking.destination||'—'}`}
       carrier={contextBooking.carrier||''}
