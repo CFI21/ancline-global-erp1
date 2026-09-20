@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import CommercialFlowGrid from '../../components/CommercialFlowGrid';
 import {api,fmtDate,fmtMoney,requireToken} from '../../lib/api';
 
 type Org={id:string;code:string;name:string;roles:string[]};
@@ -170,6 +171,16 @@ export default function RatesPage(){
       {message}
       {lastBooking&&<> &nbsp;<a href={`/bookings/${lastBooking.id}`}><b>Open {lastBooking.bookingNo}</b></a></>}
     </div>}
+    <CommercialFlowGrid
+      active="ANC_QUOTE"
+      bookingId={contextBooking?.id||lastBooking?.id||''}
+      bookingNo={contextBooking?.bookingNo||lastBooking?.bookingNo||''}
+      quoteNo={contextBooking?.rateQuote?.quoteNo||''}
+      carrier={contextBooking?.carrier||''}
+      quoteStatus={contextBooking?.rateQuote?.status||''}
+      buyLabel={contextBooking?.rateQuote?fmtMoney(contextBooking.rateQuote.buyRate,contextBooking.rateQuote.currency):''}
+      sellLabel={contextBooking?.rateQuote?fmtMoney(contextBooking.rateQuote.sellRate,contextBooking.rateQuote.currency):''}
+    />
     {contextBooking&&<JobContextRail
       bookingId={contextBooking.id}
       bookingNo={contextBooking.bookingNo}
