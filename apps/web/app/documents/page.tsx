@@ -2,7 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
-import JobFlowNav from '../../components/JobFlowNav';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;shipper?:string;consignee?:string;notifyParty?:string;carrier?:string;vesselVoyage?:string;portOfLoading?:string;portOfDischarge?:string;houseBL?:string;masterBL?:string;commodity?:string;packageCount?:number;packageType?:string;grossWeight?:number;volumeCbm?:number;marksNumbers?:string;cargoDescription?:string;customer?:{name:string};containers?:Array<{containerNo:string;type:string;sealNo?:string}>;routingLegs?:Array<{sequence:number;legType:string;origin:string;destination:string;vessel?:string;voyage?:string;etd?:string;eta?:string}>};
@@ -53,7 +53,16 @@ export default function DocumentsPage(){
 
   return <WorkspaceShell title="B/L & Document Control" subtitle="House B/L, Master B/L, review, approval, amendments and release control" active="/documents" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    {form.bookingId&&<JobFlowNav bookingId={form.bookingId} bookingNo={bookings.find(b=>b.id===form.bookingId)?.bookingNo} active="DOCUMENTS"/>}
+    {form.bookingId&&<JobContextRail
+      bookingId={form.bookingId}
+      bookingNo={bookings.find(b=>b.id===form.bookingId)?.bookingNo}
+      active="DOCUMENTS"
+      customer={bookings.find(b=>b.id===form.bookingId)?.customer?.name||''}
+      route={(()=>{const b=bookings.find(x=>x.id===form.bookingId);return b?`${b.origin} → ${b.destination}`:''})()}
+      carrier={bookings.find(b=>b.id===form.bookingId)?.carrier||''}
+      vessel={bookings.find(b=>b.id===form.bookingId)?.vesselVoyage||''}
+      status={bookings.find(b=>b.id===form.bookingId)?.status||''}
+    />}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:12}}>
       {[['Documents',rows.length],['Pending Review',pending],['Approved',approved],['Released',released],['On Hold',held]].map(([k,v])=><div className="card" key={String(k)}><div className="sub">{k}</div><div style={{fontSize:24,fontWeight:800}}>{v}</div></div>)}
