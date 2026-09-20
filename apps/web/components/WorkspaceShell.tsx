@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import type {ReactNode} from 'react';
 import {signOut} from '../lib/api';
 
@@ -125,6 +125,13 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   const activeGroup=menuGroups.find(group=>group.items.some(([href])=>href===active))?.id??null;
   const [openGroup,setOpenGroup]=useState<string|null>(activeGroup);
   const [menuQuery,setMenuQuery]=useState('');
+  const [embedded,setEmbedded]=useState(false);
+  useEffect(()=>{
+    const isEmbedded=new URLSearchParams(location.search).get('embed')==='1';
+    setEmbedded(isEmbedded);
+    document.body.classList.toggle('ancline-embed-mode',isEmbedded);
+    return ()=>document.body.classList.remove('ancline-embed-mode');
+  },[]);
   const query=menuQuery.trim().toLowerCase();
   const searching=query.length>0;
 
@@ -142,6 +149,8 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   }).filter(group=>group.items.length>0);
 
   const noResults=searching&&visiblePortals.length===0&&visibleGroups.length===0;
+
+  if(embedded)return <main className="main embedded-main">{children}</main>;
 
   return <div className="shell">
     <aside className="side">
