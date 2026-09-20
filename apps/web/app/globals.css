@@ -518,3 +518,127 @@
     grid-template-columns:repeat(3,minmax(215px,1fr));
   }
 }
+
+
+/* ANCLINE GLOBAL SAP / EXCEL COMPACT STANDARD */
+:root{
+  --anc-sap-border:#b9c1c8;
+  --anc-sap-grid:#cbd2d8;
+  --anc-sap-head:#e9edf0;
+  --anc-sap-panel:#f6f7f8;
+  --anc-sap-toolbar:#eef1f3;
+  --anc-sap-blue:#0a4f85;
+  --anc-sap-text:#172b3a;
+}
+html,body{font-size:11px;background:#e9edf1;color:var(--anc-sap-text)}
+.shell{grid-template-columns:188px minmax(0,1fr);background:#e9edf1}
+.side{padding:6px 5px;background:#17324d;border-right:1px solid #0d2235}
+.brand{font-size:15px;padding:4px 6px 7px;margin-bottom:5px}
+.brand span{font-size:8px;letter-spacing:1.35px;margin-top:1px}
+.menu-search-wrap{margin:4px 2px 5px}
+.menu-search{height:26px;border-radius:2px;padding:0 23px 0 24px;font-size:10px}
+.menu-search-icon{left:7px;top:4px;font-size:14px}
+.menu-search-clear{right:2px;top:1px;width:22px;height:22px;border-radius:1px}
+.menu-caption{font-size:8px;padding:4px 6px 3px;letter-spacing:1px}
+.menu-home,.menu-group{gap:5px;padding:5px 5px;border-radius:2px;min-height:25px}
+.menu-step{font-size:8px;min-width:18px}
+.menu-group-label{font-size:10px}
+.menu-chevron{font-size:12px}
+.menu-section{margin:0}
+.submenu{padding:1px 0 3px 23px}
+.submenu a{padding:4px 5px;border-radius:1px;margin:0;font-size:9.5px;line-height:1.15}
+.menu-portal{gap:5px;padding:5px;border-radius:2px;margin:0;font-size:9.5px}
+.menu-portal-mark{min-width:18px;font-size:10px}
+.workflow-caption{margin-top:4px;padding-top:5px}
+.main{padding:8px;min-width:0}
+.top{
+  min-height:38px;
+  margin:0 0 6px;
+  padding:4px 6px;
+  border:1px solid var(--anc-sap-border);
+  background:var(--anc-sap-toolbar);
+  align-items:center;
+}
+.top h1{font-size:16px !important;line-height:1.1}
+.sub{font-size:9.5px;color:#526574}
+.grid{gap:5px}
+.card{
+  border:1px solid var(--anc-sap-border);
+  border-radius:2px;
+  padding:6px;
+  box-shadow:none;
+}
+.card h2,.card h3,.card h4{margin-top:0}
+.kpi{font-size:19px}
+.btn{
+  min-height:24px;
+  padding:3px 7px;
+  border:1px solid #073d67;
+  border-radius:2px;
+  font-size:10px;
+  line-height:1.15;
+}
+.status{font-size:9px;padding:2px 5px;border-radius:2px}
+.booking-context-bar{gap:3px;margin:-1px 0 5px;padding:4px 5px;border-radius:2px}
+.table,.card table{
+  width:100%;
+  border-collapse:collapse;
+  border:1px solid var(--anc-sap-grid);
+  background:#fff;
+}
+.table th,.table td,.card table th,.card table td{
+  padding:3px 5px !important;
+  min-height:20px;
+  height:20px;
+  border:1px solid var(--anc-sap-grid) !important;
+  text-align:left;
+  font-size:10px !important;
+  line-height:1.15;
+  vertical-align:middle;
+}
+.table th,.card table th{
+  background:var(--anc-sap-head) !important;
+  color:#243746;
+  font-weight:700;
+  white-space:nowrap;
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+.table tbody tr:nth-child(even),.card table tbody tr:nth-child(even){background:#fafbfc}
+.table tbody tr:hover,.card table tbody tr:hover{background:#eaf3fb}
+.card input:not([type="checkbox"]):not([type="radio"]),
+.card select{
+  min-height:23px !important;
+  height:23px !important;
+  padding:2px 4px !important;
+  border:1px solid #aeb7bf !important;
+  border-radius:1px !important;
+  font-size:10px !important;
+  line-height:1.1 !important;
+  background:#fff;
+}
+.card textarea{
+  padding:3px 4px !important;
+  border:1px solid #aeb7bf !important;
+  border-radius:1px !important;
+  font-size:10px !important;
+  line-height:1.2 !important;
+}
+.card label{font-size:10px}
+.card button:not(.btn){
+  min-height:23px;
+  padding:2px 6px;
+  border-radius:1px;
+  font-size:10px;
+}
+.card [style*="gap: 10px"],.card [style*="gap:10px"]{gap:5px !important}
+.card [style*="gap: 12px"],.card [style*="gap:12px"]{gap:5px !important}
+.card [style*="margin-top: 12px"],.card [style*="marginTop:12"]{margin-top:6px !important}
+.card [style*="margin-bottom: 12px"],.card [style*="marginBottom:12"]{margin-bottom:6px !important}
+.cw-screen{margin:-8px}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .main{padding:6px}
+  .top{margin-bottom:5px}
+}
