@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import type {ReactNode} from 'react';
 import {signOut} from '../lib/api';
 
@@ -143,6 +143,31 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
 
   const noResults=searching&&visiblePortals.length===0&&visibleGroups.length===0;
 
+  useEffect(()=>{
+    const onGridKey=(event:KeyboardEvent)=>{
+      const target=event.target as HTMLElement|null;
+      if(!target||!target.matches('input,select,textarea'))return;
+      const input=target as HTMLInputElement;
+      if(input.type==='checkbox'||input.type==='radio'||input.type==='file')return;
+      if(event.key==='Escape'){target.blur();return;}
+      if(event.key!=='Enter'&&event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
+      if(event.key==='Enter'&&target.tagName==='TEXTAREA')return;
+      const scope=target.closest('.main')||document;
+      const fields=Array.from(scope.querySelectorAll<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),a.btn'
+      )).filter(el=>el.offsetParent!==null);
+      const index=fields.indexOf(target);
+      if(index<0)return;
+      const next=fields[index+(event.key==='ArrowUp'?-1:1)];
+      if(!next)return;
+      event.preventDefault();
+      next.focus();
+      if(next instanceof HTMLInputElement&&typeof next.select==='function')next.select();
+    };
+    window.addEventListener('keydown',onGridKey);
+    return ()=>window.removeEventListener('keydown',onGridKey);
+  },[]);
+
   return <div className="shell">
     <aside className="side">
       <div className="brand">ANCLINE <span>WORLDWIDE</span></div>
@@ -202,10 +227,20 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
       </nav>
     </aside>
     <main className="main">
-      {!hideHeader&&<div className="top">
-        <div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div>
-        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
-      </div>}
+      {!hideHeader&&<>
+        <div className="top">
+          <div><h1 style={{margin:0}}>{title}</h1><div className="sub">{subtitle}</div></div>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
+        </div>
+        <div className="sap-commandbar" role="toolbar" aria-label="Workspace commands">
+          <button type="button" onClick={()=>history.back()}>← Back</button>
+          <button type="button" onClick={()=>location.reload()}>↻ Reload</button>
+          <button type="button" onClick={()=>window.print()}>Print</button>
+          <span className="sap-command-separator" aria-hidden="true"/>
+          <span className="sap-key-hint">Enter / ↓ next field · ↑ previous · Esc exit field</span>
+          <span className="sap-ready">READY</span>
+        </div>
+      </>}
       {children}
     </main>
   </div>;
