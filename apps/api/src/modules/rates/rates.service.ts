@@ -12,6 +12,20 @@ export class RatesService {
     private audit:AuditService
   ){}
 
+  private async nextJobRef(){
+    const rows=await this.prisma.booking.findMany({select:{bookingNo:true}});
+    const used=rows.map(x=>String(x.bookingNo||'')).filter(x=>/^\d{5}$/.test(x)).map(Number);
+    let next=Math.max(10000,...used)+1;
+    if(next>99999)throw new BadRequestException('No 5-digit ANCLINE job references are available');
+    while(await this.prisma.booking.findUnique({where:{bookingNo:String(next).padStart(5,'0')}})){
+      next+=1;
+      if(next>99999)throw new BadRequestException('No 5-digit ANCLINE job references are available');
+    }
+    return String(next).padStart(5,'0');
+  }
+
+  private validJobRef(value:string){return /^\d{5}$/.test(String(value||'').trim());}
+
   private internal(user:ScopeUser){ if(String(user.role||'').toUpperCase()!=='GLOBAL_ADMIN') throw new ForbiddenException('Global Admin access required for NVOCC tariff management'); }
 
   private canonicalStatus(status?:string|null){
@@ -177,7 +191,9 @@ export class RatesService {
     if(!origin||!destination||origin===destination)
       throw new BadRequestException('Origin and destination are required to convert this quote');
 
-    const bookingNo=String(body?.bookingNo||`BKG-${Date.now().toString().slice(-9)}`).trim().toUpperCase();
+    const requestedRef=String(body?.bookingNo||'').trim();
+    const bookingNo=requestedRef||await this.nextJobRef();
+    if(!this.validJobRef(bookingNo))throw new BadRequestException('ANCLINE Job Ref must be exactly 5 digits');
     const quantity=Math.max(1,Math.floor(Number(body?.quantity||1)));
 
     const booking=await this.prisma.booking.create({data:{
