@@ -26,7 +26,11 @@ export class TestDataService implements OnModuleInit {
   }
   async onModuleInit(){
     if(String(process.env.ANCLINE_TEST_DATA_SEED||'false').toLowerCase()==='true'){
-      try{const r=await this.seed(undefined);console.log('[ANCLINE TEST DATA]',JSON.stringify(r.summary));}
+      try{
+        if(String(process.env.ANCLINE_TEST_DATA_RESET_ON_SEED||'false').toLowerCase()==='true')await this.reset(undefined);
+        const r=await this.seed(undefined);
+        console.log('[ANCLINE TEST DATA]',JSON.stringify({summary:r.summary,bookings:r.bookings?.map((x:any)=>x.bookingNo)||[]}));
+      }
       catch(e:any){console.error('[ANCLINE TEST DATA] seed failed',e?.message||e);}
     }
   }
@@ -258,7 +262,7 @@ export class TestDataService implements OnModuleInit {
     };
   }
 
-  async reset(user:ScopeUser){
+  async reset(user?:ScopeUser){
     this.admin(user);
     const [bookings,testCustomers]=await Promise.all([
       this.db.booking.findMany({where:{OR:[{bookingNo:{in:[...TEST_JOB_REFS]}},{bookingNo:{startsWith:'ANC-TEST-'}}]},select:{id:true}}),
