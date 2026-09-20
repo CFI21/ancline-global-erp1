@@ -216,7 +216,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
           <div className="erp-commandbar-status">READY</div>
         </div>
       </>}
-      {children}
+      <div className="erp-screen-grid">{children}</div>
     </main>
   </div>;
 }
