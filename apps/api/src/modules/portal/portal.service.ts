@@ -9,6 +9,17 @@ import { assertAncCarrierOutboundPayload } from '../carrier-outbound-policy';
 @Injectable()
 export class PortalService {
   constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
+  private async nextJobRef(){
+    const rows=await this.prisma.booking.findMany({select:{bookingNo:true}});
+    const used=rows.map(x=>String(x.bookingNo||'')).filter(x=>/^\d{5}$/.test(x)).map(Number);
+    let next=Math.max(10000,...used)+1;
+    if(next>99999)throw new BadRequestException('No 5-digit ANCLINE job references are available');
+    while(await this.prisma.booking.findUnique({where:{bookingNo:String(next).padStart(5,'0')}})){
+      next+=1;
+      if(next>99999)throw new BadRequestException('No 5-digit ANCLINE job references are available');
+    }
+    return String(next).padStart(5,'0');
+  }
 
   private allowedNvoccRole(user:ScopeUser){
     const role=String(user.role||'').toUpperCase();
@@ -87,7 +98,7 @@ export class PortalService {
     if(role==='AGENT'&&customerId!==user.agentId)throw new ForbiddenException('Agent can only create its own NVOCC booking request');
     if(role!=='AGENT'&&roles.includes('AGENT'))producingAgentId=customerId;
     const quantity=Math.max(1,Math.min(999,Math.floor(Number(body?.quantity||1))));
-    const bookingNo='ANC-NVOCC-BKG-'+Date.now().toString().slice(-10);
+    const bookingNo=await this.nextJobRef();
     const bookingChannel=role==='AGENT'?'NVOCC_AGENT_PORTAL':role==='BRANCH_OPS'?'NVOCC_BRANCH_PORTAL':'NVOCC_ADMIN_PORTAL';
     const row=await this.prisma.booking.create({data:{
       bookingNo,businessModel:'NVOCC',bookingChannel,customerId,producingAgentId,owningBranchId,salesOwner:user.email,
@@ -362,7 +373,7 @@ export class PortalService {
     if(!costCenterCode)throw new BadRequestException('Forwarding booking requires a cost center');
     const existing=await this.prisma.booking.findFirst({where:{rateQuoteId:quote.id}});
     if(existing){const base:any={booking:{id:existing.id,bookingNo:existing.bookingNo,status:existing.status,shipmentStatus:existing.shipmentStatus},quote:{id:quote.id,quoteNo:quote.quoteNo,status:'Customer Accepted'},automation:{status:existing.shipmentStatus||'BOOKING_REQUESTED'}};if(role==='GLOBAL_ADMIN')base.booking=existing;return base;}
-    const bookingNo='ANC-FWD-BKG-'+Date.now().toString().slice(-10);
+    const bookingNo=await this.nextJobRef();
     const bookingChannel=role==='CUSTOMER'?'CUSTOMER_PORTAL':role==='SHIPPER'?'SHIPPER_PORTAL':role==='CONSIGNEE'?'CONSIGNEE_PORTAL':role==='AGENT'?'AGENT_FORWARDING_CROSS_TRADE':'ADMIN_FORWARDING';
     const shipper=role==='SHIPPER'?customer.name:(request.shipper||null),consignee=role==='CONSIGNEE'?customer.name:(request.consignee||null);
     const vesselVoyage=[offer.vessel,offer.voyage].filter(Boolean).join(' / ')||null;
