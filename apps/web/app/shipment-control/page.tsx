@@ -122,18 +122,18 @@ export default function ShipmentControlPage(){
 
   return <WorkspaceShell title="Shipment / Consol Control" subtitle="Promote bookings into operational shipments and manage master consol movements" active="/shipment-control" actions={<><button className="btn" onClick={()=>setShowShipmentForm(v=>!v)}>+ Shipment</button><button className="btn" onClick={()=>setShowConsolForm(v=>!v)}>+ Consol</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    {contextBookingId&&<JobContextRail
-      bookingId={contextBookingId}
-      bookingNo={bookings.find(b=>b.id===contextBookingId)?.bookingNo}
+    {(contextBookingId||shipmentBookingId)&&<JobContextRail
+      bookingId={contextBookingId||shipmentBookingId}
+      bookingNo={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.bookingNo}
       active="SHIPMENT"
-      customer={bookings.find(b=>b.id===contextBookingId)?.customer?.name||''}
-      route={(()=>{const b=bookings.find(x=>x.id===contextBookingId);return b?`${b.origin} → ${b.destination}`:''})()}
-      carrier={bookings.find(b=>b.id===contextBookingId)?.carrier||''}
-      vessel={bookings.find(b=>b.id===contextBookingId)?.vesselVoyage||''}
-      equipment={(()=>{const b=bookings.find(x=>x.id===contextBookingId);return b?.equipment?`${b.quantity||1} × ${b.equipment}`:''})()}
-      status={bookings.find(b=>b.id===contextBookingId)?.shipmentStatus||bookings.find(b=>b.id===contextBookingId)?.status||''}
-      etd={fmtDate(bookings.find(b=>b.id===contextBookingId)?.etd)}
-      eta={fmtDate(bookings.find(b=>b.id===contextBookingId)?.eta)}
+      customer={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.customer?.name||''}
+      route={(()=>{const b=bookings.find(x=>x.id===(contextBookingId||shipmentBookingId));return b?`${b.origin} → ${b.destination}`:''})()}
+      carrier={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.carrier||''}
+      vessel={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.vesselVoyage||''}
+      equipment={(()=>{const b=bookings.find(x=>x.id===(contextBookingId||shipmentBookingId));return b?.equipment?`${b.quantity||1} × ${b.equipment}`:''})()}
+      status={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.shipmentStatus||bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.status||''}
+      etd={fmtDate(bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.etd)}
+      eta={fmtDate(bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.eta)}
     />}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:12}}>
