@@ -43,11 +43,13 @@ export default function JobContextRail({
   const q=`bookingId=${encodeURIComponent(bookingId)}`;
   const pages=[
     {key:'BOOKING' as Active,label:'Booking',href:`/bookings/${bookingId}`},
+    {key:'QUOTE',label:'Quote / Rates',href:`/rates?${q}`},
     {key:'SCHEDULE' as Active,label:'Vessel Schedule',href:`/schedules?${q}`},
     {key:'ROUTING' as Active,label:'Routing',href:`/routing?${q}`},
     {key:'CARRIER' as Active,label:'Carrier Space',href:`/carrier-operations?${q}`},
     {key:'SHIPMENT' as Active,label:'Shipment / Consol',href:`/shipment-control?${q}`},
     {key:'DOCUMENTS' as Active,label:'Documents',href:`/documents?${q}`},
+    {key:'CONTAINERS',label:'Container Control',href:`/container-control?${q}`},
   ];
 
   const quickHref=(href:string)=>href.includes('?')?`${href}&embed=1`:`${href}?embed=1`;
