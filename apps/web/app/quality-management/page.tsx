@@ -1,12 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
-import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import WorkspaceShell from '../../components/WorkspaceShell';
 import {api,token} from '../../lib/api';
-
-const card:React.CSSProperties={background:'#fff',border:'1px solid #dfe7ee',borderRadius:8,padding:14};
-const table:React.CSSProperties={width:'100%',borderCollapse:'collapse',fontSize:12};
-const th:React.CSSProperties={textAlign:'left',padding:'7px 6px',borderBottom:'1px solid #dfe7ee',color:'#53687a'};
-const td:React.CSSProperties={padding:'7px 6px',borderBottom:'1px solid #edf1f4',verticalAlign:'top'};
 
 export default function QualityPage(){
  const [d,setD]=useState<any>({summary:{},ncrs:[],capas:[],audits:[],sops:[],attestations:[],recurring:[],overdueCapa:[]});
@@ -19,17 +14,99 @@ export default function QualityPage(){
  useEffect(()=>{load();},[]);
  const post=async(path:string,body:any,ok:string)=>{try{await api(path,token(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});setMsg(ok);await load();}catch(e:any){setMsg(e?.message||'Action failed');}};
  const s=d.summary||{};
- return <WorkspaceShell title="Quality Management / CAPA" subtitle="Non-conformance, root cause, corrective action, internal audits, SOP attestations and recurring quality signals" active="/quality-management">
-  {msg&&<div style={{marginBottom:10,padding:9,background:'#f4f8fb',border:'1px solid #dbe6ef',borderRadius:6}}>{msg}</div>}
-  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:12}}>{[['Open NCR',s.openNcr],['Open CAPA',s.openCapa],['Overdue CAPA',s.overdueCapa],['Open Audits',s.openAudits],['Active SOPs',s.activeSops],['Recurring Patterns',s.recurringPatterns]].map(([a,b])=><div key={String(a)} style={card}><div style={{fontSize:12,color:'#63788a'}}>{a}</div><div style={{fontSize:24,fontWeight:800,color:'#153a5d'}}>{b||0}</div></div>)}</div>
-  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(360px,1fr))',gap:12}}>
-   <section style={card}><h3 style={sectionTitle}>Raise Non-Conformance</h3><div style={formGrid}><label style={labelStyle}>Title<input style={fieldStyle} value={ncr.title} onChange={e=>setNcr({...ncr,title:e.target.value})}/></label><label style={labelStyle}>Severity<select style={fieldStyle} value={ncr.severity} onChange={e=>setNcr({...ncr,severity:e.target.value})}>{['LOW','MEDIUM','HIGH','CRITICAL'].map(x=><option key={x}>{x}</option>)}</select></label><label style={labelStyle}>Category<input style={fieldStyle} value={ncr.category} onChange={e=>setNcr({...ncr,category:e.target.value})}/></label><label style={labelStyle}>Source<input style={fieldStyle} value={ncr.source} onChange={e=>setNcr({...ncr,source:e.target.value})}/></label><label style={{...labelStyle,gridColumn:'1/-1'}}>Description<textarea style={{...fieldStyle,minHeight:70}} value={ncr.description||''} onChange={e=>setNcr({...ncr,description:e.target.value})}/></label></div><button className="btn" onClick={()=>post('/quality/ncrs',ncr,'NCR created')}>Create NCR</button></section>
-   <section style={card}><h3 style={sectionTitle}>Create CAPA</h3><div style={formGrid}><label style={labelStyle}>NCR<select style={fieldStyle} value={capa.ncrId} onChange={e=>setCapa({...capa,ncrId:e.target.value})}><option value="">Select NCR</option>{d.ncrs.map((x:any)=><option key={x.ncrId} value={x.ncrId}>{x.ncrId} — {x.title}</option>)}</select></label><label style={labelStyle}>Type<select style={fieldStyle} value={capa.actionType} onChange={e=>setCapa({...capa,actionType:e.target.value})}><option>CORRECTIVE</option><option>PREVENTIVE</option></select></label><label style={labelStyle}>Due date<input type="date" style={fieldStyle} value={capa.dueAt} onChange={e=>setCapa({...capa,dueAt:e.target.value})}/></label><label style={{...labelStyle,gridColumn:'1/-1'}}>Action<textarea style={{...fieldStyle,minHeight:70}} value={capa.action} onChange={e=>setCapa({...capa,action:e.target.value})}/></label></div><button className="btn" onClick={()=>post('/quality/capas',capa,'CAPA created')}>Create CAPA</button></section>
-   <section style={card}><h3 style={sectionTitle}>Internal Audit</h3><div style={formGrid}><label style={labelStyle}>Audit title<input style={fieldStyle} value={audit.title} onChange={e=>setAudit({...audit,title:e.target.value})}/></label><label style={labelStyle}>Type<input style={fieldStyle} value={audit.auditType} onChange={e=>setAudit({...audit,auditType:e.target.value})}/></label><label style={labelStyle}>Planned date<input type="date" style={fieldStyle} value={audit.plannedAt} onChange={e=>setAudit({...audit,plannedAt:e.target.value})}/></label></div><button className="btn" onClick={()=>post('/quality/audits',audit,'Audit created')}>Create Audit</button></section>
-   <section style={card}><h3 style={sectionTitle}>SOP / Attestation</h3><div style={formGrid}><label style={labelStyle}>Code<input style={fieldStyle} value={sop.code} onChange={e=>setSop({...sop,code:e.target.value})}/></label><label style={labelStyle}>Title<input style={fieldStyle} value={sop.title} onChange={e=>setSop({...sop,title:e.target.value})}/></label><label style={labelStyle}>Version<input style={fieldStyle} value={sop.version} onChange={e=>setSop({...sop,version:e.target.value})}/></label></div><button className="btn" onClick={()=>post('/quality/sops',sop,'SOP created')}>Create SOP</button></section>
+ const kpis=[
+  ['Open NCR',s.openNcr],
+  ['Open CAPA',s.openCapa],
+  ['Overdue CAPA',s.overdueCapa],
+  ['Open Audits',s.openAudits],
+  ['Active SOPs',s.activeSops],
+  ['Recurring Patterns',s.recurringPatterns],
+ ];
+
+ return <WorkspaceShell
+  title="Quality Management / CAPA"
+  subtitle="Non-conformance, root cause, corrective action, internal audits, SOP attestations and recurring quality signals"
+  active="/quality-management"
+ >
+  {msg&&<div className="erp-message">{msg}</div>}
+
+  <div className="erp-kpi-grid">
+   {kpis.map(([label,value])=><div className="erp-kpi" key={String(label)}>
+    <div className="erp-kpi-label">{label}</div>
+    <div className="erp-kpi-value">{value||0}</div>
+   </div>)}
   </div>
-  <section style={{...card,marginTop:12}}><h3 style={sectionTitle}>NCR / Root Cause Register</h3><div style={{overflowX:'auto'}}><table style={table}><thead><tr><th style={th}>NCR</th><th style={th}>Title</th><th style={th}>Severity</th><th style={th}>Category</th><th style={th}>Status</th><th style={th}>Root Cause</th></tr></thead><tbody>{d.ncrs.map((x:any)=><tr key={x.ncrId}><td style={td}>{x.ncrId}</td><td style={td}>{x.title}</td><td style={td}>{x.severity}</td><td style={td}>{x.category}</td><td style={td}>{x.status}</td><td style={td}>{x.rootCause||'—'}</td></tr>)}</tbody></table></div></section>
-  <section style={{...card,marginTop:12}}><h3 style={sectionTitle}>CAPA Control</h3><div style={{overflowX:'auto'}}><table style={table}><thead><tr><th style={th}>CAPA</th><th style={th}>NCR</th><th style={th}>Action</th><th style={th}>Owner</th><th style={th}>Due</th><th style={th}>Status</th></tr></thead><tbody>{d.capas.map((x:any)=><tr key={x.capaId}><td style={td}>{x.capaId}</td><td style={td}>{x.ncrId}</td><td style={td}>{x.action}</td><td style={td}>{x.owner}</td><td style={td}>{x.dueAt||'—'}</td><td style={td}>{x.status}</td></tr>)}</tbody></table></div></section>
-  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(360px,1fr))',gap:12,marginTop:12}}><section style={card}><h3 style={sectionTitle}>Recurring Quality Signals</h3>{d.recurring.length?d.recurring.map((x:any)=><div key={x.key} style={{padding:'8px 0',borderBottom:'1px solid #edf1f4'}}><b>{x.key}</b> — {x.count} occurrences<div style={{fontSize:11,color:'#687c8e'}}>{x.sources.join(', ')}</div></div>):<div>No recurring pattern above threshold.</div>}</section><section style={card}><h3 style={sectionTitle}>SOP Register</h3>{d.sops.map((x:any)=><div key={x.sopId} style={{padding:'8px 0',borderBottom:'1px solid #edf1f4'}}><b>{x.code} v{x.version}</b> — {x.title}<button className="btn" style={{marginLeft:8}} onClick={()=>post(`/quality/sops/${x.sopId}/attest`,{},'SOP attested')}>Attest</button></div>)}</section></div>
+
+  <div className="erp-panel-grid">
+   <section className="erp-panel">
+    <h3 className="erp-section-title">Raise Non-Conformance</h3>
+    <div className="erp-form-grid">
+     <label>Title<input value={ncr.title} onChange={e=>setNcr({...ncr,title:e.target.value})}/></label>
+     <label>Severity<select value={ncr.severity} onChange={e=>setNcr({...ncr,severity:e.target.value})}>{['LOW','MEDIUM','HIGH','CRITICAL'].map(x=><option key={x}>{x}</option>)}</select></label>
+     <label>Category<input value={ncr.category} onChange={e=>setNcr({...ncr,category:e.target.value})}/></label>
+     <label>Source<input value={ncr.source} onChange={e=>setNcr({...ncr,source:e.target.value})}/></label>
+     <label style={{gridColumn:'1/-1'}}>Description<textarea value={ncr.description||''} onChange={e=>setNcr({...ncr,description:e.target.value})}/></label>
+    </div>
+    <div className="erp-form-actions"><button className="btn" onClick={()=>post('/quality/ncrs',ncr,'NCR created')}>Create NCR</button></div>
+   </section>
+
+   <section className="erp-panel">
+    <h3 className="erp-section-title">Create CAPA</h3>
+    <div className="erp-form-grid">
+     <label>NCR<select value={capa.ncrId} onChange={e=>setCapa({...capa,ncrId:e.target.value})}><option value="">Select NCR</option>{d.ncrs.map((x:any)=><option key={x.ncrId} value={x.ncrId}>{x.ncrId} — {x.title}</option>)}</select></label>
+     <label>Type<select value={capa.actionType} onChange={e=>setCapa({...capa,actionType:e.target.value})}><option>CORRECTIVE</option><option>PREVENTIVE</option></select></label>
+     <label>Due date<input type="date" value={capa.dueAt} onChange={e=>setCapa({...capa,dueAt:e.target.value})}/></label>
+     <label style={{gridColumn:'1/-1'}}>Action<textarea value={capa.action} onChange={e=>setCapa({...capa,action:e.target.value})}/></label>
+    </div>
+    <div className="erp-form-actions"><button className="btn" onClick={()=>post('/quality/capas',capa,'CAPA created')}>Create CAPA</button></div>
+   </section>
+
+   <section className="erp-panel">
+    <h3 className="erp-section-title">Internal Audit</h3>
+    <div className="erp-form-grid">
+     <label>Audit title<input value={audit.title} onChange={e=>setAudit({...audit,title:e.target.value})}/></label>
+     <label>Type<input value={audit.auditType} onChange={e=>setAudit({...audit,auditType:e.target.value})}/></label>
+     <label>Planned date<input type="date" value={audit.plannedAt} onChange={e=>setAudit({...audit,plannedAt:e.target.value})}/></label>
+    </div>
+    <div className="erp-form-actions"><button className="btn" onClick={()=>post('/quality/audits',audit,'Audit created')}>Create Audit</button></div>
+   </section>
+
+   <section className="erp-panel">
+    <h3 className="erp-section-title">SOP / Attestation</h3>
+    <div className="erp-form-grid">
+     <label>Code<input value={sop.code} onChange={e=>setSop({...sop,code:e.target.value})}/></label>
+     <label>Title<input value={sop.title} onChange={e=>setSop({...sop,title:e.target.value})}/></label>
+     <label>Version<input value={sop.version} onChange={e=>setSop({...sop,version:e.target.value})}/></label>
+    </div>
+    <div className="erp-form-actions"><button className="btn" onClick={()=>post('/quality/sops',sop,'SOP created')}>Create SOP</button></div>
+   </section>
+  </div>
+
+  <section className="erp-register-panel">
+   <h3 className="erp-section-title">NCR / Root Cause Register</h3>
+   <div className="erp-register-wrap"><table className="erp-register"><thead><tr><th>NCR</th><th>Title</th><th>Severity</th><th>Category</th><th>Status</th><th>Root Cause</th></tr></thead><tbody>
+    {d.ncrs.map((x:any)=><tr key={x.ncrId}><td>{x.ncrId}</td><td>{x.title}</td><td>{x.severity}</td><td>{x.category}</td><td>{x.status}</td><td>{x.rootCause||'—'}</td></tr>)}
+    {!d.ncrs.length&&<tr><td colSpan={6}>No NCR records.</td></tr>}
+   </tbody></table></div>
+  </section>
+
+  <section className="erp-register-panel">
+   <h3 className="erp-section-title">CAPA Control</h3>
+   <div className="erp-register-wrap"><table className="erp-register"><thead><tr><th>CAPA</th><th>NCR</th><th>Action</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>
+    {d.capas.map((x:any)=><tr key={x.capaId}><td>{x.capaId}</td><td>{x.ncrId}</td><td>{x.action}</td><td>{x.owner}</td><td>{x.dueAt||'—'}</td><td>{x.status}</td></tr>)}
+    {!d.capas.length&&<tr><td colSpan={6}>No CAPA records.</td></tr>}
+   </tbody></table></div>
+  </section>
+
+  <div className="erp-split-grid">
+   <section className="erp-panel">
+    <h3 className="erp-section-title">Recurring Quality Signals</h3>
+    {d.recurring.length?d.recurring.map((x:any)=><div key={x.key} className="erp-list-row"><b>{x.key}</b> — {x.count} occurrences<div className="sub">{x.sources.join(', ')}</div></div>):<div className="erp-empty">No recurring pattern above threshold.</div>}
+   </section>
+   <section className="erp-panel">
+    <h3 className="erp-section-title">SOP Register</h3>
+    {d.sops.length?d.sops.map((x:any)=><div key={x.sopId} className="erp-list-row"><b>{x.code} v{x.version}</b> — {x.title}<button className="btn" style={{marginLeft:8}} onClick={()=>post(`/quality/sops/${x.sopId}/attest`,{},'SOP attested')}>Attest</button></div>):<div className="erp-empty">No SOP records.</div>}
+   </section>
+  </div>
  </WorkspaceShell>;
 }
