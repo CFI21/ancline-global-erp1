@@ -27,7 +27,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
   const [showCommEditor,setShowCommEditor]=useState(false);
-  const [comm,setComm]=useState<any>({date:new Date().toISOString().slice(0,10),type:'EMAIL',contact:'',subject:'',notes:''});
+  const [comm,setComm]=useState<any>({type:'EMAIL',contact:'',subject:'',notes:''});
   const user=currentUser();
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[leadId]);
@@ -76,8 +76,8 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
     if(isNew){setMessage('Save the inquiry before adding communication.');return;}
     if(!comm.subject.trim())return;
     setBusy(true);
-    try{await api(`/sales-crm/leads/${leadId}/communications`,token,{method:'POST',body:JSON.stringify(comm)});setComm({date:new Date().toISOString().slice(0,10),type:'EMAIL',contact:form.contactName||'',subject:'',notes:''});await load();setMessage('Activity registered.');}
-    catch(e:any){setMessage(e?.message||'Could not register activity');}
+    try{await api(`/sales-crm/leads/${leadId}/communications`,token,{method:'POST',body:JSON.stringify(comm)});setComm({type:'EMAIL',contact:form.contactName||'',subject:'',notes:''});await load();setMessage('Communication added.');}
+    catch(e:any){setMessage(e?.message||'Could not add communication');}
     finally{setBusy(false);}
   }
   async function convert(){
@@ -95,31 +95,6 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
   const field=(k:string,label:string,opts:{type?:string;green?:boolean;readonly?:boolean}={})=><div className="cw-row"><label>{label}</label><input className={'cw-input'+(opts.green?' cw-green':'')} type={opts.type||'text'} value={form[k]??''} readOnly={opts.readonly} onChange={e=>set(k,e.target.value)}/></div>;
   const interestCode=String(form.leadInterest||'WARM').toUpperCase()==='COLD'?'CLD':String(form.leadInterest||'WARM').toUpperCase()==='HOT'?'HOT':'WRM';
   const interestLabel=String(form.leadInterest||'WARM').toUpperCase()==='COLD'?'Cold':String(form.leadInterest||'WARM').toUpperCase()==='HOT'?'Hot':'Warm';
-  const activityRows=useMemo(()=>{
-    const communicationRows=(comms||[]).map((x:any)=>({
-      id:x.communicationId||`comm-${x.createdAt||x.date||Math.random()}`,
-      date:x.date||x.createdAt,
-      type:String(x.type||'ACTIVITY').toUpperCase(),
-      subject:x.subject||x.notes||'Communication',
-      contact:x.contact||'',
-      actor:x.createdBy||'',
-      source:'COMMUNICATION'
-    }));
-    const eventRows=(logs?.events||[]).map((x:any,i:number)=>({
-      id:`event-${i}-${x.createdAt||''}`,
-      date:x.createdAt,
-      type:String(x.eventType||'SYSTEM').replaceAll('_',' '),
-      subject:x.payload?.subject||x.payload?.notes||x.status||'Lead activity',
-      contact:'',
-      actor:x.payload?.updatedBy||x.payload?.createdBy||'System',
-      source:'SYSTEM'
-    }));
-    return [...communicationRows,...eventRows]
-      .filter((x:any)=>x.date)
-      .sort((a:any,b:any)=>new Date(b.date).getTime()-new Date(a.date).getTime())
-      .slice(0,14);
-  },[comms,logs?.events]);
-
 
   if(!lead)return <WorkspaceShell title="" subtitle="" active="/sales-crm/leads" hideHeader><div className="cw-screen"><div className="cw-loading">{message||'Loading inquiry...'}</div></div></WorkspaceShell>;
 
@@ -181,7 +156,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
             {relationTab==='Custom Fields'&&<textarea className="cw-notes" value={JSON.stringify(form.customFields||{},null,2)} onChange={e=>{try{set('customFields',JSON.parse(e.target.value||'{}'));}catch{}}}/>}
             {relationTab==='Sales Relations'&&<div className="cw-tablewrap"><table className="cw-table"><thead><tr><th>Relation</th><th>Summary</th><th>Created Time</th><th>Last Edit Time</th></tr></thead><tbody>
               {!isNew&&<tr><td><b>INQ&nbsp; {inquiryNo}</b></td><td><b>{relationSummary}</b></td><td>{String(lead.createdAt||'').replace('T',' ').slice(0,16)}</td><td>{String(lead.updatedAt||lead.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>}
-              {opportunityId&&<tr><td><a href={`/sales-crm/opportunities/${opportunityId}`}><b>OPP&nbsp; {opportunityId}</b></a></td><td>Sales Opportunity; {opportunity?.stage||'QUALIFY'}; {opportunity?.status||'OPEN'}</td><td>{String(opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td><td>{String(opportunity?.updatedAt||opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>}
+              {opportunityId&&<tr><td><a href={`/sales-crm?opportunity=${opportunityId}`}><b>OPP&nbsp; {opportunityId}</b></a></td><td>Sales Opportunity; {opportunity?.stage||'QUALIFY'}; {opportunity?.status||'OPEN'}</td><td>{String(opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td><td>{String(opportunity?.updatedAt||opportunity?.createdAt||'').replace('T',' ').slice(0,16)}</td></tr>}
             </tbody></table></div>}
             <div className="cw-lower-actions"><span>Popup</span><span className="cw-spacer"/><button>□ New</button><button>✎ Edit</button><button>● Attach</button><button>⊖ Detach</button></div>
           </div>
@@ -198,59 +173,38 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
         </div>
           </div>
 
-          <aside className="cw-summary-rail cw-activity-rail">
-            <div className="cw-summary-title cw-activity-title">Current Activity Registration</div>
-
-            <div className="cw-activity-register">
-              <div className="cw-activity-field">
-                <label>Date</label>
-                <input type="date" value={comm.date||''} onChange={e=>setComm({...comm,date:e.target.value})}/>
-              </div>
-              <div className="cw-activity-field">
-                <label>Activity Type</label>
-                <select value={comm.type} onChange={e=>setComm({...comm,type:e.target.value})}>
-                  <option value="EMAIL">Email</option>
-                  <option value="PHONE">Phone</option>
-                  <option value="MEETING">Meeting</option>
-                  <option value="FOLLOW_UP">Follow Up</option>
-                  <option value="NOTE">Note</option>
-                </select>
-              </div>
-              <div className="cw-activity-field">
-                <label>Contact</label>
-                <input value={comm.contact||''} onChange={e=>setComm({...comm,contact:e.target.value})}/>
-              </div>
-              <div className="cw-activity-field">
-                <label>Subject</label>
-                <input value={comm.subject||''} onChange={e=>setComm({...comm,subject:e.target.value})}/>
-              </div>
-              <div className="cw-activity-field cw-activity-notes">
-                <label>Notes</label>
-                <textarea value={comm.notes||''} onChange={e=>setComm({...comm,notes:e.target.value})}/>
-              </div>
-              <button className="cw-register-activity" type="button" disabled={busy||isNew||!String(comm.subject||'').trim()} onClick={()=>void addCommunication()}>
-                Register Activity
-              </button>
-              {isNew&&<div className="cw-activity-hint">Save the Inquiry first to register activity.</div>}
+          <aside className="cw-summary-rail">
+            <div className="cw-summary-title">Inquiry Summary</div>
+            <div className="cw-summary-section">
+              <div className="cw-summary-line"><span>Inquiry ID</span><b>{inquiryNo}</b></div>
+              <div className="cw-summary-line"><span>Type</span><b>{form.inquiryTypeLabel||form.inquiryType||'—'}</b></div>
+              <div className="cw-summary-line"><span>Status</span><b className={'cw-summary-status '+String(form.status||'OPEN').toLowerCase()}>{form.status||'OPEN'}</b></div>
             </div>
-
-            <div className="cw-activity-list-head">
-              <span>Current Activity</span>
-              <b>{activityRows.length}</b>
+            <div className="cw-summary-section">
+              <div className="cw-summary-head">Customer</div>
+              <div className="cw-summary-line"><span>Organization</span><b>{form.organizationName||'—'}</b></div>
+              <div className="cw-summary-line"><span>Code</span><b>{form.organizationCode||'—'}</b></div>
+              <div className="cw-summary-line"><span>Contact</span><b>{form.contactName||'—'}</b></div>
+              <div className="cw-summary-line"><span>Phone</span><b>{form.phone||form.mobile||'—'}</b></div>
+              <div className="cw-summary-line"><span>Email</span><b title={form.emailAddress||''}>{form.emailAddress||'—'}</b></div>
             </div>
-            <div className="cw-activity-feed">
-              {activityRows.map((x:any)=><div className="cw-activity-item" key={x.id}>
-                <div className="cw-activity-item-top">
-                  <span>{String(x.date||'').replace('T',' ').slice(0,16)}</span>
-                  <b>{x.type}</b>
-                </div>
-                <div className="cw-activity-subject" title={x.subject||''}>{x.subject||'—'}</div>
-                <div className="cw-activity-meta">
-                  <span>{x.contact||x.actor||'System'}</span>
-                  <em>{x.source==='SYSTEM'?'System':'Registered'}</em>
-                </div>
-              </div>)}
-              {!activityRows.length&&<div className="cw-activity-empty">No activity registered yet.</div>}
+            <div className="cw-summary-section">
+              <div className="cw-summary-head">Sales</div>
+              <div className="cw-summary-line"><span>Sales Rep</span><b>{form.assignedSalesRep||'—'}</b></div>
+              <div className="cw-summary-line"><span>Interest</span><b>{interestLabel}</b></div>
+              <div className="cw-summary-line"><span>Source</span><b>{[form.leadSourceCode,form.leadSourceName].filter(Boolean).join(' - ')||'—'}</b></div>
+              <div className="cw-summary-line"><span>Opportunity</span>{opportunityId?<a href={`/sales-crm?opportunity=${opportunityId}`}><b>{opportunityId}</b></a>:<b>Not created</b>}</div>
+            </div>
+            <div className="cw-summary-section">
+              <div className="cw-summary-head">Activity</div>
+              <div className="cw-summary-line"><span>Communications</span><b>{comms.length}</b></div>
+              <div className="cw-summary-line"><span>Last Type</span><b>{comms[0]?.type||'—'}</b></div>
+              <div className="cw-summary-line"><span>Last Subject</span><b title={comms[0]?.subject||''}>{comms[0]?.subject||'—'}</b></div>
+            </div>
+            <div className="cw-summary-actions">
+              <button type="button" disabled={busy} onClick={()=>void save(false)}>Save</button>
+              {!opportunityId&&!isNew&&<button type="button" disabled={busy} onClick={()=>void convert()}>Create Opportunity</button>}
+              {opportunityId&&<button type="button" onClick={()=>location.href=`/sales-crm?opportunity=${opportunityId}`}>Open Opportunity</button>}
             </div>
           </aside>
         </div>
@@ -258,7 +212,7 @@ export default function SalesLeadWorkspace({leadId}:{leadId?:string}){
         <div className="cw-action-row">
           <button onClick={()=>location.href='/sales-crm'}>Close</button>
           <button type="button" onClick={()=>setMessage('Client Intelligence workspace is available from the Sales Lead relation.')}>Set Client Intelligence</button>
-          {!opportunityId?<button className="cw-primary-action" disabled={busy||isNew} onClick={()=>void convert()}>Create Sales Opportunity</button>:<button className="cw-primary-action" onClick={()=>location.href=`/sales-crm/opportunities/${opportunityId}`}>Open Sales Opportunity</button>}
+          {!opportunityId?<button className="cw-primary-action" disabled={busy||isNew} onClick={()=>void convert()}>Create Sales Opportunity</button>:<button className="cw-primary-action" onClick={()=>location.href=`/sales-crm?opportunity=${opportunityId}`}>Open Sales Opportunity</button>}
         </div>
         <div className="cw-footerbar"><span className="cw-spacer"/><button onClick={()=>location.href='/sales-crm/leads/new'}>□ New</button><button disabled={busy} onClick={()=>void save(true)}>◉ Save & Close</button><button onClick={()=>location.href='/sales-crm'}>● Close</button></div>
       </>}

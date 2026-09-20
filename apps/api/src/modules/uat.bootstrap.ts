@@ -12,22 +12,20 @@ export class UatBootstrapService implements OnApplicationBootstrap {
 
     this.logger.log('[UAT_BOOTSTRAP] START');
     try {
-      const profile=String(process.env.UAT_RUN_PROFILE||'FULL_TRANSACTION').toUpperCase();
-      const principal={
-        role:'GLOBAL_ADMIN',
-        sub:'uat-bootstrap',
-        email:'uat-bootstrap@ancline.local',
-      };
-      const result=profile==='EXCEPTION_FAILURE'
-        ? await this.uat.runExceptionFailure(principal,{cleanup:true})
-        : await this.uat.run(principal,{cleanup:true});
+      const result = await this.uat.run(
+        {
+          role: 'GLOBAL_ADMIN',
+          sub: 'uat-bootstrap',
+          email: 'uat-bootstrap@ancline.local',
+        },
+        { cleanup: true },
+      );
       const failedSteps = Array.isArray(result?.steps)
         ? result.steps.filter((step: any) => step?.status === 'FAIL').map((step: any) => ({ name: step.name, error: step.error }))
         : [];
       this.logger.log(
         `[UAT_BOOTSTRAP] RESULT ${JSON.stringify({
           runId: result?.runId,
-          profile: result?.profile,
           status: result?.status,
           cleanup: result?.cleanup,
           summary: result?.summary,
