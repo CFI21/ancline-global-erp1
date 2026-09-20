@@ -4,6 +4,14 @@ import { ScopeUser } from '../auth/scope';
 
 const SOURCE='ANCLINE_TEST_DATA';
 const TEST_PREFIX='ANC-TEST';
+const TEST_JOB_REFS=['50001','50002','50003','50004','50005'] as const;
+const LEGACY_TEST_BOOKING_REFS=[
+  'ANC-TEST-FWD-BKG-STD-001',
+  'ANC-TEST-FWD-BKG-DG-001',
+  'ANC-TEST-FWD-BKG-REEFER-001',
+  'ANC-TEST-FWD-BKG-OOG-001',
+  'ANC-TEST-NVOCC-BKG-001'
+] as const;
 
 @Injectable()
 export class TestDataService implements OnModuleInit {
@@ -95,6 +103,16 @@ export class TestDataService implements OnModuleInit {
       }});
     }
 
+    // Keep synthetic jobs on the same five-digit reference convention as live ANCLINE jobs.
+    for(let i=0;i<LEGACY_TEST_BOOKING_REFS.length;i++){
+      const legacyRef=LEGACY_TEST_BOOKING_REFS[i],targetRef=TEST_JOB_REFS[i];
+      const [legacy,target]=await Promise.all([
+        this.db.booking.findUnique({where:{bookingNo:legacyRef}}),
+        this.db.booking.findUnique({where:{bookingNo:targetRef}})
+      ]);
+      if(legacy&&!target)await this.db.booking.update({where:{id:legacy.id},data:{bookingNo:targetRef}});
+    }
+
     const bookingDefs=[
       {key:'STD',customer:customerRows[0],carrier:carrierRows[0],origin:'NLRTM',destination:'AEJEA',por:'NLRTM',pol:'NLRTM',pod:'AEJEA',pdel:'AEDXB',equipment:'40HC',qty:1,commodity:'Furniture',packages:48,packageType:'PALLETS',gross:18200,net:17600,cbm:61.4,hs:'940360',incoterm:'CIF',freightTerms:'PREPAID',special:null,buy:1400,sell:1650,currency:'USD',tradeType:'STANDARD',jobType:'FCL',service:'PORT_TO_PORT',status:'BOOKING_REQUESTED',shipStatus:'CARRIER_PAYMENT_CONTROL_PENDING'},
       {key:'DG',customer:customerRows[0],carrier:carrierRows[1],origin:'NLRTM',destination:'SGSIN',por:'NLRTM',pol:'NLRTM',pod:'SGSIN',pdel:'SGSIN',equipment:'20GP',qty:1,commodity:'Paint related material',packages:80,packageType:'DRUMS',gross:15200,net:14600,cbm:28.2,hs:'320890',incoterm:'CFR',freightTerms:'PREPAID',special:'DG',buy:2150,sell:2575,currency:'USD',tradeType:'STANDARD',jobType:'FCL_DG',service:'PORT_TO_PORT',status:'CONFIRMED',shipStatus:'CARRIER_CONFIRMED',dg:{un:'UN1263',imo:'3',pg:'II',psn:'PAINT'}},
@@ -103,7 +121,7 @@ export class TestDataService implements OnModuleInit {
     ];
     const bookingRows:any[]=[];
     for(let idx=0;idx<bookingDefs.length;idx++){
-      const x:any=bookingDefs[idx],quoteNo=`ANC-TEST-FWD-Q-${x.key}-001`,bookingNo=`ANC-TEST-FWD-BKG-${x.key}-001`;
+      const x:any=bookingDefs[idx],quoteNo=`ANC-TEST-FWD-Q-${x.key}-001`,bookingNo=TEST_JOB_REFS[idx];
       const quote=await this.db.rateQuote.upsert({
         where:{quoteNo},
         update:{customerId:x.customer.id,trade:`${x.origin}-${x.destination}`,equipment:x.equipment,buyRate:x.buy,sellRate:x.sell,currency:x.currency,validFrom:this.d(-5),validTo:this.d(30),status:'Customer Accepted',source:`FORWARDING_CARRIER:${x.carrier.providerCode}`,customerRef:x.customer.customerRef,costCenterCode:x.customer.costCenterCode,carrierCode:x.carrier.providerCode,carrierQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,termsVersion:'ANC-TEST-FWD-TERMS-2026.1',termsAcceptedAt:this.d(-2),termsAcceptedBy:x.customer.email,requestData:{testData:true,origin:x.origin,destination:x.destination,equipment:x.equipment,quantity:x.qty},carrierOfferData:{testData:true,providerCode:x.carrier.providerCode,buy:x.buy,currency:x.currency}},
@@ -157,14 +175,14 @@ export class TestDataService implements OnModuleInit {
       await this.event('CarrierRateOffer',booking.id,'RATE_OFFER_SELECTED',{bookingId:booking.id,providerCode:x.carrier.providerCode,externalQuoteRef:`TEST-CARRIER-QUOTE-${x.key}-7788`,buy:x.buy,currency:x.currency,testData:true},'COMPLETED','ANCLINE_RATE_PROCUREMENT',booking.id);
     }
 
-    const nvCustomer=customerRows[0],nvBookingNo='ANC-TEST-NVOCC-BKG-001';
+    const nvCustomer=customerRows[0],nvBookingNo=TEST_JOB_REFS[4];
     const nv=await this.db.booking.upsert({
       where:{bookingNo:nvBookingNo},
       update:{owningBranchId:branch.id,businessModel:'NVOCC',bookingChannel:'AGENT_PORTAL',shipmentNo:'ANC-TEST-NVOCC-SHP-001',shipmentStatus:'OPERATIONAL',customerId:nvCustomer.id,customerRef:nvCustomer.customerRef,costCenterCode:'TEST-NVOCC-NL',jobType:'NVOCC_FCL',forwardingTradeType:null,producingAgentId:agent.id,salesOwner:'TEST NVOCC SALES',operator:'TEST NVOCC OPS',bookingType:'FCL',transportMode:'SEA',serviceType:'PORT_TO_PORT',bookingDate:this.d(-3),customerReference:'TEST-NVOCC-CUST-REF',shipperReference:'TEST-NVOCC-SHIPPER-REF',carrierBookingNo:'TEST-NVOCC-CARRIER-BKG-001',houseBL:'ANC-TEST-NVOCC-HBL-001',masterBL:'TEST-NVOCC-MBL-001',shipper:'TEST NVOCC HOUSE SHIPPER',consignee:'TEST NVOCC HOUSE CONSIGNEE',notifyParty:'TEST NVOCC NOTIFY',origin:'SGSIN',destination:'NLRTM',placeOfReceipt:'SGSIN',portOfLoading:'SGSIN',portOfDischarge:'NLRTM',placeOfDelivery:'NLRTM',terminal:'TEST PSA TERMINAL',polAgent:'TEST Liner Agent Singapore',podAgent:'TEST ANC Netherlands',etd:this.d(6,20),eta:this.d(31,8),cyClosing:this.d(4,12),siCutoff:this.d(4,8),vgmCutoff:this.d(5,8),docCutoff:this.d(4,10),portCutoff:this.d(5,14),carrier:carrierRows[0].name,vesselVoyage:'TEST NVOCC VESSEL / N001',equipment:'40HC',quantity:1,containerOwner:'CARRIER',throughBL:'NO',commodity:'Consumer goods',packageCount:920,packageType:'CARTONS',grossWeight:22400,netWeight:21600,volumeCbm:64.5,marksNumbers:'TEST NVOCC MARKS',hsCode:'851762',cargoDescription:'SYNTHETIC TEST NVOCC CARGO',incoterm:'FOB',freightTerms:'PREPAID',currency:'USD',status:'OPERATIONAL',creditStatus:'Passed',slotStatus:'ALLOCATED',equipmentStatus:'RELEASED',notes:'SYNTHETIC TEST NVOCC BOOKING — NVOCC PORTAL ONLY'},
       create:{owningBranchId:branch.id,bookingNo:nvBookingNo,businessModel:'NVOCC',bookingChannel:'AGENT_PORTAL',shipmentNo:'ANC-TEST-NVOCC-SHP-001',shipmentStatus:'OPERATIONAL',customerId:nvCustomer.id,customerRef:nvCustomer.customerRef,costCenterCode:'TEST-NVOCC-NL',jobType:'NVOCC_FCL',producingAgentId:agent.id,salesOwner:'TEST NVOCC SALES',operator:'TEST NVOCC OPS',bookingType:'FCL',transportMode:'SEA',serviceType:'PORT_TO_PORT',bookingDate:this.d(-3),customerReference:'TEST-NVOCC-CUST-REF',shipperReference:'TEST-NVOCC-SHIPPER-REF',carrierBookingNo:'TEST-NVOCC-CARRIER-BKG-001',houseBL:'ANC-TEST-NVOCC-HBL-001',masterBL:'TEST-NVOCC-MBL-001',shipper:'TEST NVOCC HOUSE SHIPPER',consignee:'TEST NVOCC HOUSE CONSIGNEE',notifyParty:'TEST NVOCC NOTIFY',origin:'SGSIN',destination:'NLRTM',placeOfReceipt:'SGSIN',portOfLoading:'SGSIN',portOfDischarge:'NLRTM',placeOfDelivery:'NLRTM',terminal:'TEST PSA TERMINAL',polAgent:'TEST Liner Agent Singapore',podAgent:'TEST ANC Netherlands',etd:this.d(6,20),eta:this.d(31,8),cyClosing:this.d(4,12),siCutoff:this.d(4,8),vgmCutoff:this.d(5,8),docCutoff:this.d(4,10),portCutoff:this.d(5,14),carrier:carrierRows[0].name,vesselVoyage:'TEST NVOCC VESSEL / N001',equipment:'40HC',quantity:1,containerOwner:'CARRIER',throughBL:'NO',commodity:'Consumer goods',packageCount:920,packageType:'CARTONS',grossWeight:22400,netWeight:21600,volumeCbm:64.5,marksNumbers:'TEST NVOCC MARKS',hsCode:'851762',cargoDescription:'SYNTHETIC TEST NVOCC CARGO',incoterm:'FOB',freightTerms:'PREPAID',currency:'USD',status:'OPERATIONAL',creditStatus:'Passed',slotStatus:'ALLOCATED',equipmentStatus:'RELEASED',notes:'SYNTHETIC TEST NVOCC BOOKING — NVOCC PORTAL ONLY'}
     });
 
-    await this.event('TestSeed','ANCLINE_TEST_SEED','TEST_DATA_SEEDED',{seededAt:this.now().toISOString(),customers:customerRows.map(x=>x.customerRef),carriers:carrierRows.map(x=>x.providerCode),bookings:[...bookingRows.map(x=>x.bookingNo),nvBookingNo],warning:'SYNTHETIC TEST DATA ONLY'});
+    await this.event('TestSeed','ANCLINE_TEST_SEED','TEST_DATA_SEEDED',{seededAt:this.now().toISOString(),customers:customerRows.map(x=>x.customerRef),carriers:carrierRows.map(x=>x.providerCode),bookings:[...bookingRows.map(x=>x.bookingNo),nvBookingNo],jobRefRule:'EXACTLY_5_DIGITS',warning:'SYNTHETIC TEST DATA ONLY'});
     return this.summary(user);
   }
 
@@ -173,7 +191,7 @@ export class TestDataService implements OnModuleInit {
     const [customers,carriers,bookings,users]=await Promise.all([
       this.db.organization.findMany({where:{code:{startsWith:'TEST-CUST-'}},orderBy:{code:'asc'}}),
       this.db.organization.findMany({where:{code:{startsWith:'TEST-CARRIER-'}},orderBy:{code:'asc'}}),
-      this.db.booking.findMany({where:{bookingNo:{startsWith:'ANC-TEST-'}},include:{rateQuote:true,containers:true,financeLines:true,routingLegs:true,milestones:true},orderBy:{bookingNo:'asc'}}),
+      this.db.booking.findMany({where:{OR:[{bookingNo:{in:[...TEST_JOB_REFS]}},{bookingNo:{startsWith:'ANC-TEST-'}}]},include:{rateQuote:true,containers:true,financeLines:true,routingLegs:true,milestones:true},orderBy:{bookingNo:'asc'}}),
       this.db.userAccount.findMany({where:{email:{endsWith:'@ancline.invalid'}},orderBy:{email:'asc'}})
     ]);
     return {
@@ -189,7 +207,7 @@ export class TestDataService implements OnModuleInit {
   async reset(user:ScopeUser){
     this.admin(user);
     const [bookings,testCustomers]=await Promise.all([
-      this.db.booking.findMany({where:{bookingNo:{startsWith:'ANC-TEST-'}},select:{id:true}}),
+      this.db.booking.findMany({where:{OR:[{bookingNo:{in:[...TEST_JOB_REFS]}},{bookingNo:{startsWith:'ANC-TEST-'}}]},select:{id:true}}),
       this.db.organization.findMany({where:{code:{startsWith:'TEST-CUST-'}},select:{id:true}})
     ]);
     const ids=bookings.map((x:any)=>x.id),customerIds=testCustomers.map((x:any)=>x.id);
