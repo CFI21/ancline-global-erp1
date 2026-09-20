@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {api} from '../lib/api';
 
-export type JobWorkspaceKey='BOOKING'|'RATES'|'SCHEDULE'|'ROUTING'|'CARRIER'|'SHIPMENT'|'CONTAINERS'|'DOCUMENTS'|'DETAILS';
+export type JobWorkspaceKey='BOOKING'|'RATES'|'SCHEDULE'|'ROUTING'|'CARRIER'|'SHIPMENT'|'CONTAINERS'|'DOCUMENTS'|'DETAILS'|'TRACKING'|'EXCEPTIONS'|'FINANCE'|'TASKS'|'APPROVALS';
 
 type Props={
   bookingId:string;
@@ -84,6 +84,14 @@ export default function JobContextRail({
     {key:'DOCUMENTS' as JobWorkspaceKey,label:'Docs',href:`/documents?${q}`},
     {key:'DETAILS' as JobWorkspaceKey,label:'Additional Detail',href:bookingId?`/bookings/${bookingId}?tab=Details`:'/bookings'},
   ],[bookingId,q]);
+  const taskPages=useMemo(()=>[
+    ...pages.filter(p=>p.key!=='DETAILS'),
+    {key:'TRACKING' as JobWorkspaceKey,label:'Tracking',href:`/tracking?${q}`},
+    {key:'EXCEPTIONS' as JobWorkspaceKey,label:'Exceptions',href:`/exceptions?${q}`},
+    {key:'FINANCE' as JobWorkspaceKey,label:'Job Costing',href:`/finance?${q}`},
+    {key:'TASKS' as JobWorkspaceKey,label:'Tasks',href:`/tasks?${q}`},
+    {key:'APPROVALS' as JobWorkspaceKey,label:'Approvals',href:`/approvals?${q}`},
+  ],[pages,q]);
 
   if(embedded||!bookingId)return null;
 
@@ -136,7 +144,7 @@ export default function JobContextRail({
 
       <div className="job-context-section-title">Related Tasks</div>
       <div className="job-context-links">
-        {pages.filter(p=>p.key!=='DETAILS').map(p=><div className={'job-context-link'+(active===p.key?' active':'')} key={p.key}>
+        {taskPages.map(p=><div className={'job-context-link'+(active===p.key?' active':'')} key={p.key}>
           <a href={p.href}>{p.label}</a>
           <button type="button" title={`Quick View ${p.label}`} onClick={()=>setModal({title:p.label,href:quickHref(p.href)})}>▣</button>
         </div>)}
