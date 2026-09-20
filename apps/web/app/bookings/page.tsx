@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, currentUser } from '../../lib/api';
 import WorkspaceShell from '../../components/WorkspaceShell';
+import CommercialFlowGrid from '../../components/CommercialFlowGrid';
 
 type Org={id:string;code:string;name:string;roles:string[]};
 type Booking={id:string;bookingNo:string;businessModel?:string;bookingChannel?:string;shipmentNo?:string;shipmentStatus?:string;carrierBookingNo?:string;status:string;origin:string;destination:string;carrier?:string;vesselVoyage?:string;equipment?:string;etd?:string;eta?:string;atd?:string;specialCargo?:string;creditStatus?:string;slotStatus?:string;equipmentStatus?:string;cyClosing?:string;siCutoff?:string;vgmCutoff?:string;docCutoff?:string;portCutoff?:string;customer?:{name:string}};
@@ -160,6 +161,7 @@ export default function BookingsPage(){
     </>}
   >
     {message&&<div className="card" style={{marginBottom:14}}>{message}</div>}
+    <CommercialFlowGrid active="BOOKING"/>
     {showForm&&<div className="booking-clean-workspace booking-compact-fields">
       <div className="booking-summary-strip">
         <div><span>ENTRY READY</span><b>{readinessDone}/4</b></div>
