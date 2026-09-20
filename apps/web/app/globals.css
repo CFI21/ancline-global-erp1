@@ -964,3 +964,121 @@ html,body{
 
 /* Preserve the dedicated classic inquiry workspace */
 .cw-screen{font-family:Arial,Helvetica,sans-serif}
+
+
+/* ANCLINE FINAL READABILITY: 12PX CONTENT + SMALL MENU */
+/* Keep the ERP compact, but standardize operational text at 12px. */
+html,body{
+  font-family:Aptos,Calibri,"Segoe UI",Arial,sans-serif;
+  font-size:12px;
+}
+.main,
+.main input,
+.main select,
+.main textarea,
+.main button,
+.main .card,
+.main .table,
+.main .card table{
+  font-size:12px;
+}
+
+/* Small navigation controls remain intentionally tighter than working content. */
+.shell{grid-template-columns:176px minmax(0,1fr)}
+.menu-home,.menu-group{
+  min-height:21px;
+  padding:2px 4px;
+}
+.menu-group-label{font-size:10px;line-height:1.05}
+.menu-step{font-size:9px;min-width:17px}
+.menu-chevron{font-size:10px}
+.submenu a{
+  padding:2px 4px;
+  font-size:10px;
+  line-height:1.1;
+}
+.menu-portal{
+  padding:3px 4px;
+  font-size:10px;
+}
+.menu-caption{font-size:8px}
+.menu-search{height:22px;font-size:10px}
+.brand{font-size:14px}
+
+/* 12px Excel/SAP working cells with compact heights. */
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])){
+  min-height:20px !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>span:first-child{
+  font-size:12px !important;
+  line-height:18px !important;
+  padding:1px 4px !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>input:not([type="checkbox"]):not([type="radio"]),
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>select{
+  min-height:19px !important;
+  height:19px !important;
+  padding:0 3px !important;
+  font-size:12px !important;
+  line-height:18px !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>textarea{
+  min-height:44px !important;
+  font-size:12px !important;
+  line-height:1.15 !important;
+}
+.main .card>h2,.main .card>h3,.main .card>h4{
+  min-height:22px !important;
+  padding:3px 5px !important;
+  font-size:12px !important;
+}
+.main fieldset:not(.cw-panel)>legend{
+  font-size:12px !important;
+}
+.table th,.table td,
+.main .card table:not(.cw-table) th,
+.main .card table:not(.cw-table) td{
+  height:20px !important;
+  min-height:20px !important;
+  padding:1px 3px !important;
+  font-size:12px !important;
+  line-height:1.05 !important;
+}
+.main .table input,
+.main .table select,
+.main .card table:not(.cw-table) input,
+.main .card table:not(.cw-table) select{
+  height:18px !important;
+  min-height:18px !important;
+  font-size:12px !important;
+  padding:0 2px !important;
+}
+.btn,.main .card .btn,.main .card button{
+  min-height:20px !important;
+  padding:2px 5px !important;
+  font-size:10px !important;
+}
+
+/* Inquiry/classic transaction workspace: readable 12px without widening the layout. */
+.cw-screen,
+.cw-row label,
+.cw-input,
+.cw-table,
+.cw-table th,
+.cw-table td,
+.cw-panel legend,
+.cw-subtabs button,
+.cw-footerbar button,
+.cw-action-row button{
+  font-size:12px !important;
+}
+.cw-row,.cw-form3040 .cw-row{
+  min-height:19px !important;
+  height:19px !important;
+}
+.cw-input,.cw-form3040 .cw-input{
+  height:19px !important;
+  min-height:19px !important;
+  line-height:18px !important;
+}
+.cw-table td{height:20px !important}
