@@ -38,9 +38,6 @@ export default function JobSummaryRail({bookingId,active}:Props){
     ['DOCUMENTS','Documents',`/documents${q}`],
   ] as const;
 
-  if(String(booking?.businessModel||'').toUpperCase()==='FORWARDING'){
-    links.push?.();
-  }
 
   return <aside className="job-summary-rail" aria-label="Job summary and related pages">
     <section className="job-summary-card">
