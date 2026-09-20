@@ -153,7 +153,7 @@ export default function BookingsPage(){
     </>}
   >
     {message&&<div className="card" style={{marginBottom:14}}>{message}</div>}
-    {showForm&&<>
+    {showForm&&<div className="erp-section-grid erp-section-grid-4">
       <div id="new-booking" className="card" style={{marginBottom:12}}><h3 style={title}>Booking Details & References</h3><div style={grid}>
         {isAdmin?<Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select>:<div><span style={label}>Operating Model</span><div className="status">NVOCC</div></div>}<Input l="Booking No." k="bookingNo" ph="Auto generated if blank"/><Input l="Booking Date" k="bookingDate" type="date"/><Input l="Carrier Booking No." k="carrierBookingNo"/><Input l="Customer Ref." k="customerReference"/><Input l="Shipper Ref." k="shipperReference"/><Input l="House B/L" k="houseBL"/><Input l="Master B/L" k="masterBL"/>
         <Select l="Booking Type" k="bookingType"><option>FCL</option><option>LCL</option><option>BREAKBULK</option><option>RORO</option></Select><Select l="Transport Mode" k="transportMode"><option>SEA</option><option>AIR</option><option>ROAD</option><option>RAIL</option></Select><Select l="Service Type" k="serviceType"><option>CY/CY</option><option>DOOR/CY</option><option>CY/DOOR</option><option>DOOR/DOOR</option></Select><Select l="Freight Terms" k="freightTerms"><option>PREPAID</option><option>COLLECT</option></Select><Select l="Currency" k="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></Select><Input l="Incoterm" k="incoterm" ph="FOB / CIF / EXW"/>
@@ -167,7 +167,7 @@ export default function BookingsPage(){
         {form.specialCargo==='OOG'&&<div style={{...grid,marginTop:12,paddingTop:12,borderTop:'1px solid #e2e8ee'}}><Input l="Length cm" k="oogLengthCm" type="number"/><Input l="Width cm" k="oogWidthCm" type="number"/><Input l="Height cm" k="oogHeightCm" type="number"/><Input l="Cargo Weight kg" k="oogWeightKg" type="number"/></div>}
       </div>
       <div className="card" style={{marginBottom:14}}><h3 style={title}>Operational Notes</h3><textarea value={form.notes} onChange={e=>set('notes',e.target.value)} style={{...field,minHeight:80,resize:'vertical'}}/><div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:12}}><button className="btn" onClick={()=>setForm(initialForm)} disabled={busy}>Clear</button><button className="btn" onClick={saveBooking} disabled={busy}>{busy?'Saving...':'Save Booking'}</button></div></div>
-    </>}
+    </div>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:12}}>
       <div className="card"><div className="sub">Active bookings</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.active}</div></div>
       <div className="card"><div className="sub">Needs action</div><div style={{fontSize:24,fontWeight:800}}>{opsSummary.action}</div></div>
