@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string};
@@ -17,7 +18,7 @@ export default function ApprovalsPage(){
   const [form,setForm]=useState({bookingId:'',type:'RATE_APPROVAL',requesterId:'',approverId:'GLOBAL_ADMIN',reason:''});
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);try{const u=JSON.parse(localStorage.getItem('ancline_user')||'{}');setForm(f=>({...f,requesterId:u.email||u.sub||'requester'}));}catch{}void load(t);},[]);
-  async function load(t=token){try{const [a,b]=await Promise.all([api('/approvals',t),api('/bookings',t)]);setRows(Array.isArray(a)?a:[]);setBookings(Array.isArray(b)?b:[]);}catch(e:any){setMessage(e.message||'Unable to load approvals');}}
+  async function load(t=token){try{const [a,b]=await Promise.all([api('/approvals',t),api('/bookings',t)]);const approvalRows=Array.isArray(a)?a:[];const bookingRows=Array.isArray(b)?b:[];setRows(approvalRows);setBookings(bookingRows);const contextId=new URLSearchParams(location.search).get('bookingId')||'';if(contextId&&bookingRows.some((x:Booking)=>x.id===contextId)){setForm(x=>({...x,bookingId:contextId}));const bk=bookingRows.find((x:Booking)=>x.id===contextId);if(bk)setSearch(bk.bookingNo);}}catch(e:any){setMessage(e.message||'Unable to load approvals');}}
   const bookingLabel=(id?:string)=>{const b=bookings.find(x=>x.id===id);return b?`${b.bookingNo} · ${b.origin} → ${b.destination}`:(id||'-');};
   const visible=useMemo(()=>{const q=search.trim().toLowerCase();return rows.filter(a=>!q||[a.type,a.requesterId,a.approverId,a.status,a.reason,bookingLabel(a.bookingId)].some(v=>String(v||'').toLowerCase().includes(q)));},[rows,search,bookings]);
   const pending=rows.filter(x=>String(x.status).toUpperCase()==='PENDING').length;
@@ -32,6 +33,7 @@ export default function ApprovalsPage(){
 
   return <WorkspaceShell title="Approvals" subtitle="Maker-checker controls and operational approval queue" active="/approvals" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {form.bookingId&&<JobContextRail bookingId={form.bookingId} bookingNo={bookings.find(b=>b.id===form.bookingId)?.bookingNo} active="APPROVALS"/>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">TOTAL APPROVALS</div><div className="kpi">{rows.length}</div></div><div className="card"><div className="sub">PENDING</div><div className="kpi">{pending}</div></div><div className="card"><div className="sub">APPROVED</div><div className="kpi">{rows.filter(x=>x.status==='Approved').length}</div></div><div className="card"><div className="sub">REJECTED</div><div className="kpi">{rows.filter(x=>x.status==='Rejected').length}</div></div></div>
     <div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>New Approval Request</h3><div style={formGrid}>
       <label><span style={labelStyle}>Booking / Job</span><select style={fieldStyle} value={form.bookingId} onChange={e=>setForm({...form,bookingId:e.target.value})}><option value="">General / not linked</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo} · {b.origin} → {b.destination}</option>)}</select></label>
