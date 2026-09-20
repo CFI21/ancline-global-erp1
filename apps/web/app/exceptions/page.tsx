@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;status:string;origin:string;destination:string;creditStatus?:string|null;slotStatus?:string|null;equipmentStatus?:string|null;customer?:{name:string}};
@@ -21,6 +22,7 @@ export default function ExceptionsPage(){
   const [severity,setSeverity]=useState('ALL');
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
+  const [contextBookingId,setContextBookingId]=useState('');
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
 
@@ -28,7 +30,10 @@ export default function ExceptionsPage(){
     setBusy(true);setMessage('');
     try{
       const [b,ta,a,m]=await Promise.all([api('/bookings',t),api('/tasks',t),api('/approvals',t),api('/tracking',t)]);
-      setBookings(Array.isArray(b)?b:[]);setTasks(Array.isArray(ta)?ta:[]);setApprovals(Array.isArray(a)?a:[]);setMilestones(Array.isArray(m)?m:[]);
+      const bookingRows=Array.isArray(b)?b:[];
+      setBookings(bookingRows);setTasks(Array.isArray(ta)?ta:[]);setApprovals(Array.isArray(a)?a:[]);setMilestones(Array.isArray(m)?m:[]);
+      const contextId=new URLSearchParams(location.search).get('bookingId')||'';
+      if(contextId&&bookingRows.some((x:Booking)=>x.id===contextId)){setContextBookingId(contextId);const bk=bookingRows.find((x:Booking)=>x.id===contextId);if(bk)setSearch(bk.bookingNo);}
     }catch(e:any){setMessage(e?.message||'Unable to load operational exceptions.');}
     finally{setBusy(false);}
   }
@@ -62,6 +67,7 @@ export default function ExceptionsPage(){
 
   return <WorkspaceShell title="Exceptions & Action Board" subtitle="Operational risks, overdue work and approvals requiring attention" active="/exceptions" actions={<button className="btn" disabled={busy} onClick={()=>void load()}>{busy?'Refreshing…':'Refresh'}</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {contextBookingId&&<JobContextRail bookingId={contextBookingId} bookingNo={bookings.find(b=>b.id===contextBookingId)?.bookingNo} active="EXCEPTIONS"/>}
     <div className="grid" style={{marginBottom:12}}>
       <div className="card"><div className="sub">Open Exceptions</div><div className="kpi">{rows.length}</div></div>
       <div className="card"><div className="sub">Critical</div><div className="kpi">{count('CRITICAL')}</div></div>
