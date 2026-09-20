@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string};
@@ -18,7 +19,7 @@ export default function TasksPage(){
   const [form,setForm]=useState({bookingId:'',title:'',ownerId:'',dueAt:''});
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);try{const u=JSON.parse(localStorage.getItem('ancline_user')||'{}');setForm(f=>({...f,ownerId:u.email||u.sub||''}));}catch{}void load(t);},[]);
-  async function load(t=token){try{const [tasks,books]=await Promise.all([api('/tasks',t),api('/bookings',t)]);setRows(Array.isArray(tasks)?tasks:[]);setBookings(Array.isArray(books)?books:[]);}catch(e:any){setMessage(e.message||'Unable to load tasks');}}
+  async function load(t=token){try{const [tasks,books]=await Promise.all([api('/tasks',t),api('/bookings',t)]);const taskRows=Array.isArray(tasks)?tasks:[];const bookingRows=Array.isArray(books)?books:[];setRows(taskRows);setBookings(bookingRows);const contextId=new URLSearchParams(location.search).get('bookingId')||'';if(contextId&&bookingRows.some((x:Booking)=>x.id===contextId)){setForm(x=>({...x,bookingId:contextId}));const bk=bookingRows.find((x:Booking)=>x.id===contextId);if(bk)setSearch(bk.bookingNo);}}catch(e:any){setMessage(e.message||'Unable to load tasks');}}
   const bookingLabel=(id?:string)=>{const b=bookings.find(x=>x.id===id);return b?`${b.bookingNo} · ${b.origin} → ${b.destination}`:(id||'-');};
   const visible=useMemo(()=>{const q=search.trim().toLowerCase();return rows.filter(t=>{const isClosed=['COMPLETED','Completed'].includes(t.status);const f=filter==='ALL'||(filter==='OPEN'&&!isClosed)||(filter==='COMPLETED'&&isClosed)||(filter==='OVERDUE'&&Boolean(t.dueAt&&new Date(t.dueAt)<new Date()&&!isClosed));const s=!q||[t.title,t.ownerId,t.status,t.slaState,bookingLabel(t.bookingId)].some(v=>String(v||'').toLowerCase().includes(q));return f&&s;});},[rows,search,filter,bookings]);
   const open=rows.filter(x=>!['COMPLETED','Completed'].includes(x.status)).length;
@@ -33,6 +34,7 @@ export default function TasksPage(){
 
   return <WorkspaceShell title="My Work" subtitle="Operational tasks, ownership, due dates and SLA control" active="/tasks" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {form.bookingId&&<JobContextRail bookingId={form.bookingId} bookingNo={bookings.find(b=>b.id===form.bookingId)?.bookingNo} active="TASKS"/>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">OPEN TASKS</div><div className="kpi">{open}</div></div><div className="card"><div className="sub">OVERDUE</div><div className="kpi">{overdue}</div></div><div className="card"><div className="sub">COMPLETED</div><div className="kpi">{rows.length-open}</div></div><div className="card"><div className="sub">TOTAL</div><div className="kpi">{rows.length}</div></div></div>
     <div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Create Task</h3><div style={formGrid}>
       <label><span style={labelStyle}>Booking / Job</span><select style={fieldStyle} value={form.bookingId} onChange={e=>setForm({...form,bookingId:e.target.value})}><option value="">General task</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo} · {b.origin} → {b.destination}</option>)}</select></label>
