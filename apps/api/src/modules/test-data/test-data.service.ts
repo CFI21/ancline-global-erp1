@@ -164,10 +164,12 @@ export class TestDataService implements OnModuleInit {
       ]});
       await this.db.document.deleteMany({where:{bookingId:booking.id,documentNo:{startsWith:'ANC-TEST-'}}});
       await this.db.document.createMany({data:[
-        {documentNo:`ANC-TEST-BC-${x.key}-001`,bookingId:booking.id,type:'BOOKING_CONFIRMATION',version:1,status:'DRAFT',releaseControl:'HOLD'},
-        {documentNo:`ANC-TEST-SI-${x.key}-001`,bookingId:booking.id,type:'SHIPPING_INSTRUCTION',version:1,status:'DRAFT',releaseControl:'HOLD'},
-        {documentNo:`ANC-TEST-HBL-${x.key}-001`,bookingId:booking.id,type:'HOUSE_BL',version:1,status:'DRAFT',releaseControl:'HOLD'},
-        {documentNo:`ANC-TEST-MBL-${x.key}-001`,bookingId:booking.id,type:'MASTER_BL',version:1,status:['CONFIRMED','OPERATIONAL'].includes(x.status)?'PENDING_REVIEW':'DRAFT',releaseControl:'HOLD'}
+        {documentNo:`ANC-TEST-BC-${x.key}-001`,bookingId:booking.id,type:'BOOKING_CONFIRMATION',version:1,status:'ISSUED',releaseControl:'RELEASED',fileKey:`test-data/${bookingNo}/booking-confirmation-v1.pdf`},
+        {documentNo:`ANC-TEST-SI-${x.key}-001`,bookingId:booking.id,type:'SHIPPING_INSTRUCTION',version:2,status:'SUBMITTED',releaseControl:'RELEASED',fileKey:`test-data/${bookingNo}/shipping-instruction-v2.pdf`},
+        {documentNo:`ANC-TEST-HBL-${x.key}-001`,bookingId:booking.id,type:'HOUSE_BL',version:1,status:'APPROVED',releaseControl:'RELEASED',fileKey:`test-data/${bookingNo}/house-bl-v1.pdf`},
+        {documentNo:`ANC-TEST-MBL-${x.key}-001`,bookingId:booking.id,type:'MASTER_BL',version:1,status:'PENDING_REVIEW',releaseControl:'HOLD',fileKey:`test-data/${bookingNo}/master-bl-v1.pdf`},
+        {documentNo:`ANC-TEST-VGM-${x.key}-001`,bookingId:booking.id,type:'VGM_DECLARATION',version:1,status:'SUBMITTED',releaseControl:'RELEASED',fileKey:`test-data/${bookingNo}/vgm-v1.pdf`},
+        {documentNo:`ANC-TEST-POD-${x.key}-001`,bookingId:booking.id,type:'PROOF_OF_DELIVERY',version:1,status:'DRAFT',releaseControl:'HOLD',fileKey:`test-data/${bookingNo}/pod-v1.pdf`}
       ]});
       await this.db.container.deleteMany({where:{bookingId:booking.id,containerNo:{startsWith:'TSTU'}}});
       for(let n=1;n<=x.qty;n++){
