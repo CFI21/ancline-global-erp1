@@ -107,6 +107,12 @@ export class TestDataService implements OnModuleInit {
       }});
     }
 
+    const trucker=await this.db.organization.upsert({
+      where:{code:'TEST-TRUCKER-NL'},
+      update:{name:'TEST ANC Trucking & Haulage B.V.',roles:['TRUCKER','VENDOR'],countryCode:'NL',costCenterCode:'TEST-TRUCK-NL',active:true},
+      create:{code:'TEST-TRUCKER-NL',name:'TEST ANC Trucking & Haulage B.V.',roles:['TRUCKER','VENDOR'],countryCode:'NL',costCenterCode:'TEST-TRUCK-NL',active:true}
+    });
+
     // Keep synthetic jobs on the same five-digit reference convention as live ANCLINE jobs.
     for(let i=0;i<LEGACY_TEST_BOOKING_REFS.length;i++){
       const legacyRef=LEGACY_TEST_BOOKING_REFS[i],targetRef=TEST_JOB_REFS[i];
@@ -118,10 +124,10 @@ export class TestDataService implements OnModuleInit {
     }
 
     const bookingDefs=[
-      {key:'STD',customer:customerRows[0],carrier:carrierRows[0],origin:'NLRTM',destination:'AEJEA',por:'NLRTM',pol:'NLRTM',pod:'AEJEA',pdel:'AEDXB',equipment:'40HC',qty:1,commodity:'Furniture',packages:48,packageType:'PALLETS',gross:18200,net:17600,cbm:61.4,hs:'940360',incoterm:'CIF',freightTerms:'PREPAID',special:null,buy:1400,sell:1650,currency:'USD',tradeType:'STANDARD',jobType:'FCL',service:'PORT_TO_PORT',status:'BOOKING_REQUESTED',shipStatus:'CARRIER_PAYMENT_CONTROL_PENDING'},
-      {key:'DG',customer:customerRows[0],carrier:carrierRows[1],origin:'NLRTM',destination:'SGSIN',por:'NLRTM',pol:'NLRTM',pod:'SGSIN',pdel:'SGSIN',equipment:'20GP',qty:1,commodity:'Paint related material',packages:80,packageType:'DRUMS',gross:15200,net:14600,cbm:28.2,hs:'320890',incoterm:'CFR',freightTerms:'PREPAID',special:'DG',buy:2150,sell:2575,currency:'USD',tradeType:'STANDARD',jobType:'FCL_DG',service:'PORT_TO_PORT',status:'CONFIRMED',shipStatus:'CARRIER_CONFIRMED',dg:{un:'UN1263',imo:'3',pg:'II',psn:'PAINT'}},
-      {key:'REEFER',customer:customerRows[2],carrier:carrierRows[1],origin:'CNSHA',destination:'NLRTM',por:'CNSHA',pol:'CNSHA',pod:'NLRTM',pdel:'NLRTM',equipment:'40RF',qty:2,commodity:'Frozen food',packages:1600,packageType:'CARTONS',gross:46800,net:45200,cbm:108.5,hs:'030389',incoterm:'FOB',freightTerms:'COLLECT',special:'REEFER',buy:5200,sell:6050,currency:'USD',tradeType:'STANDARD',jobType:'FCL_REEFER',service:'PORT_TO_PORT',status:'OPERATIONAL',shipStatus:'EQUIPMENT_RELEASED',reefer:{temp:-18,vent:0,humidity:70}},
-      {key:'OOG',customer:customerRows[1],carrier:carrierRows[2],origin:'AEJEA',destination:'NLRTM',por:'AEDXB',pol:'AEJEA',pod:'NLRTM',pdel:'NLRTM',equipment:'40FR',qty:1,commodity:'Industrial machinery',packages:1,packageType:'CRATE',gross:28600,net:28100,cbm:74.8,hs:'842890',incoterm:'DAP',freightTerms:'PREPAID',special:'OOG',buy:6800,sell:7900,currency:'USD',tradeType:'CROSS_TRADE',jobType:'FCL_OOG',service:'DOOR_TO_DOOR',status:'CUSTOMER_ACCEPTED',shipStatus:'QUOTE_ACCEPTED_PAYMENT_CONTROL',oog:{l:1260,w:310,h:335,weight:28600}}
+      {key:'STD',customer:customerRows[0],carrier:carrierRows[0],origin:'NLRTM',destination:'AEJEA',por:'NLRTM',pol:'NLRTM',pod:'AEJEA',pdel:'AEDXB',transshipment:'EGPSD',equipment:'40HC',qty:1,commodity:'Furniture and interior goods',packages:48,packageType:'PALLETS',gross:18200,net:17600,cbm:61.4,hs:'940360',incoterm:'CIF',freightTerms:'PREPAID',special:'NONE',throughBL:'YES',buy:1400,sell:1650,currency:'USD',tradeType:'STANDARD',jobType:'FCL',service:'PORT_TO_PORT',status:'BOOKING_REQUESTED',shipStatus:'CARRIER_PAYMENT_CONTROL_PENDING'},
+      {key:'DG',customer:customerRows[0],carrier:carrierRows[1],origin:'NLRTM',destination:'SGSIN',por:'NLRTM',pol:'NLRTM',pod:'SGSIN',pdel:'SGSIN',transshipment:'MYPKG',equipment:'20GP',qty:1,commodity:'Paint related material',packages:80,packageType:'DRUMS',gross:15200,net:14600,cbm:28.2,hs:'320890',incoterm:'CFR',freightTerms:'PREPAID',special:'DG',throughBL:'YES',buy:2150,sell:2575,currency:'USD',tradeType:'STANDARD',jobType:'FCL_DG',service:'PORT_TO_PORT',status:'CONFIRMED',shipStatus:'CARRIER_CONFIRMED',dg:{un:'UN1263',imo:'3',pg:'II',psn:'PAINT, FLAMMABLE LIQUID'}},
+      {key:'REEFER',customer:customerRows[2],carrier:carrierRows[1],origin:'CNSHA',destination:'NLRTM',por:'CNSHA',pol:'CNSHA',pod:'NLRTM',pdel:'NLRTM',transshipment:'SGSIN',equipment:'40RF',qty:2,commodity:'Frozen seafood',packages:1600,packageType:'CARTONS',gross:46800,net:45200,cbm:108.5,hs:'030389',incoterm:'FOB',freightTerms:'COLLECT',special:'REEFER',throughBL:'NO',buy:5200,sell:6050,currency:'USD',tradeType:'STANDARD',jobType:'FCL_REEFER',service:'PORT_TO_PORT',status:'OPERATIONAL',shipStatus:'EQUIPMENT_RELEASED',reefer:{temp:-18,vent:0,humidity:70}},
+      {key:'OOG',customer:customerRows[1],carrier:carrierRows[2],origin:'AEJEA',destination:'NLRTM',por:'AEDXB',pol:'AEJEA',pod:'NLRTM',pdel:'NLRTM',transshipment:'OMSLL',equipment:'40FR',qty:1,commodity:'Industrial machinery',packages:1,packageType:'CRATE',gross:28600,net:28100,cbm:74.8,hs:'842890',incoterm:'DAP',freightTerms:'PREPAID',special:'OOG',throughBL:'YES',buy:6800,sell:7900,currency:'USD',tradeType:'CROSS_TRADE',jobType:'FCL_OOG',service:'DOOR_TO_DOOR',status:'CUSTOMER_ACCEPTED',shipStatus:'QUOTE_ACCEPTED_PAYMENT_CONTROL',oog:{l:1260,w:310,h:335,weight:28600}}
     ];
     const bookingRows:any[]=[];
     for(let idx=0;idx<bookingDefs.length;idx++){
