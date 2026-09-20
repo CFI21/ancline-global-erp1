@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import CommercialFlowGrid from '../../components/CommercialFlowGrid';
 import {api,fmtDate,fmtMoney,requireToken} from '../../lib/api';
 
 type Provider={providerCode:string;name:string;carrier?:string;carrierOrgId?:string|null;authMode:string;endpoint?:string|null;bookingEndpoint?:string|null;rateBasis?:string;buyIncludesSurcharges?:boolean;defaultPricingMethod?:string;defaultPricingValue?:number;minimumMarkupPct?:number;paymentTermsDays?:number;paymentMethod?:string;prepaidPct?:number;creditLimit?:number|null;creditCurrency?:string;active?:boolean;secretConfigured?:boolean;connectionReady?:boolean};
@@ -70,6 +71,16 @@ export default function CarrierRatesPage(){
 
   return <WorkspaceShell title="Forwarding Global Carrier Rates" subtitle="FORWARDING ONLY · global carrier procurement, controlled sell pricing and payment/security terms" active="/carrier-rates" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={searchRates}>{busy?'Working...':'Fetch Carrier Rates'}</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    <CommercialFlowGrid
+      active="CARRIER_RATE"
+      bookingId={bookingId}
+      bookingNo={booking?.bookingNo}
+      quoteNo={selectedQuote?.quoteNo}
+      carrier={selection?.carrier||booking?.carrier||''}
+      quoteStatus={selectedQuote?.status||''}
+      buyLabel={selectedQuote?fmtMoney(selectedQuote.buyRate,selectedQuote.currency):''}
+      sellLabel={selectedQuote?fmtMoney(selectedQuote.sellRate,selectedQuote.currency):''}
+    />
     {!bookingId&&<div className="card">Open this workspace from a FORWARDING booking. NVOCC pricing and space control are maintained separately.</div>}
     {booking&&<>
       <div className="card" style={{marginBottom:12}}>
