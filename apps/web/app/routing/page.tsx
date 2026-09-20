@@ -52,24 +52,45 @@ export default function RoutingPage(){
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">ROUTING LEGS</div><div className="kpi">{rows.length}</div></div><div className="card"><div className="sub">ACTIVE LEGS</div><div className="kpi">{active}</div></div><div className="card"><div className="sub">TRANSSHIP LEGS</div><div className="kpi">{transship}</div></div><div className="card"><div className="sub">BOOKINGS WITH ROUTING</div><div className="kpi">{new Set(rows.map(r=>r.bookingId)).size}</div></div></div>
 
-    <div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Add Routing Leg</h3><div style={formGrid}>
-      <label><span style={labelStyle}>Booking *</span><select style={fieldStyle} value={form.bookingId} onChange={e=>chooseBooking(e.target.value)}><option value="">Select booking</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo} — {b.origin} → {b.destination}</option>)}</select></label>
-      <label><span style={labelStyle}>Sequence *</span><input type="number" min="1" style={fieldStyle} value={form.sequence} onChange={e=>setForm({...form,sequence:e.target.value})}/></label>
-      <label><span style={labelStyle}>Leg Type</span><select style={fieldStyle} value={form.legType} onChange={e=>setForm({...form,legType:e.target.value})}>{['PRE_CARRIAGE','FEEDER','MAIN','TRANSSHIP','ON_CARRIAGE'].map(x=><option key={x}>{x}</option>)}</select></label>
-      <label><span style={labelStyle}>Mode</span><select style={fieldStyle} value={form.mode} onChange={e=>setForm({...form,mode:e.target.value})}>{['SEA','ROAD','RAIL','AIR'].map(x=><option key={x}>{x}</option>)}</select></label>
-      <label><span style={labelStyle}>Origin *</span><input style={fieldStyle} value={form.origin} onChange={e=>setForm({...form,origin:e.target.value})}/></label>
-      <label><span style={labelStyle}>Destination *</span><input style={fieldStyle} value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})}/></label>
-      <label><span style={labelStyle}>Carrier</span><input style={fieldStyle} value={form.carrier} onChange={e=>setForm({...form,carrier:e.target.value})}/></label>
-      <label><span style={labelStyle}>Vessel</span><input style={fieldStyle} value={form.vessel} onChange={e=>setForm({...form,vessel:e.target.value})}/></label>
-      <label><span style={labelStyle}>Voyage</span><input style={fieldStyle} value={form.voyage} onChange={e=>setForm({...form,voyage:e.target.value})}/></label>
-      <label><span style={labelStyle}>Terminal</span><input style={fieldStyle} value={form.terminal} onChange={e=>setForm({...form,terminal:e.target.value})}/></label>
-      <label><span style={labelStyle}>ETD</span><input type="date" style={fieldStyle} value={form.etd} onChange={e=>setForm({...form,etd:e.target.value})}/></label>
-      <label><span style={labelStyle}>ETA</span><input type="date" style={fieldStyle} value={form.eta} onChange={e=>setForm({...form,eta:e.target.value})}/></label>
-      <label><span style={labelStyle}>ATD</span><input type="date" style={fieldStyle} value={form.atd} onChange={e=>setForm({...form,atd:e.target.value})}/></label>
-      <label><span style={labelStyle}>ATA</span><input type="date" style={fieldStyle} value={form.ata} onChange={e=>setForm({...form,ata:e.target.value})}/></label>
-      <label><span style={labelStyle}>Status</span><select style={fieldStyle} value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{['PLANNED','BOOKED','DEPARTED','ARRIVED','COMPLETED','CANCELLED'].map(x=><option key={x}>{x}</option>)}</select></label>
-      <label style={{gridColumn:'1/-1'}}><span style={labelStyle}>Remarks</span><input style={fieldStyle} value={form.remarks} onChange={e=>setForm({...form,remarks:e.target.value})}/></label>
-    </div><div style={{display:'flex',justifyContent:'flex-end',marginTop:12}}><button className="btn" disabled={busy} onClick={createLeg}>{busy?'Saving…':'Add Routing Leg'}</button></div></div>
+    <div className="erp-workspace-grid" style={{marginBottom:8}}>
+      <section className="card erp-span-4 erp-panel-compact">
+        <h3 style={sectionTitle}>Leg Setup</h3>
+        <div className="erp-form-grid">
+          <label><span style={labelStyle}>Booking *</span><select style={fieldStyle} value={form.bookingId} onChange={e=>chooseBooking(e.target.value)}><option value="">Select booking</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo} — {b.origin} → {b.destination}</option>)}</select></label>
+          <label><span style={labelStyle}>Sequence *</span><input type="number" min="1" style={fieldStyle} value={form.sequence} onChange={e=>setForm({...form,sequence:e.target.value})}/></label>
+          <label><span style={labelStyle}>Leg Type</span><select style={fieldStyle} value={form.legType} onChange={e=>setForm({...form,legType:e.target.value})}>{['PRE_CARRIAGE','FEEDER','MAIN','TRANSSHIP','ON_CARRIAGE'].map(x=><option key={x}>{x}</option>)}</select></label>
+          <label><span style={labelStyle}>Mode</span><select style={fieldStyle} value={form.mode} onChange={e=>setForm({...form,mode:e.target.value})}>{['SEA','ROAD','RAIL','AIR'].map(x=><option key={x}>{x}</option>)}</select></label>
+          <label><span style={labelStyle}>Status</span><select style={fieldStyle} value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{['PLANNED','BOOKED','DEPARTED','ARRIVED','COMPLETED','CANCELLED'].map(x=><option key={x}>{x}</option>)}</select></label>
+        </div>
+      </section>
+
+      <section className="card erp-span-4 erp-panel-compact">
+        <h3 style={sectionTitle}>Route & Carrier</h3>
+        <div className="erp-form-grid">
+          <label><span style={labelStyle}>Origin *</span><input style={fieldStyle} value={form.origin} onChange={e=>setForm({...form,origin:e.target.value})}/></label>
+          <label><span style={labelStyle}>Destination *</span><input style={fieldStyle} value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})}/></label>
+          <label><span style={labelStyle}>Carrier</span><input style={fieldStyle} value={form.carrier} onChange={e=>setForm({...form,carrier:e.target.value})}/></label>
+          <label><span style={labelStyle}>Terminal</span><input style={fieldStyle} value={form.terminal} onChange={e=>setForm({...form,terminal:e.target.value})}/></label>
+          <label style={{gridColumn:'1/-1'}}><span style={labelStyle}>Remarks</span><input style={fieldStyle} value={form.remarks} onChange={e=>setForm({...form,remarks:e.target.value})}/></label>
+        </div>
+      </section>
+
+      <section className="card erp-span-4 erp-panel-compact">
+        <h3 style={sectionTitle}>Vessel & Timing</h3>
+        <div className="erp-form-grid">
+          <label><span style={labelStyle}>Vessel</span><input style={fieldStyle} value={form.vessel} onChange={e=>setForm({...form,vessel:e.target.value})}/></label>
+          <label><span style={labelStyle}>Voyage</span><input style={fieldStyle} value={form.voyage} onChange={e=>setForm({...form,voyage:e.target.value})}/></label>
+          <label><span style={labelStyle}>ETD</span><input type="date" style={fieldStyle} value={form.etd} onChange={e=>setForm({...form,etd:e.target.value})}/></label>
+          <label><span style={labelStyle}>ETA</span><input type="date" style={fieldStyle} value={form.eta} onChange={e=>setForm({...form,eta:e.target.value})}/></label>
+          <label><span style={labelStyle}>ATD</span><input type="date" style={fieldStyle} value={form.atd} onChange={e=>setForm({...form,atd:e.target.value})}/></label>
+          <label><span style={labelStyle}>ATA</span><input type="date" style={fieldStyle} value={form.ata} onChange={e=>setForm({...form,ata:e.target.value})}/></label>
+        </div>
+      </section>
+
+      <div className="erp-grid-actionbar">
+        <button className="btn" disabled={busy} onClick={createLeg}>{busy?'Saving…':'Add Routing Leg'}</button>
+      </div>
+    </div>
 
     <div className="card"><div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}><input style={{...fieldStyle,maxWidth:360}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search booking, customer, port, carrier, vessel or status"/><select style={{...fieldStyle,maxWidth:260}} value={bookingFilter} onChange={e=>setBookingFilter(e.target.value)}><option value="">All bookings</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo}</option>)}</select></div><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Seq</th><th>Booking</th><th>Type / Mode</th><th>Origin → Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>ETD / ETA</th><th>Actual</th><th>Status</th><th>Actions</th></tr></thead><tbody>
       {visible.map(r=><tr key={r.id}><td><b>{r.sequence}</b></td><td><a href={`/bookings/${r.bookingId}`}><b>{r.booking?.bookingNo||r.bookingId}</b></a><div className="sub">{r.booking?.customer?.name||''}</div></td><td>{r.legType}<div className="sub">{r.mode}</div></td><td>{r.origin} → {r.destination}</td><td>{r.carrier||'-'}</td><td>{[r.vessel,r.voyage].filter(Boolean).join(' / ')||'-'}</td><td>{fmtDate(r.etd)} / {fmtDate(r.eta)}</td><td>{fmtDate(r.atd)} / {fmtDate(r.ata)}</td><td><span className="status">{r.status}</span></td><td><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{r.status==='PLANNED'&&<button className="btn" onClick={()=>mark(r.id,'BOOKED')}>Book</button>}{r.status==='BOOKED'&&<button className="btn" onClick={()=>mark(r.id,'DEPARTED')}>Depart</button>}{r.status==='DEPARTED'&&<button className="btn" onClick={()=>mark(r.id,'ARRIVED')}>Arrive</button>}{r.status==='ARRIVED'&&<button className="btn" onClick={()=>mark(r.id,'COMPLETED')}>Complete</button>}<button className="btn" onClick={()=>remove(r.id)}>Delete</button></div></td></tr>)}
