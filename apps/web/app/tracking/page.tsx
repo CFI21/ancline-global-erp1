@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;customer?:{name:string};carrier?:string;vesselVoyage?:string};
@@ -21,7 +22,7 @@ export default function TrackingPage(){
   const [form,setForm]=useState({bookingId:'',code:'BOOKED',label:'Booking Confirmed',location:'',plannedAt:'',actualAt:'',status:'PLANNED',source:'MANUAL',remarks:''});
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
-  async function load(t=token){try{const [m,b]=await Promise.all([api('/tracking',t),api('/bookings',t)]);setRows(Array.isArray(m)?m:[]);setBookings(Array.isArray(b)?b:[]);}catch(e:any){setMessage(e.message||'Unable to load shipment tracking.');}}
+  async function load(t=token){try{const [m,b]=await Promise.all([api('/tracking',t),api('/bookings',t)]);const milestones=Array.isArray(m)?m:[];const bookingRows=Array.isArray(b)?b:[];setRows(milestones);setBookings(bookingRows);const contextId=new URLSearchParams(location.search).get('bookingId')||'';if(contextId&&bookingRows.some((x:Booking)=>x.id===contextId)){setBookingFilter(contextId);setForm(x=>({...x,bookingId:contextId}));}}catch(e:any){setMessage(e.message||'Unable to load shipment tracking.');}}
   const visible=useMemo(()=>{const q=search.toLowerCase().trim();return rows.filter(r=>(!bookingFilter||r.bookingId===bookingFilter)&&(!q||[r.booking?.bookingNo,r.booking?.customer?.name,r.booking?.origin,r.booking?.destination,r.code,r.label,r.location,r.status].some(v=>String(v||'').toLowerCase().includes(q))));},[rows,search,bookingFilter]);
   const overdue=rows.filter(r=>r.status!=='COMPLETED'&&r.plannedAt&&new Date(r.plannedAt).getTime()<Date.now()).length;
   const completed=rows.filter(r=>r.status==='COMPLETED').length;
@@ -34,6 +35,7 @@ export default function TrackingPage(){
 
   return <WorkspaceShell title="Shipment Tracking" subtitle="Operational milestones, movement events and shipment progress" active="/tracking" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {(bookingFilter||form.bookingId)&&<JobContextRail bookingId={bookingFilter||form.bookingId} bookingNo={bookings.find(b=>b.id===(bookingFilter||form.bookingId))?.bookingNo} active="TRACKING"/>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">Milestones</div><div className="kpi">{rows.length}</div></div><div className="card"><div className="sub">Pending</div><div className="kpi">{pending}</div></div><div className="card"><div className="sub">Overdue</div><div className="kpi">{overdue}</div></div><div className="card"><div className="sub">Completed</div><div className="kpi">{completed}</div></div></div>
 
     <div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Add Shipment Milestone</h3><div style={formGrid}>
