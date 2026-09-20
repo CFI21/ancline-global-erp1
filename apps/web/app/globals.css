@@ -1526,3 +1526,225 @@ body{
 @media(max-width:780px){
   .job-flow-context{min-width:112px}
 }
+
+
+/* JOB CONTEXT RAIL + QUICK VIEW MODAL */
+@media(min-width:1180px){
+  body.has-job-context-rail .main{
+    padding-right:278px;
+  }
+}
+.job-context-rail{
+  width:260px;
+  position:fixed;
+  top:76px;
+  right:8px;
+  bottom:8px;
+  z-index:28;
+  display:flex;
+  flex-direction:column;
+  overflow:auto;
+  border:1px solid #b9c5cd;
+  border-radius:6px;
+  background:#f7f9fa;
+  box-shadow:0 2px 8px rgba(18,50,77,.08);
+}
+.job-context-head{
+  padding:7px 8px 6px;
+  border-bottom:1px solid #adb9c2;
+  background:#dfe6eb;
+}
+.job-context-head span{
+  display:block;
+  color:#70818f;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.45px;
+}
+.job-context-head b{
+  display:block;
+  margin-top:2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#173b59;
+  font-size:12px;
+}
+.job-context-summary{
+  background:#fff;
+}
+.job-context-row{
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr);
+  gap:6px;
+  min-height:25px;
+  align-items:center;
+  padding:3px 7px;
+  border-bottom:1px solid #e4e9ed;
+  font-size:9.5px;
+}
+.job-context-row span{
+  color:#6d7e8b;
+  text-align:right;
+}
+.job-context-row b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#263d50;
+  font-weight:700;
+}
+.job-context-section-title{
+  padding:6px 8px 4px;
+  color:#5f7383;
+  font-size:8.5px;
+  font-weight:900;
+  letter-spacing:.35px;
+  text-transform:uppercase;
+}
+.job-context-links{
+  display:grid;
+  gap:3px;
+  padding:0 6px 6px;
+}
+.job-context-link{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 28px;
+  align-items:center;
+  min-height:28px;
+  border:1px solid #bdc8d0;
+  border-radius:3px;
+  background:#fff;
+  overflow:hidden;
+}
+.job-context-link.active{
+  border-color:#467395;
+  background:#e8f0f6;
+}
+.job-context-link>a{
+  padding:5px 7px;
+  color:#173b59;
+  text-decoration:none;
+  font-size:9.5px;
+  font-weight:800;
+}
+.job-context-link>button{
+  height:100%;
+  border:0;
+  border-left:1px solid #ced6dc;
+  background:#f2f5f7;
+  color:#2b5876;
+  font-size:13px;
+  cursor:pointer;
+}
+.job-context-link>button:hover{
+  background:#dce9f2;
+}
+.job-context-help{
+  margin-top:auto;
+  padding:6px 8px;
+  border-top:1px solid #d3dbe0;
+  color:#73818b;
+  font-size:8.5px;
+  line-height:1.25;
+}
+.job-quick-overlay{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(20,35,48,.42);
+}
+.job-quick-modal{
+  width:min(1480px,96vw);
+  height:min(900px,92vh);
+  display:grid;
+  grid-template-rows:38px minmax(0,1fr);
+  overflow:hidden;
+  border:1px solid #7f929f;
+  border-radius:6px;
+  background:#fff;
+  box-shadow:0 18px 55px rgba(16,34,48,.32);
+}
+.job-quick-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:4px 7px 4px 10px;
+  border-bottom:1px solid #aab8c1;
+  background:#e3e9ed;
+}
+.job-quick-head>div:first-child span{
+  display:block;
+  color:#6d7e8b;
+  font-size:7.5px;
+  font-weight:900;
+  letter-spacing:.5px;
+}
+.job-quick-head>div:first-child b{
+  display:block;
+  color:#183a57;
+  font-size:11px;
+}
+.job-quick-actions{
+  display:flex;
+  gap:4px;
+  align-items:center;
+}
+.job-quick-actions a,
+.job-quick-actions button{
+  min-height:24px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:3px 7px;
+  border:1px solid #9caab4;
+  border-radius:3px;
+  background:#fff;
+  color:#183a57;
+  text-decoration:none;
+  font-size:9.5px;
+  font-weight:800;
+  cursor:pointer;
+}
+.job-quick-actions button{
+  min-width:28px;
+  font-size:16px;
+  line-height:1;
+}
+.job-quick-frame{
+  width:100%;
+  height:100%;
+  border:0;
+  background:#eef2f5;
+}
+.ancline-embed-mode{
+  background:#eef2f5;
+}
+.ancline-embed-mode .embedded-main{
+  padding:8px;
+  min-height:100vh;
+}
+.ancline-embed-mode .job-flow-nav{
+  display:none!important;
+}
+@media(max-width:1179px){
+  body.has-job-context-rail .main{
+    padding-right:8px;
+  }
+  .job-context-rail{
+    position:static;
+    width:auto;
+    margin:0 0 8px;
+    max-height:none;
+  }
+}
+@media(max-width:720px){
+  .job-quick-overlay{padding:6px}
+  .job-quick-modal{width:100vw;height:96vh}
+}
