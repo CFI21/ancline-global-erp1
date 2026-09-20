@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Customer={name:string;code?:string};
@@ -20,6 +21,7 @@ export default function ShipmentControlPage(){
   const [consols,setConsols]=useState<Consol[]>([]);
   const [bookings,setBookings]=useState<Booking[]>([]);
   const [shipmentBookingId,setShipmentBookingId]=useState('');
+  const [contextBookingId,setContextBookingId]=useState('');
   const [shipmentNo,setShipmentNo]=useState('');
   const [consolForm,setConsolForm]=useState(blankConsol);
   const [assignTo,setAssignTo]=useState<Record<string,string>>({});
@@ -45,10 +47,23 @@ export default function ShipmentControlPage(){
         api('/shipment-control/consols',t),
         api('/bookings',t)
       ]);
+      const shipmentRows=Array.isArray(s)?s:[];
+      const bookingRows=Array.isArray(b)?b:[];
       setDashboard(d||emptyDash);
-      setShipments(Array.isArray(s)?s:[]);
+      setShipments(shipmentRows);
       setConsols(Array.isArray(c)?c:[]);
-      setBookings(Array.isArray(b)?b:[]);
+      setBookings(bookingRows);
+      const contextId=new URLSearchParams(location.search).get('bookingId')||'';
+      if(contextId){
+        setContextBookingId(contextId);
+        const selected=bookingRows.find((x:Booking)=>x.id===contextId);
+        if(shipmentRows.some((x:Booking)=>x.id===contextId)){
+          setSearch(selected?.bookingNo||'');
+        }else if(selected){
+          setShipmentBookingId(contextId);
+          setShowShipmentForm(true);
+        }
+      }
     }catch(e:any){setMessage(e?.message||'Unable to load shipment control');}
   }
 
@@ -107,6 +122,7 @@ export default function ShipmentControlPage(){
 
   return <WorkspaceShell title="Shipment / Consol Control" subtitle="Promote bookings into operational shipments and manage master consol movements" active="/shipment-control" actions={<><button className="btn" onClick={()=>setShowShipmentForm(v=>!v)}>+ Shipment</button><button className="btn" onClick={()=>setShowConsolForm(v=>!v)}>+ Consol</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {contextBookingId&&<JobFlowNav bookingId={contextBookingId} bookingNo={bookings.find(b=>b.id===contextBookingId)?.bookingNo} active="SHIPMENT"/>}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:12}}>
       <Kpi l="House Shipments" v={dashboard.houseShipments}/><Kpi l="Unconsolidated" v={dashboard.unconsolidated}/><Kpi l="Active Consols" v={dashboard.activeConsols}/><Kpi l="Departure Blocked" v={dashboard.departureBlocked}/><Kpi l="In Transit" v={dashboard.inTransit}/><Kpi l="Arrived" v={dashboard.arrived}/>
