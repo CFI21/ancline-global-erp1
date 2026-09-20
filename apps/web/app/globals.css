@@ -628,11 +628,11 @@ body{
 
 .main:not(:has(.cw-screen)) .card,
 .erp-panel{
-  background:var(--erp-panel);
-  border:1px solid var(--erp-border);
-  border-radius:7px;
-  padding:10px;
-  box-shadow:0 1px 2px rgba(18,50,77,.035);
+  background:var(--erp-panel) !important;
+  border:1px solid var(--erp-border) !important;
+  border-radius:7px !important;
+  padding:10px !important;
+  box-shadow:0 1px 2px rgba(18,50,77,.035) !important;
 }
 
 .main:not(:has(.cw-screen)) .card + .card{
@@ -739,14 +739,14 @@ body{
 .main:not(:has(.cw-screen)) select,
 .main:not(:has(.cw-screen)) textarea{
   width:100%;
-  min-height:27px;
-  padding:3px 6px;
-  border:1px solid #b8c3cc;
-  border-radius:2px;
-  background:#fff;
+  min-height:27px !important;
+  padding:3px 6px !important;
+  border:1px solid #b8c3cc !important;
+  border-radius:2px !important;
+  background:#fff !important;
   color:#1c2f3e;
-  font:12px/19px Arial,Helvetica,sans-serif;
-  box-shadow:none;
+  font:12px/19px Arial,Helvetica,sans-serif !important;
+  box-shadow:none !important;
   outline:none;
 }
 .main:not(:has(.cw-screen)) textarea{
@@ -897,4 +897,26 @@ body{
   .shell{display:block}
   .main{padding:0;background:#fff}
   .erp-panel,.erp-register-panel,.card{break-inside:avoid}
+}
+
+
+/* Ensure legacy screens inherit the same panel/header geometry even when they use inline styles. */
+.main:not(:has(.cw-screen)) .card > h2,
+.main:not(:has(.cw-screen)) .card > h3,
+.main:not(:has(.cw-screen)) .card > h4{
+  margin:-1px -1px 8px !important;
+  padding:5px 8px !important;
+  min-height:24px;
+  border-bottom:1px solid var(--erp-border-strong) !important;
+  background:var(--erp-band) !important;
+  color:#183a57 !important;
+  font-size:11px !important;
+  line-height:1.1 !important;
+  font-weight:800 !important;
+}
+.main:not(:has(.cw-screen)) .card textarea{
+  min-height:64px !important;
+}
+.main:not(:has(.cw-screen)) .card [style*="margin-bottom"]{
+  margin-bottom:8px;
 }
