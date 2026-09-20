@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
+import JobFlowNav from '../../../components/JobFlowNav';
 
 const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
 type Org={id:string;code:string;name:string;roles:string[]};
@@ -135,12 +136,12 @@ export default function EditBookingPage(){
     active="/bookings"
     actions={<>
       <a className="btn" href="/bookings" style={{textDecoration:'none'}}>← Register</a>
-      <a className="btn" href="/carrier-operations" style={{textDecoration:'none'}}>Carrier Space</a>
+      <a className="btn" href={`/carrier-operations?bookingId=${id}`} style={{textDecoration:'none'}}>Carrier Space</a>
       {String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'&&isAdmin&&<a className="btn" href={`/carrier-rates?bookingId=${id}`} style={{textDecoration:'none'}}>Forwarding Global Rates</a>}
       {String(booking.businessModel||'NVOCC').toUpperCase()==='FORWARDING'&&<a className="btn" href={`/carrier-payment?bookingId=${id}`} style={{textDecoration:'none'}}>Carrier Payment / Payer</a>}
       {String(booking.businessModel||'NVOCC').toUpperCase()==='NVOCC'&&<a className="btn" href="/nvocc-portal" style={{textDecoration:'none'}}>NVOCC Portal</a>}
       <a className="btn" href="/container-control" style={{textDecoration:'none'}}>Container Control</a>
-      <a className="btn" href="/shipment-control" style={{textDecoration:'none'}}>Shipment Control</a>
+      <a className="btn" href={`/shipment-control?bookingId=${id}`} style={{textDecoration:'none'}}>Shipment Control</a>
       <button className="btn" onClick={()=>save(false)} disabled={busy}>{busy?'Working...':'Save Changes'}</button>
       <button className="btn" onClick={()=>save(true)} disabled={busy}>Save & Close</button>
       <button className="btn" onClick={advance} disabled={busy}>Save & Advance</button>
@@ -163,6 +164,7 @@ export default function EditBookingPage(){
       {booking.specialCargo&&<span className="status">Cargo {booking.specialCargo}</span>}
     </div>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    <JobFlowNav bookingId={id} bookingNo={booking.bookingNo} active="BOOKING"/>
     <div className="card" style={{padding:0,marginBottom:12,overflowX:'auto'}}><div style={{display:'flex',minWidth:820}}>{tabs.map(t=><button key={t} onClick={()=>setTab(t)} style={tabStyle(tab===t)}>{t}{t==='Containers'?` (${booking.containers?.length||0})`:t==='Routing'?` (${booking.routingLegs?.length||0})`:t==='Documents'?` (${booking.documents?.length||0})`:t==='Charges'?` (${booking.financeLines?.length||0})`:t==='Tasks'?` (${booking.tasks?.length||0})`:t==='Approvals'?` (${booking.approvals?.length||0})`:''}</button>)}</div></div>
 
     {tab==='Details'&&<>
@@ -174,7 +176,7 @@ export default function EditBookingPage(){
     {tab==='Routing'&&<>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Routing & Agents</h3><div style={grid}><Input l="Place of Receipt" k="placeOfReceipt"/><Input l="Origin" k="origin"/><Input l="Port of Loading (POL)" k="portOfLoading"/><Input l="POL Agent" k="polAgent"/><Input l="Transshipment Port" k="transshipmentPort"/><Input l="Terminal" k="terminal"/><Input l="Port of Discharge (POD)" k="portOfDischarge"/><Input l="POD Agent" k="podAgent"/><Input l="Destination" k="destination"/><Input l="Place of Delivery" k="placeOfDelivery"/></div></div>
       <div className="card" style={{marginBottom:12}}><h3 style={title}>Carrier / Vessel / Schedule</h3><div style={grid}><Input l="Carrier" k="carrier"/><Input l="Vessel / Voyage" k="vesselVoyage"/><Input l="ETD" k="etd" type="date"/><Input l="ETA" k="eta" type="date"/><Input l="ATD" k="atd" type="date"/><Input l="ATA" k="ata" type="date"/><Input l="Through B/L" k="throughBL"/></div></div>
-      <div className="card" style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center'}}><h3 style={{...title,flex:1}}>Multi-leg Voyage Plan</h3><a className="btn" href="/routing" style={{textDecoration:'none'}}>Open Routing Planner</a></div><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Seq</th><th>Leg</th><th>Mode</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Status</th></tr></thead><tbody>{!booking.routingLegs?.length?<tr><td colSpan={10}>No routing legs planned yet.</td></tr>:booking.routingLegs.map(l=><tr key={l.id}><td>{l.sequence}</td><td>{l.legType}</td><td>{l.mode}</td><td>{l.origin}</td><td>{l.destination}</td><td>{l.carrier||'-'}</td><td>{[l.vessel,l.voyage].filter(Boolean).join(' / ')||'-'}</td><td>{fmt(l.etd)}</td><td>{fmt(l.eta)}</td><td><span className="status">{l.status}</span></td></tr>)}</tbody></table></div></div>
+      <div className="card" style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center'}}><h3 style={{...title,flex:1}}>Multi-leg Voyage Plan</h3><a className="btn" href={`/routing?bookingId=${id}`} style={{textDecoration:'none'}}>Open Routing Planner</a></div><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Seq</th><th>Leg</th><th>Mode</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Status</th></tr></thead><tbody>{!booking.routingLegs?.length?<tr><td colSpan={10}>No routing legs planned yet.</td></tr>:booking.routingLegs.map(l=><tr key={l.id}><td>{l.sequence}</td><td>{l.legType}</td><td>{l.mode}</td><td>{l.origin}</td><td>{l.destination}</td><td>{l.carrier||'-'}</td><td>{[l.vessel,l.voyage].filter(Boolean).join(' / ')||'-'}</td><td>{fmt(l.etd)}</td><td>{fmt(l.eta)}</td><td><span className="status">{l.status}</span></td></tr>)}</tbody></table></div></div>
       <div className="card"><h3 style={title}>Operational Cut-offs</h3><div style={grid}><Input l="CY Closing" k="cyClosing" type="date"/><Input l="SI Cut-off" k="siCutoff" type="date"/><Input l="VGM Cut-off" k="vgmCutoff" type="date"/><Input l="Document Cut-off" k="docCutoff" type="date"/><Input l="Port Cut-off" k="portCutoff" type="date"/></div></div>
     </>}
 
