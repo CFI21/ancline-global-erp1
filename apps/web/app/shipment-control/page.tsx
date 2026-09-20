@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
-import JobFlowNav from '../../components/JobFlowNav';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Customer={name:string;code?:string};
@@ -122,7 +122,19 @@ export default function ShipmentControlPage(){
 
   return <WorkspaceShell title="Shipment / Consol Control" subtitle="Promote bookings into operational shipments and manage master consol movements" active="/shipment-control" actions={<><button className="btn" onClick={()=>setShowShipmentForm(v=>!v)}>+ Shipment</button><button className="btn" onClick={()=>setShowConsolForm(v=>!v)}>+ Consol</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
-    {contextBookingId&&<JobFlowNav bookingId={contextBookingId} bookingNo={bookings.find(b=>b.id===contextBookingId)?.bookingNo} active="SHIPMENT"/>}
+    {contextBookingId&&<JobContextRail
+      bookingId={contextBookingId}
+      bookingNo={bookings.find(b=>b.id===contextBookingId)?.bookingNo}
+      active="SHIPMENT"
+      customer={bookings.find(b=>b.id===contextBookingId)?.customer?.name||''}
+      route={(()=>{const b=bookings.find(x=>x.id===contextBookingId);return b?`${b.origin} → ${b.destination}`:''})()}
+      carrier={bookings.find(b=>b.id===contextBookingId)?.carrier||''}
+      vessel={bookings.find(b=>b.id===contextBookingId)?.vesselVoyage||''}
+      equipment={(()=>{const b=bookings.find(x=>x.id===contextBookingId);return b?.equipment?`${b.quantity||1} × ${b.equipment}`:''})()}
+      status={bookings.find(b=>b.id===contextBookingId)?.shipmentStatus||bookings.find(b=>b.id===contextBookingId)?.status||''}
+      etd={fmtDate(bookings.find(b=>b.id===contextBookingId)?.etd)}
+      eta={fmtDate(bookings.find(b=>b.id===contextBookingId)?.eta)}
+    />}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:12}}>
       <Kpi l="House Shipments" v={dashboard.houseShipments}/><Kpi l="Unconsolidated" v={dashboard.unconsolidated}/><Kpi l="Active Consols" v={dashboard.activeConsols}/><Kpi l="Departure Blocked" v={dashboard.departureBlocked}/><Kpi l="In Transit" v={dashboard.inTransit}/><Kpi l="Arrived" v={dashboard.arrived}/>
