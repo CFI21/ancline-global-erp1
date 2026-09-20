@@ -149,14 +149,18 @@ export class TestDataService implements OnModuleInit {
       bookingRows.push({...x,id:booking.id,bookingNo,quoteNo});
 
       await this.db.bookingLeg.deleteMany({where:{bookingId:booking.id}});
-      await this.db.bookingLeg.create({data:{bookingId:booking.id,sequence:1,legType:'MAIN',mode:'SEA',origin:x.pol,destination:x.pod,carrier:x.carrier.name,vessel:`TEST VESSEL ${idx+1}`,voyage:`TV${100+idx}`,terminal:`TEST TERMINAL ${x.pol}`,etd:this.d(7+idx*2,18),eta:this.d(28+idx*4,8),status:['CONFIRMED','OPERATIONAL'].includes(x.status)?'CONFIRMED':'PLANNED',remarks:'SYNTHETIC TEST ROUTING'}});
+      await this.db.bookingLeg.createMany({data:[{bookingId:booking.id,sequence:1,legType:'PRE_CARRIAGE',mode:'ROAD',origin:x.por,destination:x.pol,carrier:trucker.name,vessel:'TEST TRUCK',voyage:'TRK-'+bookingNo,terminal:'TEST TERMINAL '+x.pol,etd:this.d(3+idx,9),eta:this.d(3+idx,15),atd:this.d(3+idx,9),ata:this.d(3+idx,15),status:'COMPLETED',remarks:'SYNTHETIC TEST PRE-CARRIAGE LEG'},{bookingId:booking.id,sequence:2,legType:'MAIN',mode:'SEA',origin:x.pol,destination:x.pod,carrier:x.carrier.name,vessel:'TEST VESSEL '+(idx+1),voyage:'TV'+(100+idx),terminal:'TEST TERMINAL '+x.pol,etd:this.d(7+idx*2,18),eta:this.d(28+idx*4,8),atd:x.status==='OPERATIONAL'?this.d(-1,19):this.d(7+idx*2,19),ata:x.status==='OPERATIONAL'?this.d(1,9):this.d(28+idx*4,9),status:x.status==='OPERATIONAL'?'DEPARTED':'CONFIRMED',remarks:'SYNTHETIC TEST MAIN LEG VIA '+x.transshipment}]});
       await this.db.shipmentMilestone.deleteMany({where:{bookingId:booking.id}});
       await this.db.shipmentMilestone.createMany({data:[
-        {bookingId:booking.id,code:'BOOKED',label:'ANC Booking Created',location:x.origin,actualAt:this.d(-2),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic'},
-        {bookingId:booking.id,code:'CY_CLOSING',label:'CY Closing',location:x.pol,plannedAt:this.d(5+idx*2,12),status:'PLANNED',source:'TEST_DATA'},
-        {bookingId:booking.id,code:'VGM_CUTOFF',label:'VGM Cutoff',location:x.pol,plannedAt:this.d(6+idx*2,8),status:'PLANNED',source:'TEST_DATA'},
-        {bookingId:booking.id,code:'DEPARTURE',label:'Planned Departure',location:x.pol,plannedAt:this.d(7+idx*2,18),status:'PLANNED',source:'TEST_DATA'},
-        {bookingId:booking.id,code:'ARRIVAL',label:'Planned Arrival',location:x.pod,plannedAt:this.d(28+idx*4,8),status:'PLANNED',source:'TEST_DATA'}
+        {bookingId:booking.id,code:'BOOKED',label:'ANC Booking Created',location:x.origin,plannedAt:this.d(-2),actualAt:this.d(-2),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic booking milestone'},
+        {bookingId:booking.id,code:'EMPTY_RELEASE',label:'Empty Equipment Released',location:'TEST DEPOT '+x.pol,plannedAt:this.d(2+idx),actualAt:this.d(2+idx),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic equipment release'},
+        {bookingId:booking.id,code:'PICKUP',label:'Cargo / Container Pickup',location:x.por,plannedAt:this.d(3+idx,9),actualAt:this.d(3+idx,9),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic pickup'},
+        {bookingId:booking.id,code:'CY_CLOSING',label:'CY Closing',location:x.pol,plannedAt:this.d(5+idx*2,12),actualAt:this.d(5+idx*2,11),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic cutoff met'},
+        {bookingId:booking.id,code:'SI_CUTOFF',label:'Shipping Instruction Cutoff',location:x.pol,plannedAt:this.d(5+idx*2,8),actualAt:this.d(5+idx*2,7),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic SI submitted'},
+        {bookingId:booking.id,code:'VGM_CUTOFF',label:'VGM Cutoff',location:x.pol,plannedAt:this.d(6+idx*2,8),actualAt:this.d(6+idx*2,7),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic VGM submitted'},
+        {bookingId:booking.id,code:'DEPARTURE',label:'Vessel Departure',location:x.pol,plannedAt:this.d(7+idx*2,18),actualAt:x.status==='OPERATIONAL'?this.d(-1,19):this.d(7+idx*2,19),status:x.status==='OPERATIONAL'?'ACTUAL':'PLANNED',source:'TEST_DATA',remarks:'Synthetic departure'},
+        {bookingId:booking.id,code:'TRANSSHIPMENT',label:'Transshipment',location:x.transshipment,plannedAt:this.d(14+idx*2,12),actualAt:this.d(14+idx*2,14),status:'PLANNED',source:'TEST_DATA',remarks:'Synthetic transshipment'},
+        {bookingId:booking.id,code:'ARRIVAL',label:'Vessel Arrival',location:x.pod,plannedAt:this.d(28+idx*4,8),actualAt:x.status==='OPERATIONAL'?this.d(1,9):this.d(28+idx*4,9),status:x.status==='OPERATIONAL'?'ACTUAL':'PLANNED',source:'TEST_DATA',remarks:'Synthetic arrival'}
       ]});
       await this.db.document.deleteMany({where:{bookingId:booking.id,documentNo:{startsWith:'ANC-TEST-'}}});
       await this.db.document.createMany({data:[
