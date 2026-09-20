@@ -109,5 +109,6 @@ export default function ContainerControlPage(){
       {visible.map(m=><tr key={m.id}><td>{new Date(m.occurredAt).toLocaleString()}</td><td><b>{m.container?.containerNo||'-'}</b></td><td>{m.eventLabel}<div className="sub">{m.eventCode}</div></td><td><span className="status">{m.status||'-'}</span></td><td>{m.location||'-'}</td><td>{m.source||'-'}</td><td>{m.reference||'-'}</td><td>{m.actorId||'-'}</td><td>{m.remarks||'-'}</td></tr>)}
       {visible.length===0&&<tr><td colSpan={9}>No container movements recorded for this booking yet.</td></tr>}
     </tbody></table></div></div>
+    </div>
   </WorkspaceShell>;
 }
