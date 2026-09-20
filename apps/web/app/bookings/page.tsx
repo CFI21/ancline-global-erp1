@@ -134,10 +134,10 @@ export default function BookingsPage(){
   }
   function clearFilters(){setSearch('');setStatusFilter('ALL');setCustomerFilter('ALL');setCarrierFilter('ALL');setAttentionFilter('ALL');setEtdFrom('');setEtdTo('');}
   function signOut(){localStorage.removeItem('ancline_token');localStorage.removeItem('ancline_user');location.href='/login';}
-  const field:React.CSSProperties={width:'100%',padding:'8px 9px',border:'1px solid #cfd9e2',borderRadius:6,background:'#fff',minHeight:36};
-  const label:React.CSSProperties={fontSize:12,fontWeight:700,color:'#4c6072',display:'block',marginBottom:5};
-  const title:React.CSSProperties={fontSize:14,fontWeight:800,color:'#153a5d',margin:'0 0 12px',paddingBottom:8,borderBottom:'1px solid #e2e8ee'};
-  const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))',gap:10};
+  const field:React.CSSProperties={width:'100%',padding:'3px 6px',border:'1px solid #b8c3cc',borderRadius:2,background:'#fff',minHeight:27,height:27,fontSize:12,lineHeight:'19px',boxShadow:'none'};
+  const label:React.CSSProperties={fontSize:11.5,fontWeight:700,color:'#31485a',display:'block',marginBottom:3,lineHeight:1.15};
+  const title:React.CSSProperties={fontSize:12,fontWeight:800,color:'#183a57',margin:'-1px -1px 8px',padding:'5px 8px',background:'#e3e8ec',borderBottom:'1px solid #aeb9c2'};
+  const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',columnGap:8,rowGap:6};
   const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof initialForm;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
   const Select=({l,k,children}:{l:string;k:keyof typeof initialForm;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
 
