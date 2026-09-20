@@ -206,7 +206,7 @@ export default function RatesPage(){
     {convert&&<div className="card" style={{marginBottom:12}}>
       <h3 style={sectionTitle}>Convert accepted quote {convert.quoteNo} to booking</h3>
       <div style={formGrid}>
-        <label><span style={labelStyle}>Booking No.</span><input style={fieldStyle} value={convert.bookingNo} onChange={e=>setConvert({...convert,bookingNo:e.target.value})} placeholder="Auto if blank"/></label>
+        <label><span style={labelStyle}>Job Ref</span><input inputMode="numeric" maxLength={5} pattern="\\d{5}" style={fieldStyle} value={convert.bookingNo} onChange={e=>setConvert({...convert,bookingNo:e.target.value.replace(/\\D/g,'').slice(0,5)})} placeholder="Auto 5-digit"/></label>
         <label><span style={labelStyle}>Origin *</span><input style={fieldStyle} value={convert.origin} onChange={e=>setConvert({...convert,origin:e.target.value})} placeholder="CNSHA"/></label>
         <label><span style={labelStyle}>Destination *</span><input style={fieldStyle} value={convert.destination} onChange={e=>setConvert({...convert,destination:e.target.value})} placeholder="AEJEA"/></label>
         <label><span style={labelStyle}>Quantity</span><input type="number" min="1" style={fieldStyle} value={convert.quantity} onChange={e=>setConvert({...convert,quantity:e.target.value})}/></label>
