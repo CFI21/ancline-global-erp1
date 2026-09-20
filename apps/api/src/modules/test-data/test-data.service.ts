@@ -165,6 +165,60 @@ export class TestDataService implements OnModuleInit {
         {bookingId:booking.id,type:'REVENUE',chargeCode:'OCEAN_FREIGHT',description:'Synthetic ANC customer sell',billingPartyId:x.customer.id,quantity:x.qty,unitRate:x.sell/x.qty,amount:x.sell,currency:x.currency,status:'WIP',source:'TEST_DATA',reference:`TEST-SELL-${x.key}`,invoiceReady:true},
         {bookingId:booking.id,type:'REVENUE',chargeCode:'DOC_FEE',description:'Synthetic ANC documentation fee',billingPartyId:x.customer.id,quantity:1,unitRate:75,amount:75,currency:x.currency,status:'WIP',source:'TEST_DATA',reference:`TEST-DOC-${x.key}`,invoiceReady:true}
       ]});
+
+      await this.db.task.deleteMany({where:{bookingId:booking.id,title:{startsWith:'TEST '}}});
+      await this.db.task.createMany({data:[
+        {bookingId:booking.id,title:'TEST Confirm carrier space and booking reference',ownerId:'test.ops@ancline.invalid',dueAt:this.d(2+idx),status:'OPEN',slaState:'ON_TRACK'},
+        {bookingId:booking.id,title:'TEST Submit shipping instructions and VGM',ownerId:'test.docs@ancline.invalid',dueAt:this.d(5+idx),status:'OPEN',slaState:'ON_TRACK'},
+        {bookingId:booking.id,title:'TEST Pre-departure readiness check',ownerId:'test.ops@ancline.invalid',dueAt:this.d(6+idx),status:'OPEN',slaState:'ON_TRACK'}
+      ]});
+
+      await this.db.approval.deleteMany({where:{bookingId:booking.id,requesterId:'SYSTEM_TEST_DATA'}});
+      await this.db.approval.createMany({data:[
+        {bookingId:booking.id,type:'RATE_APPROVAL',requesterId:'SYSTEM_TEST_DATA',approverId:'TEST COMMERCIAL MANAGER',status:'Approved',reason:'Synthetic test rate approval'},
+        {bookingId:booking.id,type:'DOCUMENT_RELEASE',requesterId:'SYSTEM_TEST_DATA',approverId:'TEST DOCUMENT MANAGER',status:'Pending',reason:'Synthetic HBL/MBL release test'}
+      ]});
+
+      await this.db.auditEvent.deleteMany({where:{bookingId:booking.id,actorId:'SYSTEM_TEST_DATA'}});
+      await this.db.auditEvent.createMany({data:[
+        {bookingId:booking.id,actorId:'SYSTEM_TEST_DATA',action:'TEST_JOB_SEEDED',objectType:'Booking',objectId:booking.id,detail:{bookingNo,testData:true}},
+        {bookingId:booking.id,actorId:'SYSTEM_TEST_DATA',action:'TEST_RATE_SELECTED',objectType:'RateQuote',objectId:quote.id,detail:{quoteNo,carrier:x.carrier.name,buy:x.buy,sell:x.sell,currency:x.currency,testData:true}}
+      ]});
+
+      await this.db.jobCloseoutChecklist.deleteMany({where:{bookingId:booking.id}});
+      await this.db.jobCloseoutChecklist.createMany({data:[
+        {bookingId:booking.id,itemCode:'DOCS_COMPLETE',itemLabel:'All operational documents complete',mandatory:true,completed:false},
+        {bookingId:booking.id,itemCode:'COSTS_COMPLETE',itemLabel:'All vendor / carrier costs entered',mandatory:true,completed:false},
+        {bookingId:booking.id,itemCode:'REVENUE_COMPLETE',itemLabel:'Customer revenue ready for invoicing',mandatory:true,completed:false},
+        {bookingId:booking.id,itemCode:'POD_COMPLETE',itemLabel:'Delivery / POD evidence complete',mandatory:true,completed:false}
+      ]});
+
+      const scheduleNo=`TEST-SCH-${x.key}-001`;
+      await this.db.vesselVoyageSchedule.upsert({
+        where:{scheduleNo},
+        update:{carrier:x.carrier.name,serviceName:`TEST SERVICE ${x.key}`,vessel:`TEST VESSEL ${idx+1}`,imoNo:`TESTIMO${100000+idx}`,voyage:`TV${100+idx}`,direction:'EASTBOUND',portOfLoading:x.pol,portOfDischarge:x.pod,terminal:`TEST TERMINAL ${x.pol}`,etd:this.d(7+idx*2,18),eta:this.d(28+idx*4,8),cyClosing:this.d(5+idx*2,12),siCutoff:this.d(5+idx*2,8),vgmCutoff:this.d(6+idx*2,8),docCutoff:this.d(5+idx*2,10),capacityTeu:8500,status:'PLANNED',source:'TEST_DATA',remarks:`Synthetic schedule for Job ${bookingNo}`,createdBy:'SYSTEM_TEST_DATA'},
+        create:{scheduleNo,carrier:x.carrier.name,serviceName:`TEST SERVICE ${x.key}`,vessel:`TEST VESSEL ${idx+1}`,imoNo:`TESTIMO${100000+idx}`,voyage:`TV${100+idx}`,direction:'EASTBOUND',portOfLoading:x.pol,portOfDischarge:x.pod,terminal:`TEST TERMINAL ${x.pol}`,etd:this.d(7+idx*2,18),eta:this.d(28+idx*4,8),cyClosing:this.d(5+idx*2,12),siCutoff:this.d(5+idx*2,8),vgmCutoff:this.d(6+idx*2,8),docCutoff:this.d(5+idx*2,10),capacityTeu:8500,status:'PLANNED',source:'TEST_DATA',remarks:`Synthetic schedule for Job ${bookingNo}`,createdBy:'SYSTEM_TEST_DATA'}
+      });
+
+      await this.db.transportOrder.deleteMany({where:{bookingId:booking.id,orderNo:{startsWith:'TEST-TRN-'}}});
+      await this.db.transportOrder.create({data:{
+        orderNo:`TEST-TRN-${bookingNo}`,bookingId:booking.id,orderType:'EXPORT_PICKUP',providerName:'TEST ANC Trucking Partner',
+        driverName:'Test Driver',driverPhone:'+31-000-000-0000',truckNo:`TEST-TRUCK-${idx+1}`,trailerNo:`TEST-TRL-${idx+1}`,
+        pickupLocation:`TEST SHIPPER ${x.origin}`,deliveryLocation:`TEST TERMINAL ${x.pol}`,plannedPickupAt:this.d(3+idx,9),plannedDeliveryAt:this.d(3+idx,15),
+        status:'PLANNED',customerReference:`TEST-TRN-CUST-${x.key}`,providerReference:`TEST-TRN-PROV-${x.key}`,instructions:'Synthetic transport order — testing only',createdBy:'SYSTEM_TEST_DATA'
+      }});
+
+      await this.event('CarrierBooking',`TEST-CBR-${x.key}`,'CARRIER_BOOKING_REQUESTED',{
+        carrierOperationNo:`TEST-CBR-${x.key}`,bookingId:booking.id,bookingNo,carrierId:x.carrier.id,carrierCode:x.carrier.providerCode,
+        carrierName:x.carrier.name,scheduleNo,serviceName:`TEST SERVICE ${x.key}`,vessel:`TEST VESSEL ${idx+1}`,voyage:`TV${100+idx}`,
+        portOfLoading:x.pol,portOfDischarge:x.pod,terminal:`TEST TERMINAL ${x.pol}`,etd:this.d(7+idx*2,18),eta:this.d(28+idx*4,8),
+        cyClosing:this.d(5+idx*2,12),siCutoff:this.d(5+idx*2,8),vgmCutoff:this.d(6+idx*2,8),docCutoff:this.d(5+idx*2,10),
+        equipmentType:x.equipment,quantity:x.qty,spaceTeu:(String(x.equipment).includes('40')?2:1)*x.qty,
+        carrierBookingNo:['CONFIRMED','OPERATIONAL'].includes(x.status)?`TEST-CARRIER-BKG-${x.key}-9911`:null,
+        confirmationStatus:['CONFIRMED','OPERATIONAL'].includes(x.status)?'CONFIRMED':'REQUESTED',allocationStatus:'ALLOCATED',
+        allocationRef:`TEST-ALLOC-${x.key}`,equipmentReleaseStatus:x.status==='OPERATIONAL'?'RELEASED':'PENDING',
+        notes:'Synthetic carrier-space record — testing only',requestedBy:'SYSTEM_TEST_DATA',testData:true
+      },'COMPLETED','ANCLINE_CARRIER_OPERATIONS');
       await this.event('CarrierPaymentInstruction',booking.id,'CARRIER_PAYMENT_INSTRUCTIONS_SET',{bookingId:booking.id,bookingNo,instructions:[
         {chargeGroup:'ORIGIN_PORT',term:'PREPAID_ORIGIN',applicable:true,payerType:'ANC_REGISTERED_OFFICE',payerName:'TEST ANC ORIGIN OFFICE',payerCountryCode:x.origin.slice(0,2),ancOfficeCountryValidated:true},
         {chargeGroup:'SEA_FREIGHT',term:'PREPAID_ORIGIN',applicable:true,payerType:'ANC_REGISTERED_OFFICE',payerName:'TEST ANC ORIGIN OFFICE',payerCountryCode:x.origin.slice(0,2),ancOfficeCountryValidated:true},
@@ -191,7 +245,7 @@ export class TestDataService implements OnModuleInit {
     const [customers,carriers,bookings,users]=await Promise.all([
       this.db.organization.findMany({where:{code:{startsWith:'TEST-CUST-'}},orderBy:{code:'asc'}}),
       this.db.organization.findMany({where:{code:{startsWith:'TEST-CARRIER-'}},orderBy:{code:'asc'}}),
-      this.db.booking.findMany({where:{OR:[{bookingNo:{in:[...TEST_JOB_REFS]}},{bookingNo:{startsWith:'ANC-TEST-'}}]},include:{rateQuote:true,containers:true,financeLines:true,routingLegs:true,milestones:true},orderBy:{bookingNo:'asc'}}),
+      this.db.booking.findMany({where:{OR:[{bookingNo:{in:[...TEST_JOB_REFS]}},{bookingNo:{startsWith:'ANC-TEST-'}}]},include:{rateQuote:true,containers:true,documents:true,financeLines:true,tasks:true,approvals:true,routingLegs:true,milestones:true,closeoutChecklist:true},orderBy:{bookingNo:'asc'}}),
       this.db.userAccount.findMany({where:{email:{endsWith:'@ancline.invalid'}},orderBy:{email:'asc'}})
     ]);
     return {
@@ -200,7 +254,7 @@ export class TestDataService implements OnModuleInit {
       customers:customers.map((x:any)=>({id:x.id,code:x.code,name:x.name,countryCode:x.countryCode,customerRef:x.customerRef,registrationRef:x.registrationRef,costCenterCode:x.costCenterCode,kycStatus:x.kycStatus})),
       carriers:carriers.map((x:any)=>({id:x.id,code:x.code,name:x.name,countryCode:x.countryCode})),
       users:users.map((x:any)=>({email:x.email,displayName:x.displayName,role:x.role,customerId:x.customerId,agentId:x.agentId,permissions:x.permissions})),
-      bookings:bookings.map((b:any)=>({id:b.id,bookingNo:b.bookingNo,businessModel:b.businessModel,channel:b.bookingChannel,status:b.status,shipmentStatus:b.shipmentStatus,customerRef:b.customerRef,carrier:b.carrier,carrierBookingNo:b.carrierBookingNo,route:`${b.origin} → ${b.destination}`,equipment:`${b.quantity||0} x ${b.equipment||'-'}`,specialCargo:b.specialCargo,quoteNo:b.rateQuote?.quoteNo||null,houseBL:b.houseBL,masterBL:b.masterBL,containers:b.containers.length,financeLines:b.financeLines.length,routingLegs:b.routingLegs.length,milestones:b.milestones.length}))
+      bookings:bookings.map((b:any)=>({id:b.id,bookingNo:b.bookingNo,businessModel:b.businessModel,channel:b.bookingChannel,status:b.status,shipmentStatus:b.shipmentStatus,customerRef:b.customerRef,carrier:b.carrier,carrierBookingNo:b.carrierBookingNo,route:`${b.origin} → ${b.destination}`,equipment:`${b.quantity||0} x ${b.equipment||'-'}`,specialCargo:b.specialCargo,quoteNo:b.rateQuote?.quoteNo||null,houseBL:b.houseBL,masterBL:b.masterBL,containers:b.containers.length,documents:b.documents.length,financeLines:b.financeLines.length,tasks:b.tasks.length,approvals:b.approvals.length,routingLegs:b.routingLegs.length,milestones:b.milestones.length,closeoutItems:b.closeoutChecklist.length}))
     };
   }
 
@@ -227,6 +281,9 @@ export class TestDataService implements OnModuleInit {
     }
     if(customerIds.length)await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_CREDIT_CONTROL',objectType:'CreditProfile',objectId:{in:customerIds}}});
     await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_RATE_PROCUREMENT',objectType:'CarrierRateProvider',objectId:{in:['TEST_ATLANTIC','TEST_PACIFIC','TEST_GULF']}}});
+    await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',objectType:'CarrierBooking',objectId:{startsWith:'TEST-CBR-'}}});
+    await this.db.transportOrder.deleteMany({where:{orderNo:{startsWith:'TEST-TRN-'}}});
+    await this.db.vesselVoyageSchedule.deleteMany({where:{scheduleNo:{startsWith:'TEST-SCH-'}}});
     await this.db.integrationEvent.deleteMany({where:{sourceSystem:SOURCE}});
     await this.db.rateQuote.deleteMany({where:{quoteNo:{startsWith:'ANC-TEST-'}}});
     await this.db.userAccount.deleteMany({where:{email:{endsWith:'@ancline.invalid'}}});
