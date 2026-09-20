@@ -1748,3 +1748,78 @@ body{
   .job-quick-overlay{padding:6px}
   .job-quick-modal{width:100vw;height:96vh}
 }
+
+
+/* UNIFIED JOB WORKSPACE TABS / SUMMARY */
+.job-work-tabs{
+  min-height:29px;
+  display:flex;
+  align-items:flex-end;
+  gap:0;
+  margin:0 0 8px;
+  padding:3px 4px 0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  border:1px solid #aeb9c2;
+  border-bottom-color:#8f9aa2;
+  border-radius:2px;
+  background:#e8ebed;
+  white-space:nowrap;
+}
+.job-work-tabs a{
+  min-height:24px;
+  display:inline-flex;
+  align-items:center;
+  padding:4px 10px 3px;
+  margin-right:1px;
+  border:1px solid #b7c0c7;
+  border-bottom:0;
+  border-radius:0;
+  background:#f6f7f8;
+  color:#18344b;
+  text-decoration:none;
+  font-size:10px;
+  font-weight:700;
+  line-height:16px;
+}
+.job-work-tabs a:hover{
+  background:#fff;
+  border-color:#8fa0ab;
+}
+.job-work-tabs a.active{
+  position:relative;
+  top:1px;
+  background:#fff;
+  border-color:#7f909c;
+  color:#0f3f66;
+  font-weight:900;
+}
+.job-context-mini-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1px;
+  padding:1px;
+  border-bottom:1px solid #d3dbe0;
+  background:#d7dee3;
+}
+.job-context-mini-grid>div{
+  min-width:0;
+  padding:5px 6px;
+  background:#f9fafb;
+}
+.job-context-mini-grid span{
+  display:block;
+  color:#748491;
+  font-size:8px;
+  line-height:1.1;
+}
+.job-context-mini-grid b{
+  display:block;
+  margin-top:2px;
+  color:#173b59;
+  font-size:12px;
+  line-height:1;
+}
+@media(max-width:1179px){
+  .job-work-tabs{margin-top:0}
+}
