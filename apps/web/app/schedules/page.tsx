@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Schedule={id:string;scheduleNo:string;carrier:string;serviceName?:string;vessel:string;imoNo?:string;voyage:string;direction?:string;portOfLoading:string;portOfDischarge:string;terminal?:string;etd:string;eta:string;atd?:string;ata?:string;cyClosing?:string;siCutoff?:string;vgmCutoff?:string;docCutoff?:string;capacityTeu?:number;status:string;source:string;remarks?:string;createdBy?:string};
@@ -29,7 +30,11 @@ export default function SchedulesPage(){
   async function load(t=token){
     try{
       const [s,b]=await Promise.all([api('/schedules',t),api('/bookings',t)]);
-      setRows(Array.isArray(s)?s:[]);setBookings(Array.isArray(b)?b:[]);
+      const scheduleRows=Array.isArray(s)?s:[];
+      const bookingRows=Array.isArray(b)?b:[];
+      setRows(scheduleRows);setBookings(bookingRows);
+      const contextId=new URLSearchParams(location.search).get('bookingId')||'';
+      if(contextId&&bookingRows.some((x:Booking)=>x.id===contextId))setBookingId(contextId);
     }catch(e:any){setMessage(e.message||'Unable to load vessel schedules');}
   }
 
@@ -74,6 +79,7 @@ export default function SchedulesPage(){
 
   return <WorkspaceShell title="Vessel / Voyage Schedules" subtitle="Carrier schedules, voyage control, cut-offs and booking assignment" active="/schedules" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {bookingId&&<JobFlowNav bookingId={bookingId} bookingNo={bookings.find(b=>b.id===bookingId)?.bookingNo} active="SCHEDULE"/>}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:12}}>
       {[['Schedules',rows.length],['Upcoming',upcoming],['Sailing',sailing],['Delayed',delayed]].map(([k,v])=><div className="card" key={String(k)}><div className="sub">{k}</div><div style={{fontSize:26,fontWeight:800}}>{v}</div></div>)}
