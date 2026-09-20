@@ -1266,3 +1266,197 @@ body{
   .booking-reference-grid,.booking-field-grid,.booking-special-grid{grid-template-columns:1fr}
   .booking-detail-rail{grid-template-columns:1fr}
 }
+
+
+/* BOOKING CAPA-STYLE CLEAN WORKSPACE */
+.booking-clean-workspace{
+  display:grid;
+  gap:8px;
+  margin-bottom:10px;
+}
+.booking-summary-strip{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:7px;
+}
+.booking-summary-strip>div{
+  min-width:0;
+  padding:7px 9px;
+  border:1px solid #c9d2d9;
+  border-radius:6px;
+  background:#fff;
+}
+.booking-summary-strip span{
+  display:block;
+  margin-bottom:3px;
+  color:#6a7d8c;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.25px;
+}
+.booking-summary-strip b{
+  display:block;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#173b59;
+  font-size:13px;
+  line-height:1.1;
+}
+.booking-capa-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  align-items:start;
+}
+.booking-entry-panel{
+  min-width:0;
+  height:100%;
+}
+.booking-clean-fields{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:6px;
+  row-gap:5px;
+}
+.booking-compact-fields label{
+  min-width:0;
+  font-size:10.5px !important;
+  line-height:1.08;
+}
+.booking-compact-fields label>span:first-child{
+  display:block;
+  margin-bottom:2px !important;
+  color:#31485a;
+  font-size:10.5px !important;
+  font-weight:700;
+  line-height:1.08 !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.booking-compact-fields input:not([type="checkbox"]):not([type="radio"]),
+.booking-compact-fields select{
+  min-height:24px !important;
+  height:24px !important;
+  padding:2px 4px !important;
+  border-radius:2px !important;
+  font-size:11px !important;
+  line-height:18px !important;
+}
+.booking-compact-fields textarea{
+  min-height:70px !important;
+  padding:5px 6px !important;
+  font-size:11px !important;
+  line-height:1.2 !important;
+}
+.booking-entry-panel .erp-section-title{
+  min-height:23px;
+  margin:-1px -1px 7px;
+  padding:5px 7px;
+  font-size:10.5px;
+}
+.booking-additional-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.booking-detail-section{
+  min-width:0;
+  border:1px solid #c6d0d7;
+  border-radius:5px;
+  background:#fff;
+  overflow:hidden;
+}
+.booking-detail-section>summary{
+  min-height:28px;
+  display:flex;
+  align-items:center;
+  padding:5px 8px;
+  background:#edf1f4;
+  color:#27465d;
+  font-size:10.5px;
+  font-weight:800;
+  cursor:pointer;
+  list-style:none;
+}
+.booking-detail-section>summary::-webkit-details-marker{display:none}
+.booking-detail-section>summary::after{
+  content:'+';
+  margin-left:auto;
+  color:#6a7b89;
+  font-size:14px;
+  font-weight:700;
+}
+.booking-detail-section[open]>summary::after{content:'−'}
+.booking-detail-fields{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:6px;
+  row-gap:5px;
+  padding:7px;
+  border-top:1px solid #d6dde2;
+}
+.booking-notes-section{
+  padding:7px;
+  border-top:1px solid #d6dde2;
+}
+.booking-clean-actions{
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:6px 7px;
+  border:1px solid #c4ced5;
+  border-radius:6px;
+  background:#f7f9fa;
+}
+.booking-related-links{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  flex-wrap:wrap;
+}
+.booking-related-links a{
+  min-height:24px;
+  display:inline-flex;
+  align-items:center;
+  padding:3px 7px;
+  border:1px solid #b8c4cd;
+  border-radius:3px;
+  background:#fff;
+  color:#173b59;
+  text-decoration:none;
+  font-size:9.5px;
+  font-weight:700;
+}
+.booking-related-links a:hover{
+  background:#e9f1f7;
+  border-color:#8298a9;
+}
+.booking-save-actions{
+  display:flex;
+  gap:5px;
+  align-items:center;
+}
+.booking-secondary-action{
+  background:#fff !important;
+  color:#173b59 !important;
+  border-color:#9fb0bd !important;
+}
+
+@media(max-width:1600px){
+  .booking-capa-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .booking-additional-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:950px){
+  .booking-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .booking-capa-grid,.booking-additional-grid{grid-template-columns:1fr}
+  .booking-clean-actions{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:600px){
+  .booking-clean-fields,.booking-detail-fields{grid-template-columns:1fr}
+  .booking-summary-strip{grid-template-columns:1fr 1fr}
+}
