@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;customer?:{name:string}};
@@ -24,7 +25,16 @@ export default function RoutingPage(){
   async function load(t=token){
     try{
       const [r,b]=await Promise.all([api('/routing',t),api('/bookings',t)]);
-      setRows(Array.isArray(r)?r:[]);setBookings(Array.isArray(b)?b:[]);
+      const routeRows=Array.isArray(r)?r:[];
+      const bookingRows=Array.isArray(b)?b:[];
+      setRows(routeRows);setBookings(bookingRows);
+      const contextId=new URLSearchParams(location.search).get('bookingId')||'';
+      if(contextId){
+        const selectedBooking=bookingRows.find((x:Booking)=>x.id===contextId);
+        const nextSeq=Math.max(0,...routeRows.filter((x:Leg)=>x.bookingId===contextId).map((x:Leg)=>Number(x.sequence||0)))+1;
+        setBookingFilter(contextId);
+        setForm(x=>({...x,bookingId:contextId,sequence:String(nextSeq),origin:selectedBooking?.origin||x.origin,destination:selectedBooking?.destination||x.destination}));
+      }
     }catch(e:any){setMessage(e.message||'Unable to load routing legs.');}
   }
   const visible=useMemo(()=>{const q=search.trim().toLowerCase();return rows.filter(r=>(!bookingFilter||r.bookingId===bookingFilter)&&(!q||[r.booking?.bookingNo,r.booking?.customer?.name,r.origin,r.destination,r.carrier,r.vessel,r.voyage,r.status,r.legType].some(v=>String(v||'').toLowerCase().includes(q))));},[rows,search,bookingFilter]);
@@ -50,6 +60,7 @@ export default function RoutingPage(){
 
   return <WorkspaceShell title="Routing / Voyage Plan" subtitle="Multi-leg routing, feeder/main vessel planning and transshipment control" active="/routing" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {(form.bookingId||bookingFilter)&&<JobFlowNav bookingId={form.bookingId||bookingFilter} bookingNo={bookings.find(b=>b.id===(form.bookingId||bookingFilter))?.bookingNo} active="ROUTING"/>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">ROUTING LEGS</div><div className="kpi">{rows.length}</div></div><div className="card"><div className="sub">ACTIVE LEGS</div><div className="kpi">{active}</div></div><div className="card"><div className="sub">TRANSSHIP LEGS</div><div className="kpi">{transship}</div></div><div className="card"><div className="sub">BOOKINGS WITH ROUTING</div><div className="kpi">{new Set(rows.map(r=>r.bookingId)).size}</div></div></div>
 
     <div className="erp-workspace-grid" style={{marginBottom:8}}>
