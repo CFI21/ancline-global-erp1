@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;customer?:{name:string}};
@@ -27,7 +28,7 @@ export default function ContainerControlPage(){
   const [control,setControl]=useState<any>({equipmentProvider:'',allocationRef:'',allocationStatus:'UNALLOCATED',emptyReleaseOrderNo:'',emptyReleaseValidUntil:'',emptyDepot:'',fullReturnTerminal:'',pickupDate:'',fullGateInAt:'',dischargeAt:'',deliveryAt:'',detentionFreeDays:'',demurrageFreeDays:'',detentionFreeUntil:'',demurrageFreeUntil:'',emptyReturnDue:'',emptyReturnedAt:'',detentionRatePerDay:'',demurrageRatePerDay:'',freeTimeCurrency:'USD'});
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void loadBookings(t);},[]);
-  async function loadBookings(t=token){try{const rows=await api('/bookings',t);const list=Array.isArray(rows)?rows:[];setBookings(list);if(!bookingId&&list[0])void selectBooking(list[0].id,t);}catch(e:any){setMessage(e.message||'Unable to load bookings');}}
+  async function loadBookings(t=token){try{const rows=await api('/bookings',t);const list=Array.isArray(rows)?rows:[];setBookings(list);const contextId=new URLSearchParams(location.search).get('bookingId')||'';const target=contextId&&list.some((x:Booking)=>x.id===contextId)?contextId:(!bookingId&&list[0]?list[0].id:'');if(target)void selectBooking(target,t);}catch(e:any){setMessage(e.message||'Unable to load bookings');}}
   async function selectBooking(id:string,t=token){setBookingId(id);setMessage('');try{const [b,m,c]=await Promise.all([api(`/bookings/${id}`,t),api(`/container-movements/booking/${id}`,t),api(`/container-movements/booking/${id}/control`,t)]);const cs=Array.isArray(c)?c:(Array.isArray(b?.containers)?b.containers:[]);setContainers(cs);setMovements(Array.isArray(m)?m:[]);const next=cs.some((x:Container)=>x.id===form.containerId)?form.containerId:(cs[0]?.id||'');setForm(x=>({...x,containerId:next}));if(next)loadControl(cs.find((x:Container)=>x.id===next));}catch(e:any){setMessage(e.message||'Unable to load container control');}}
   function loadControl(c?:Container){if(!c)return;setControl({equipmentProvider:c.equipmentProvider||'',allocationRef:c.allocationRef||'',allocationStatus:c.allocationStatus||'UNALLOCATED',emptyReleaseOrderNo:c.emptyReleaseOrderNo||'',emptyReleaseValidUntil:dateLocal(c.emptyReleaseValidUntil),emptyDepot:c.emptyDepot||'',fullReturnTerminal:c.fullReturnTerminal||'',pickupDate:dateLocal(c.pickupDate),fullGateInAt:dateLocal(c.fullGateInAt),dischargeAt:dateLocal(c.dischargeAt),deliveryAt:dateLocal(c.deliveryAt),detentionFreeDays:c.detentionFreeDays??'',demurrageFreeDays:c.demurrageFreeDays??'',detentionFreeUntil:dateLocal(c.detentionFreeUntil),demurrageFreeUntil:dateLocal(c.demurrageFreeUntil),emptyReturnDue:dateLocal(c.emptyReturnDue),emptyReturnedAt:dateLocal(c.emptyReturnedAt),detentionRatePerDay:c.detentionRatePerDay??'',demurrageRatePerDay:c.demurrageRatePerDay??'',freeTimeCurrency:c.freeTimeCurrency||'USD'});}
   function chooseContainer(id:string){setForm(x=>({...x,containerId:id}));loadControl(containers.find(c=>c.id===id));}
@@ -45,6 +46,15 @@ export default function ContainerControlPage(){
 
   return <WorkspaceShell title="Container Control" subtitle="Equipment allocation, depot movements, free time, detention / demurrage and event history" active="/container-control" actions={<button className="btn" onClick={()=>bookingId?void selectBooking(bookingId):void loadBookings()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {selected&&<JobContextRail
+      bookingId={selected.id}
+      bookingNo={selected.bookingNo}
+      active={undefined}
+      customer={selected.customer?.name||''}
+      route={`${selected.origin} → ${selected.destination}`}
+      status={selected.status||''}
+      equipment={selectedContainer?`${selectedContainer.containerNo} · ${selectedContainer.type}`:''}
+    />}
     <div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Booking / Container Scope</h3><div style={formGrid}>
       <label><span style={labelStyle}>Booking</span><select style={fieldStyle} value={bookingId} onChange={e=>void selectBooking(e.target.value)}><option value="">Select booking</option>{bookings.map(b=><option key={b.id} value={b.id}>{b.bookingNo} · {b.origin} → {b.destination}</option>)}</select></label>
       <label><span style={labelStyle}>Container</span><select style={fieldStyle} value={form.containerId} onChange={e=>chooseContainer(e.target.value)}><option value="">Select container</option>{containers.map(c=><option key={c.id} value={c.id}>{c.containerNo} · {c.type} · {c.status}</option>)}</select></label>
