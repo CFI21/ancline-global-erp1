@@ -838,3 +838,129 @@ html,body{font-size:11px;background:#e9edf1;color:var(--anc-sap-text)}
     grid-template-columns:minmax(90px,34%) minmax(0,66%) !important;
   }
 }
+
+
+/* ANCLINE ULTRA-COMPACT EXCEL FORM STANDARD */
+html,body{
+  font-family:Aptos,Calibri,"Segoe UI",Arial,sans-serif;
+  font-size:9.5px;
+}
+.shell{grid-template-columns:176px minmax(0,1fr)}
+.side{padding:4px 4px}
+.brand{font-size:14px;padding:3px 5px 5px;margin-bottom:3px}
+.brand span{font-size:7.5px;letter-spacing:1.1px}
+.menu-search-wrap{margin:3px 1px 4px}
+.menu-search{height:23px;padding:0 20px 0 22px;font-size:9px}
+.menu-search-icon{left:6px;top:3px;font-size:12px}
+.menu-search-clear{width:19px;height:19px;top:1px;right:1px;font-size:15px}
+.menu-caption{font-size:7.5px;padding:3px 5px 2px}
+.menu-home,.menu-group{min-height:22px;padding:3px 4px;gap:4px}
+.menu-step{font-size:7.5px;min-width:17px}
+.menu-group-label{font-size:9px}
+.submenu{padding-left:20px}
+.submenu a{padding:3px 4px;font-size:8.5px}
+.menu-portal{padding:4px;font-size:8.5px}
+.main{padding:5px}
+.top{min-height:31px;margin-bottom:4px;padding:3px 5px}
+.top h1{font-size:13px !important}
+.sub{font-size:8.5px}
+.grid{gap:3px}
+.card{border-radius:0}
+.card>h2,.card>h3,.card>h4,
+.main .card>h2,.main .card>h3,.main .card>h4{
+  min-height:20px !important;
+  padding:3px 5px 2px !important;
+  font-size:9.5px !important;
+}
+.kpi{font-size:16px}
+.btn,.main .card .btn,.main .card button{
+  min-height:20px !important;
+  padding:2px 5px !important;
+  font-size:8.5px !important;
+  line-height:1 !important;
+}
+.status{font-size:8px;padding:1px 3px}
+.booking-context-bar{gap:2px;margin:0 0 3px;padding:3px 4px}
+
+/* Excel-like form cells */
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])){
+  grid-template-columns:minmax(68px,36%) minmax(0,64%) !important;
+  min-height:18px !important;
+  height:auto;
+  border-color:#c2c8cd;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>span:first-child{
+  padding:1px 4px !important;
+  font-size:8.5px !important;
+  line-height:16px !important;
+  background:#eceff1;
+  border-right:1px solid #c2c8cd;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>input:not([type="checkbox"]):not([type="radio"]),
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>select,
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>textarea{
+  min-height:17px !important;
+  height:17px !important;
+  padding:0 3px !important;
+  font-size:8.5px !important;
+  line-height:16px !important;
+  border-radius:0 !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>textarea{
+  min-height:40px !important;
+  line-height:1.15 !important;
+  padding-top:2px !important;
+}
+.main .card input[readonly],
+.main .card textarea[readonly],
+.main .card input:disabled,
+.main .card select:disabled,
+.main .card textarea:disabled{
+  background:#e3e6e8 !important;
+}
+
+/* Spreadsheet density */
+.table th,.table td,
+.main .card table:not(.cw-table) th,
+.main .card table:not(.cw-table) td{
+  height:18px !important;
+  min-height:18px !important;
+  padding:1px 3px !important;
+  font-size:8.5px !important;
+  line-height:1.05 !important;
+}
+.table th,
+.main .card table:not(.cw-table) th{
+  background:#e2e6e9 !important;
+}
+.main .table input,
+.main .table select,
+.main .card table:not(.cw-table) input,
+.main .card table:not(.cw-table) select{
+  height:16px !important;
+  min-height:16px !important;
+  padding:0 2px !important;
+  font-size:8px !important;
+}
+.main fieldset:not(.cw-panel){padding:2px;margin:0 0 3px}
+.main fieldset:not(.cw-panel)>legend{font-size:8.5px;padding:0 3px}
+.main .card+.card{margin-top:3px !important}
+.main .card [style*="gap: 8px"],.main .card [style*="gap:8px"]{gap:3px !important}
+.main .card [style*="gap: 6px"],.main .card [style*="gap:6px"]{gap:3px !important}
+.main .card [style*="gap: 5px"],.main .card [style*="gap:5px"]{gap:2px !important}
+.main .card [style*="margin-top: 10px"],.main .card [style*="marginTop:10"]{margin-top:4px !important}
+.main .card [style*="margin-bottom: 10px"],.main .card [style*="marginBottom:10"]{margin-bottom:4px !important}
+
+/* Excel active-cell cue */
+.main .card input:focus,
+.main .card select:focus,
+.main .card textarea:focus,
+.main .table input:focus,
+.main .table select:focus{
+  outline:1px solid #217346 !important;
+  outline-offset:-1px;
+  background:#fffef5 !important;
+}
+
+/* Preserve the dedicated classic inquiry workspace */
+.cw-screen{font-family:Arial,Helvetica,sans-serif}
