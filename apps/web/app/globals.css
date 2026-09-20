@@ -1082,3 +1082,181 @@ html,body{
   line-height:18px !important;
 }
 .cw-table td{height:20px !important}
+
+
+/* ANCLINE SAP + EXCEL BEHAVIOR LAYER */
+.main{
+  font-variant-numeric:tabular-nums;
+}
+.sap-commandbar{
+  min-height:24px;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  margin:-1px 0 4px;
+  padding:2px 3px;
+  border:1px solid #aeb7bf;
+  background:#eceff1;
+  color:#2d3f4d;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.sap-commandbar button{
+  height:19px;
+  min-height:19px;
+  padding:1px 6px;
+  border:1px solid #9fa8af;
+  border-radius:0;
+  background:linear-gradient(#fff,#e6e9eb);
+  color:#1d3446;
+  font:600 10px/15px Aptos,Calibri,"Segoe UI",Arial,sans-serif;
+  cursor:pointer;
+}
+.sap-commandbar button:hover{
+  background:#dce8f2;
+  border-color:#6e8799;
+}
+.sap-commandbar button:active{
+  background:#cddce8;
+}
+.sap-command-separator{
+  width:1px;
+  height:16px;
+  margin:0 3px;
+  background:#b8c0c6;
+}
+.sap-key-hint{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#5d6b75;
+  font-size:10px;
+}
+.sap-ready{
+  margin-left:auto;
+  padding:1px 5px;
+  border-left:1px solid #b9c1c7;
+  color:#345b3f;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.35px;
+}
+
+/* SAP field-state treatment */
+.main input:not([type="checkbox"]):not([type="radio"]),
+.main select,
+.main textarea{
+  caret-color:#217346;
+}
+.main input:required,
+.main select:required,
+.main textarea:required{
+  border-left-color:#d58a00 !important;
+}
+.main input[readonly],
+.main textarea[readonly],
+.main input:disabled,
+.main select:disabled,
+.main textarea:disabled{
+  color:#59656d !important;
+  background:#e5e7e9 !important;
+}
+.main input:focus,
+.main select:focus,
+.main textarea:focus{
+  outline:2px solid #217346 !important;
+  outline-offset:-2px !important;
+  box-shadow:none !important;
+}
+
+/* Excel register behavior: frozen heading + first key column */
+.main .table{
+  border-collapse:separate;
+  border-spacing:0;
+}
+.main .table thead th{
+  position:sticky;
+  top:0;
+  z-index:4;
+  border-top:1px solid #9ea7ae !important;
+  border-bottom:1px solid #8f989f !important;
+  box-shadow:0 1px 0 rgba(0,0,0,.05);
+}
+.main .table th:first-child,
+.main .table td:first-child{
+  position:sticky;
+  left:0;
+}
+.main .table th:first-child{
+  z-index:6;
+  background:#d9dfe3 !important;
+}
+.main .table td:first-child{
+  z-index:2;
+  background:#fff;
+  border-right:1px solid #aeb7bf !important;
+}
+.main .table tbody tr:nth-child(even) td:first-child{
+  background:#f7f8f9;
+}
+.main .table tbody tr:hover td,
+.main .table tbody tr:hover td:first-child{
+  background:#edf5fb !important;
+}
+.main .table tbody tr:focus-within td,
+.main .table tbody tr:focus-within td:first-child{
+  background:#e2f0d9 !important;
+}
+.main .table td:has(input:focus),
+.main .table td:has(select:focus),
+.main .table td:has(textarea:focus){
+  position:relative;
+  box-shadow:inset 0 0 0 2px #217346;
+  background:#fff !important;
+}
+.main .table td,
+.main .table th{
+  white-space:nowrap;
+}
+
+/* Excel formula-bar-like input feel inside forms */
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"]))>span:first-child{
+  background:#e6e9eb !important;
+  border-right:1px solid #adb5bb !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])){
+  border-color:#adb5bb !important;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):focus-within{
+  box-shadow:inset 0 0 0 1px #217346;
+}
+.main .card label:not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):focus-within>span:first-child{
+  background:#dcead9 !important;
+  color:#183f22 !important;
+}
+.main .card select{
+  background-image:none;
+}
+
+/* Compact SAP toolbar/button character */
+.main .btn,
+.main button{
+  box-shadow:none !important;
+}
+.main .btn:focus-visible,
+.main button:focus-visible,
+.sap-commandbar button:focus-visible{
+  outline:2px solid #217346;
+  outline-offset:1px;
+}
+
+/* Dense spreadsheet scrolling areas */
+.main [style*="overflowX:'auto'"],
+.main [style*='overflowX:"auto"']{
+  scrollbar-width:thin;
+}
+@media print{
+  .side,.top,.sap-commandbar{display:none !important}
+  .shell{display:block}
+  .main{padding:0}
+  .card{break-inside:avoid}
+}
