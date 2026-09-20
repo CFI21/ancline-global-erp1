@@ -1823,3 +1823,146 @@ body{
 @media(max-width:1179px){
   .job-work-tabs{margin-top:0}
 }
+
+
+/* COMMERCIAL FLOW: CARRIER RATE -> ANC QUOTE -> BOOKING */
+.commercial-flow-section{
+  margin:0 0 8px;
+  border:1px solid #bcc7cf;
+  border-radius:6px;
+  background:#f7f9fa;
+  overflow:hidden;
+}
+.commercial-flow-title{
+  min-height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:5px 8px;
+  border-bottom:1px solid #b7c1c9;
+  background:#e2e7eb;
+}
+.commercial-flow-title>div{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+.commercial-flow-title b{
+  color:#173b59;
+  font-size:10.5px;
+  white-space:nowrap;
+}
+.commercial-flow-title span{
+  color:#6b7d8b;
+  font-size:9px;
+}
+.commercial-flow-context{
+  max-width:180px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  padding:2px 6px;
+  border:1px solid #b7c1c9;
+  border-radius:9px;
+  background:#fff;
+  color:#28465d !important;
+  font-weight:800;
+}
+.commercial-flow-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:0;
+  background:#d7dee3;
+}
+.commercial-flow-card{
+  position:relative;
+  min-width:0;
+  min-height:88px;
+  padding:7px 34px 7px 8px;
+  background:#fff;
+  border-right:1px solid #d2d9de;
+}
+.commercial-flow-card:last-child{
+  border-right:0;
+}
+.commercial-flow-card.active{
+  background:#eef5fa;
+  box-shadow:inset 0 3px 0 #315f82;
+}
+.commercial-flow-step{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+.commercial-flow-step>span{
+  min-width:22px;
+  height:18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #9eabb5;
+  background:#edf1f4;
+  color:#52697b;
+  font-size:8.5px;
+  font-weight:900;
+}
+.commercial-flow-step>b{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#183a57;
+  font-size:11px;
+}
+.commercial-flow-subtitle{
+  margin:4px 0 3px 28px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#667987;
+  font-size:9px;
+}
+.commercial-flow-meta{
+  margin:0 0 5px 28px;
+  min-height:13px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#2a4052;
+  font-size:9.5px;
+  font-weight:700;
+}
+.commercial-flow-card>a{
+  margin-left:28px;
+  min-height:22px;
+  display:inline-flex;
+  align-items:center;
+  padding:3px 7px;
+  border:1px solid #a8b6c0;
+  border-radius:3px;
+  background:#f7f9fa;
+  color:#173b59;
+  text-decoration:none;
+  font-size:9px;
+  font-weight:800;
+}
+.commercial-flow-card>a:hover{
+  border-color:#6f899c;
+  background:#e4eef5;
+}
+.commercial-flow-arrow{
+  position:absolute;
+  right:9px;
+  top:35px;
+  color:#7c8f9e;
+  font-size:18px;
+  font-weight:700;
+}
+@media(max-width:900px){
+  .commercial-flow-grid{grid-template-columns:1fr}
+  .commercial-flow-card{border-right:0;border-bottom:1px solid #d2d9de}
+  .commercial-flow-card:last-child{border-bottom:0}
+  .commercial-flow-arrow{right:12px;top:auto;bottom:8px;transform:rotate(90deg)}
+}
