@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobContextRail from '../../components/JobContextRail';
 import {api,fmtDate,fmtMoney,requireToken} from '../../lib/api';
 
 type Org={id:string;code:string;name:string;roles:string[]};
@@ -40,6 +41,7 @@ export default function RatesPage(){
   const [busy,setBusy]=useState(false);
   const [convert,setConvert]=useState<ConvertForm|null>(null);
   const [lastBooking,setLastBooking]=useState<{id:string;bookingNo:string}|null>(null);
+  const [contextBooking,setContextBooking]=useState<any>(null);
   const [form,setForm]=useState({
     quoteNo:'',customerId:'',trade:'',equipment:'40HC',buyRate:'',sellRate:'',
     currency:'USD',validFrom:new Date().toISOString().slice(0,10),validTo:'',source:'NVOCC_COMMERCIAL_DESK'
@@ -53,6 +55,20 @@ export default function RatesPage(){
       setRows(Array.isArray(r)?r:[]);
       setOrgs(Array.isArray(o)?o:[]);
       setDashboard({...emptyDashboard,...d});
+      const contextId=new URLSearchParams(location.search).get('bookingId')||'';
+      if(contextId){
+        const b=await api(`/bookings/${contextId}`,t).catch(()=>null);
+        if(b){
+          setContextBooking(b);
+          setForm(x=>({...x,
+            customerId:b.customerId||x.customerId,
+            trade:[b.origin,b.destination].filter(Boolean).join('-')||x.trade,
+            equipment:b.equipment||x.equipment,
+            currency:b.currency||x.currency
+          }));
+          setSearch(b.customerReference||b.bookingNo||'');
+        }
+      }
     }catch(e:any){setMessage(e.message||'Unable to load commercial quotes');}
   }
 
@@ -154,6 +170,18 @@ export default function RatesPage(){
       {message}
       {lastBooking&&<> &nbsp;<a href={`/bookings/${lastBooking.id}`}><b>Open {lastBooking.bookingNo}</b></a></>}
     </div>}
+    {contextBooking&&<JobContextRail
+      bookingId={contextBooking.id}
+      bookingNo={contextBooking.bookingNo}
+      customer={contextBooking.customer?.name||customerName(contextBooking.customerId)}
+      route={`${contextBooking.origin||'—'} → ${contextBooking.destination||'—'}`}
+      carrier={contextBooking.carrier||''}
+      vessel={contextBooking.vesselVoyage||''}
+      equipment={contextBooking.equipment?`${contextBooking.quantity||1} × ${contextBooking.equipment}`:''}
+      status={contextBooking.status||''}
+      etd={contextBooking.etd?fmtDate(contextBooking.etd):''}
+      eta={contextBooking.eta?fmtDate(contextBooking.eta):''}
+    />}
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,marginBottom:12}}>
       {kpis.map(([label,value,note])=><div className="card" key={label}>
