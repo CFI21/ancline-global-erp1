@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,requireToken} from '../../lib/api';
 
 export default function CarrierOperationsPage(){
@@ -9,7 +10,7 @@ export default function CarrierOperationsPage(){
   const [dashboard,setDashboard]=useState<any>({}),[rows,setRows]=useState<any[]>([]),[carriers,setCarriers]=useState<any[]>([]),[bookings,setBookings]=useState<any[]>([]),[schedules,setSchedules]=useState<any[]>([]),[capacity,setCapacity]=useState<any[]>([]),[exceptions,setExceptions]=useState<any[]>([]);
   const [form,setForm]=useState<any>({bookingId:'',carrierId:'',scheduleId:'',equipmentType:'40HC',quantity:1,notes:''});
 
-  async function load(t=token){if(!t)return;setBusy(true);setMessage('');try{const [d,r,c,b,s,cap,ex]=await Promise.all([api('/carrier-operations/dashboard',t),api('/carrier-operations/carrier-bookings',t),api('/carrier-operations/carriers',t),api('/carrier-operations/bookings',t),api('/carrier-operations/schedules',t),api('/carrier-operations/capacity',t),api('/carrier-operations/exceptions',t)]);setDashboard(d);setRows(r);setCarriers(c);setBookings(b);setSchedules(s);setCapacity(cap);setExceptions(ex);}catch(e:any){setMessage(e.message||'Unable to load carrier operations');}finally{setBusy(false);}}
+  async function load(t=token){if(!t)return;setBusy(true);setMessage('');try{const [d,r,c,b,s,cap,ex]=await Promise.all([api('/carrier-operations/dashboard',t),api('/carrier-operations/carrier-bookings',t),api('/carrier-operations/carriers',t),api('/carrier-operations/bookings',t),api('/carrier-operations/schedules',t),api('/carrier-operations/capacity',t),api('/carrier-operations/exceptions',t)]);setDashboard(d);setRows(r);setCarriers(c);setBookings(b);setSchedules(s);setCapacity(cap);setExceptions(ex);const contextId=new URLSearchParams(location.search).get('bookingId')||'';if(contextId){const selected=(Array.isArray(b)?b:[]).find((x:any)=>x.id===contextId);if(selected)setForm((x:any)=>({...x,bookingId:contextId,equipmentType:selected.equipment||x.equipmentType,quantity:selected.quantity||1}));}}catch(e:any){setMessage(e.message||'Unable to load carrier operations');}finally{setBusy(false);}}
   useEffect(()=>{const t=requireToken();if(t){setToken(t);load(t);}},[]);
 
   const selectedBooking=useMemo(()=>bookings.find((x:any)=>x.id===form.bookingId),[bookings,form.bookingId]);
@@ -25,6 +26,7 @@ export default function CarrierOperationsPage(){
 
   return <WorkspaceShell title="Carrier Booking / Space Control" subtitle="Ocean carrier confirmation, allocation, equipment release, sailing capacity and cutoff exposure" active="/carrier-operations" actions={<button className="btn" disabled={busy} onClick={()=>load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {form.bookingId&&<JobFlowNav bookingId={form.bookingId} bookingNo={selectedBooking?.bookingNo} active="CARRIER"/>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:10,marginBottom:14}}>{card('Active carrier bookings',dashboard.activeCarrierBookings)}{card('Awaiting confirmation',dashboard.awaitingConfirmation)}{card('Awaiting allocation',dashboard.awaitingAllocation)}{card('Awaiting release',dashboard.awaitingEquipmentRelease)}{card('Cutoff alerts',dashboard.cutoffAlerts)}{card('Tight sailings',dashboard.tightSailings)}</div>
 
     <div className="card" style={{marginBottom:14}}><h3 style={sectionTitle}>Create Carrier Booking Request</h3><div style={formGrid}>
