@@ -11,4 +11,4 @@ RUN npm run db:generate && npm run build -w apps/api
 
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["sh","-c","npx prisma db push --schema=packages/db/prisma/schema.prisma && node apps/api/dist/main.js"]
+CMD ["sh","-c","if [ \"$SKIP_DB_PUSH\" = \"true\" ]; then echo 'Skipping Prisma db push by explicit staging flag'; else npx prisma db push --schema=packages/db/prisma/schema.prisma; fi && node apps/api/dist/main.js"]
