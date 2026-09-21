@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 30); do
-            code="$(curl -L -sS -o /tmp/api-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/health" || true)"
+            code="$(curl -L -sS -o /tmp/api-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/health" || true)"
             if [[ "$code" == "200" ]]; then
               cat /tmp/api-health.json
               exit 0
