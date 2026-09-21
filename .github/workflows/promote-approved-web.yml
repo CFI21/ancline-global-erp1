@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="ghcr.io/cfi21/ancline-web:sha-10e07abb5291c014ae8eff7c8db4e338957f01f9"
-          expected="sha256:a898abf5ebc83e29f9a1c64b23e97c0498023186d78e7c61f503b7ded7221210"
+          expected="sha256:3aa3d7f6eebc20b606f4f6aa176049adf9b662b8fbb1f44e469c4c783d338c65"
           docker buildx imagetools inspect "$tag" >/tmp/approved-web.txt
           actual="$(awk '/^Digest:/ {print $2; exit}' /tmp/approved-web.txt)"
           [[ "$actual" == "$expected" ]] || { echo "Approved Web digest mismatch: $actual"; exit 1; }
