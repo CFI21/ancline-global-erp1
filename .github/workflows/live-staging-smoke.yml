@@ -1,0 +1,119 @@
+name: ANCLINE Remote Staging Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-staging-smoke.yml'
+  workflow_run:
+    workflows: ['Build ANCLINE Container Images']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ancline-remote-staging-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+      API_URL: https://ancline-api-staging.onrender.com
+
+    steps:
+      - name: Wait for direct API health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            code="$(curl -L -sS -o /tmp/api-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/health" || true)"
+            if [[ "$code" == "200" ]]; then
+              cat /tmp/api-health.json
+              exit 0
+            fi
+            echo "API not ready yet (attempt $i, HTTP $code)"
+            sleep 10
+          done
+          echo "API health did not become ready"
+          exit 1
+
+      - name: Validate direct API health contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/api-health.json'))
+          assert p.get('status') == 'online', p
+          assert p.get('service') == 'ANCLINE API', p
+          print('Direct API health contract PASS')
+          PY
+
+      - name: Wait for web runtime proxy to API
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            code="$(curl -L -sS -o /tmp/proxy-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL/api-proxy/health" || true)"
+            if [[ "$code" == "200" ]]; then
+              cat /tmp/proxy-health.json
+              exit 0
+            fi
+            echo "Web proxy not ready yet (attempt $i, HTTP $code)"
+            sleep 10
+          done
+          echo "Web runtime proxy did not become ready"
+          exit 1
+
+      - name: Validate proxied API contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          direct=json.load(open('/tmp/api-health.json'))
+          proxy=json.load(open('/tmp/proxy-health.json'))
+          assert proxy.get('status') == 'online', proxy
+          assert proxy.get('service') == 'ANCLINE API', proxy
+          assert direct == proxy, (direct, proxy)
+          print('Web -> API runtime proxy PASS')
+          PY
+
+      - name: Validate public web routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in / /login; do
+            code="$(curl -L -sS -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL$path")"
+            [[ "$code" == "200" ]] || { echo "$path returned HTTP $code"; exit 1; }
+            echo "$path PASS"
+          done
+
+      - name: Write smoke evidence
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          out={
+            "web_url": os.environ["WEB_URL"],
+            "api_url": os.environ["API_URL"],
+            "checks": {
+              "direct_api_health": pathlib.Path("/tmp/api-health.json").exists(),
+              "web_api_proxy_health": pathlib.Path("/tmp/proxy-health.json").exists()
+            }
+          }
+          pathlib.Path("ancline-remote-smoke-evidence.json").write_text(json.dumps(out, indent=2))
+          PY
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-remote-staging-smoke-evidence
+          path: ancline-remote-smoke-evidence.json
+          retention-days: 7
