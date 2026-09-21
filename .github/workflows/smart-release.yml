@@ -327,11 +327,11 @@ jobs:
             },
             "images": {
               "web": {
-                "immutableTag": f"ghcr.io/cfi21/ancline-web:sha-{os.environ['GITHUB_SHA']}",
+                "immutableTag": f"ghcr.io/cfi21/ancline-web:sha-{os.environ['GITHUB_SHA']}" if os.getenv("WEB_CHANGED") == "true" else None,
                 "digest": os.getenv("WEB_DIGEST") or None
               },
               "api": {
-                "immutableTag": f"ghcr.io/cfi21/ancline-api:sha-{os.environ['GITHUB_SHA']}",
+                "immutableTag": f"ghcr.io/cfi21/ancline-api:sha-{os.environ['GITHUB_SHA']}" if os.getenv("API_CHANGED") == "true" else None,
                 "digest": os.getenv("API_DIGEST") or None
               }
             },
