@@ -3,6 +3,7 @@ import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { gzipSync } from 'zlib';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReleaseEvidenceService } from './release-evidence/release-evidence.service';
 
 @Injectable()
 class FreeBackupService {
@@ -62,12 +63,21 @@ class FreeBackupService {
 @Injectable()
 class FreeBackupBootstrapService implements OnApplicationBootstrap {
   private readonly logger = new Logger(FreeBackupBootstrapService.name);
-  constructor(private readonly backup: FreeBackupService) {}
+
+  constructor(
+    private readonly backup: FreeBackupService,
+    private readonly evidence: ReleaseEvidenceService,
+  ) {}
 
   async onApplicationBootstrap() {
-    if (String(process.env.FREE_BACKUP_LOG_ON_STARTUP || '').toLowerCase() !== 'true') return;
+    if (String(process.env.FREE_BACKUP_LOG_ON_STARTUP || '').toLowerCase() !== 'true') {
+      this.evidence.skipBackup('FREE_BACKUP_LOG_ON_STARTUP=false');
+      return;
+    }
+
     const token = String(process.env.FREE_BACKUP_EXPORT_TOKEN || '');
     if (!token) {
+      this.evidence.recordBackupFailure(new Error('missing export token'));
       this.logger.error('[FREE_BACKUP_LOG] CRASH missing export token');
       return;
     }
@@ -84,7 +94,16 @@ class FreeBackupBootstrapService implements OnApplicationBootstrap {
       const chunks: string[] = [];
       for (let i = 0; i < b64.length; i += chunkSize) chunks.push(b64.slice(i, i + chunkSize));
       const sha256 = createHash('sha256').update(encrypted).digest('hex');
+
+      this.evidence.recordBackup({
+        sha256,
+        encryptedBytes: encrypted.length,
+        gzipBytes: gzip.length,
+        chunks: chunks.length,
+      });
+
       this.logger.log(`[FREE_BACKUP_LOG] START ${JSON.stringify({
+        releaseCommit: process.env.ANCLINE_BUILD_COMMIT || process.env.ANCLINE_RELEASE_COMMIT || 'unknown',
         format: 'AES-256-GCM+GZIP+BASE64',
         chunks: chunks.length,
         encryptedBytes: encrypted.length,
@@ -98,6 +117,7 @@ class FreeBackupBootstrapService implements OnApplicationBootstrap {
       });
       this.logger.log(`[FREE_BACKUP_LOG] END ${sha256}`);
     } catch (error: any) {
+      this.evidence.recordBackupFailure(error);
       this.logger.error(`[FREE_BACKUP_LOG] CRASH ${error?.message || String(error)}`);
     }
   }
