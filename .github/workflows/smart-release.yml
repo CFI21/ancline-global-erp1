@@ -168,23 +168,25 @@ jobs:
         name: Promote tested API candidate
         run: |
           docker buildx imagetools create             --tag ghcr.io/cfi21/ancline-api:latest             --tag ghcr.io/cfi21/ancline-api:staging-approved-${GITHUB_SHA::12}             ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
-      - name: Trigger optional Render deploy hooks
+      - name: Trigger deterministic Render deploy hooks
         env:
           WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
           API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
         run: |
           set -euo pipefail
-          if [[ "${{ needs.changes.outputs.web }}" == "true" && -n "$WEB_HOOK" ]]; then
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+            [[ -n "$WEB_HOOK" ]] || { echo "RENDER_WEB_DEPLOY_HOOK is required for Web releases; image-tag polling is not accepted as deployment proof."; exit 1; }
             curl -fsS -X POST "$WEB_HOOK" >/dev/null
             echo "Web deploy hook triggered"
           else
-            echo "Web deploy hook not configured or Web unchanged; waiting for image auto-deploy."
+            echo "Web unchanged; no Web deployment trigger required."
           fi
-          if [[ "${{ needs.changes.outputs.api }}" == "true" && -n "$API_HOOK" ]]; then
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+            [[ -n "$API_HOOK" ]] || { echo "RENDER_API_DEPLOY_HOOK is required for API releases; image-tag polling is not accepted as deployment proof."; exit 1; }
             curl -fsS -X POST "$API_HOOK" >/dev/null
             echo "API deploy hook triggered"
           else
-            echo "API deploy hook not configured or API unchanged; waiting for image auto-deploy."
+            echo "API unchanged; no API deployment trigger required."
           fi
 
   remote-gate:
