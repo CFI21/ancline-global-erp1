@@ -49,7 +49,7 @@ jobs:
                 packages/*|package.json|package-lock.json|tsconfig.json)
                   web=true; api=true; shared=true ;;
                 .github/workflows/smart-release.yml)
-                  web=true; api=true; shared=true ;;
+                  shared=true ;;
               esac
             done < <(git diff --name-only "$before" "$GITHUB_SHA")
           fi
@@ -64,11 +64,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+        run: npm ci
       - if: needs.changes.outputs.api == 'true'
         run: npm run db:generate
       - if: needs.changes.outputs.api == 'true'
@@ -150,8 +152,10 @@ jobs:
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+        uses: docker/setup-buildx-action@v3
+      - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -188,6 +192,13 @@ jobs:
     if: always() && needs.promote.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      api_commit: ${{ steps.runtime.outputs.api_commit }}
+      web_commit: ${{ steps.runtime.outputs.web_commit }}
+      uat_status: ${{ steps.runtime.outputs.uat_status }}
+      uat_run_id: ${{ steps.runtime.outputs.uat_run_id }}
+      backup_status: ${{ steps.runtime.outputs.backup_status }}
+      backup_sha256: ${{ steps.runtime.outputs.backup_sha256 }}
     steps:
       - name: Wait for direct API
         run: |
@@ -199,31 +210,43 @@ jobs:
             sleep 10
           done
 
-      - if: needs.changes.outputs.api == 'true'
-        name: Require API UAT and encrypted backup evidence
+      - name: Require API UAT and encrypted backup evidence
         run: |
           set -euo pipefail
           for i in $(seq 1 60); do
             code="$(curl -L -sS -o /tmp/release-evidence.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/release/evidence" || true)"
-            if [[ "$code" == "200" ]] && jq -e --arg sha "$GITHUB_SHA"               '.releaseCommit == $sha and .ready == true and .uat.status == "PASS" and .backup.status == "PASS"'               /tmp/release-evidence.json >/dev/null; then
-              cat /tmp/release-evidence.json
-              echo "API UAT + backup evidence PASS"
-              break
+            if [[ "$code" == "200" ]]; then
+              if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+                predicate='.releaseCommit == $sha and .ready == true and .uat.status == "PASS" and .backup.status == "PASS"'
+              else
+                predicate='.ready == true and .uat.status == "PASS" and .backup.status == "PASS"'
+              fi
+              if jq -e --arg sha "$GITHUB_SHA" "$predicate" /tmp/release-evidence.json >/dev/null; then
+                cat /tmp/release-evidence.json
+                echo "API UAT + backup evidence PASS"
+                break
+              fi
             fi
             [[ "$i" == "60" ]] && { echo "API release evidence timeout"; cat /tmp/release-evidence.json 2>/dev/null || true; exit 1; }
             sleep 10
           done
 
-      - if: needs.changes.outputs.web == 'true'
-        name: Require deployed Web image identity
+      - name: Require deployed Web image identity
         run: |
           set -euo pipefail
           for i in $(seq 1 60); do
             code="$(curl -L -sS -o /tmp/web-release.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" || true)"
-            if [[ "$code" == "200" ]] && jq -e --arg sha "$GITHUB_SHA" '.buildCommit == $sha' /tmp/web-release.json >/dev/null; then
-              cat /tmp/web-release.json
-              echo "Web image identity PASS"
-              break
+            if [[ "$code" == "200" ]]; then
+              if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+                predicate='.buildCommit == $sha'
+              else
+                predicate='.status == "online" and .service == "ANCLINE Web" and (.buildCommit | type == "string")'
+              fi
+              if jq -e --arg sha "$GITHUB_SHA" "$predicate" /tmp/web-release.json >/dev/null; then
+                cat /tmp/web-release.json
+                echo "Web image identity PASS"
+                break
+              fi
             fi
             [[ "$i" == "60" ]] && { echo "Web release identity timeout"; cat /tmp/web-release.json 2>/dev/null || true; exit 1; }
             sleep 10
@@ -232,13 +255,17 @@ jobs:
       - name: Validate Web to API runtime proxy
         run: |
           set -euo pipefail
-          code="$(curl -L -sS -o /tmp/proxy-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL/api-proxy/health")"
-          [[ "$code" == "200" ]] || { echo "Proxy HTTP $code"; exit 1; }
+          direct_code="$(curl -L -sS -o /tmp/api-health-current.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/health")"
+          proxy_code="$(curl -L -sS -o /tmp/proxy-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL/api-proxy/health")"
+          [[ "$direct_code" == "200" ]] || { echo "Direct API HTTP $direct_code"; exit 1; }
+          [[ "$proxy_code" == "200" ]] || { echo "Proxy HTTP $proxy_code"; exit 1; }
+          jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/api-health-current.json >/dev/null
           jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/proxy-health.json >/dev/null
-          direct="$(jq -r .buildCommit /tmp/api-health.json)"
+          direct="$(jq -r .buildCommit /tmp/api-health-current.json)"
           proxy="$(jq -r .buildCommit /tmp/proxy-health.json)"
+          [[ -n "$direct" && "$direct" != "null" ]] || { echo "Direct API missing build identity"; exit 1; }
           [[ "$direct" == "$proxy" ]] || { echo "API identity mismatch direct=$direct proxy=$proxy"; exit 1; }
-          echo "Web -> API proxy PASS"
+          echo "Web -> API proxy PASS commit=$direct"
 
       - name: Validate public Web routes
         run: |
@@ -248,6 +275,22 @@ jobs:
             [[ "$code" == "200" ]] || { echo "$path HTTP $code"; exit 1; }
             echo "$path PASS"
           done
+
+      - id: runtime
+        name: Capture deployed runtime evidence
+        run: |
+          set -euo pipefail
+          curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" -o /tmp/api-health-final.json
+          curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/release/evidence" -o /tmp/release-evidence-final.json
+          curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" -o /tmp/web-release-final.json
+          echo "api_commit=$(jq -r .buildCommit /tmp/api-health-final.json)" >> "$GITHUB_OUTPUT"
+          echo "web_commit=$(jq -r .buildCommit /tmp/web-release-final.json)" >> "$GITHUB_OUTPUT"
+          echo "uat_status=$(jq -r .uat.status /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
+          echo "uat_run_id=$(jq -r '.uat.runId // ""' /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
+          echo "backup_status=$(jq -r .backup.status /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
+          echo "backup_sha256=$(jq -r '.backup.sha256 // ""' /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
+          jq -e '.ready == true and .uat.status == "PASS" and .backup.status == "PASS"' /tmp/release-evidence-final.json >/dev/null
+          echo "Runtime evidence captured"
 
   evidence:
     needs: [changes, quality, build-web, build-api, promote, remote-gate]
@@ -264,6 +307,12 @@ jobs:
           QUALITY_RESULT: ${{ needs.quality.result }}
           PROMOTION_RESULT: ${{ needs.promote.result }}
           REMOTE_GATE_RESULT: ${{ needs.remote-gate.result }}
+          DEPLOYED_API_COMMIT: ${{ needs.remote-gate.outputs.api_commit }}
+          DEPLOYED_WEB_COMMIT: ${{ needs.remote-gate.outputs.web_commit }}
+          UAT_STATUS: ${{ needs.remote-gate.outputs.uat_status }}
+          UAT_RUN_ID: ${{ needs.remote-gate.outputs.uat_run_id }}
+          BACKUP_STATUS: ${{ needs.remote-gate.outputs.backup_status }}
+          BACKUP_SHA256: ${{ needs.remote-gate.outputs.backup_sha256 }}
         run: |
           python - <<'PY'
           import json, os
@@ -286,11 +335,20 @@ jobs:
                 "digest": os.getenv("API_DIGEST") or None
               }
             },
+            "runtime": {
+              "apiCommit": os.getenv("DEPLOYED_API_COMMIT") or None,
+              "webCommit": os.getenv("DEPLOYED_WEB_COMMIT") or None,
+              "uatStatus": os.getenv("UAT_STATUS") or None,
+              "uatRunId": os.getenv("UAT_RUN_ID") or None,
+              "backupStatus": os.getenv("BACKUP_STATUS") or None,
+              "backupSha256": os.getenv("BACKUP_SHA256") or None
+            },
             "results": {
               "quality": os.getenv("QUALITY_RESULT"),
               "promotion": os.getenv("PROMOTION_RESULT"),
               "remoteGate": os.getenv("REMOTE_GATE_RESULT")
             },
+            "releaseMode": "runtime-release" if (os.getenv("WEB_CHANGED") == "true" or os.getenv("API_CHANGED") == "true") else "pipeline-only-validation",
             "approved": all(os.getenv(x) == "success" for x in ["QUALITY_RESULT","PROMOTION_RESULT","REMOTE_GATE_RESULT"]),
             "boundary": "Staging release evidence only; not proof of production provider connectivity or final production authorization."
           }
