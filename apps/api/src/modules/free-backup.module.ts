@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Injectable, Logger, Module, OnApplicationBootstrap, Query, ServiceUnavailableException, StreamableFile, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Header, Headers, Injectable, Logger, Module, OnApplicationBootstrap, ServiceUnavailableException, StreamableFile, UnauthorizedException } from '@nestjs/common';
 import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { gzipSync } from 'zlib';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -110,7 +110,7 @@ class FreeBackupController {
   @Get('export')
   @Header('Content-Type', 'application/gzip')
   @Header('Content-Disposition', 'attachment; filename="ANCLINE_Free_Staging_Postgres_Backup.json.gz"')
-  async export(@Query('token') token?: string) {
+  async export(@Headers('x-ancline-backup-token') token?: string) {
     return new StreamableFile(await this.backup.export(token));
   }
 }
