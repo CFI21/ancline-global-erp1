@@ -1,6 +1,9 @@
 FROM node:22-alpine
 WORKDIR /app
 
+ARG ANCLINE_BUILD_COMMIT=unknown
+ENV ANCLINE_BUILD_COMMIT=${ANCLINE_BUILD_COMMIT}
+
 COPY package*.json ./
 COPY apps/api/package*.json apps/api/
 COPY packages/db/package*.json packages/db/
