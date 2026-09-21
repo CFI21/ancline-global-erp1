@@ -1,4 +1,5 @@
-import { Controller, Get, Header, Injectable, Module, Query, ServiceUnavailableException, StreamableFile, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Header, Injectable, Logger, Module, OnApplicationBootstrap, Query, ServiceUnavailableException, StreamableFile, UnauthorizedException } from '@nestjs/common';
+import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { gzipSync } from 'zlib';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,6 +59,50 @@ class FreeBackupService {
   }
 }
 
+@Injectable()
+class FreeBackupBootstrapService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(FreeBackupBootstrapService.name);
+  constructor(private readonly backup: FreeBackupService) {}
+
+  async onApplicationBootstrap() {
+    if (String(process.env.FREE_BACKUP_LOG_ON_STARTUP || '').toLowerCase() !== 'true') return;
+    const token = String(process.env.FREE_BACKUP_EXPORT_TOKEN || '');
+    if (!token) {
+      this.logger.error('[FREE_BACKUP_LOG] CRASH missing export token');
+      return;
+    }
+
+    try {
+      const gzip = await this.backup.export(token);
+      const key = createHash('sha256').update(token, 'utf8').digest();
+      const iv = randomBytes(12);
+      const cipher = createCipheriv('aes-256-gcm', key, iv);
+      const encrypted = Buffer.concat([cipher.update(gzip), cipher.final()]);
+      const tag = cipher.getAuthTag();
+      const b64 = encrypted.toString('base64');
+      const chunkSize = 2400;
+      const chunks: string[] = [];
+      for (let i = 0; i < b64.length; i += chunkSize) chunks.push(b64.slice(i, i + chunkSize));
+      const sha256 = createHash('sha256').update(encrypted).digest('hex');
+      this.logger.log(`[FREE_BACKUP_LOG] START ${JSON.stringify({
+        format: 'AES-256-GCM+GZIP+BASE64',
+        chunks: chunks.length,
+        encryptedBytes: encrypted.length,
+        gzipBytes: gzip.length,
+        iv: iv.toString('hex'),
+        tag: tag.toString('hex'),
+        sha256
+      })}`);
+      chunks.forEach((chunk, index) => {
+        this.logger.log(`[FREE_BACKUP_LOG] CHUNK ${String(index + 1).padStart(4, '0')}/${String(chunks.length).padStart(4, '0')} ${chunk}`);
+      });
+      this.logger.log(`[FREE_BACKUP_LOG] END ${sha256}`);
+    } catch (error: any) {
+      this.logger.error(`[FREE_BACKUP_LOG] CRASH ${error?.message || String(error)}`);
+    }
+  }
+}
+
 @Controller('free-backup')
 class FreeBackupController {
   constructor(private readonly backup: FreeBackupService) {}
@@ -73,6 +118,6 @@ class FreeBackupController {
 @Module({
   imports: [PrismaModule],
   controllers: [FreeBackupController],
-  providers: [FreeBackupService],
+  providers: [FreeBackupService, FreeBackupBootstrapService],
 })
 export class FreeBackupModule {}
