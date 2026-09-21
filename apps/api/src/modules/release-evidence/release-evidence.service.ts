@@ -56,6 +56,7 @@ export class ReleaseEvidenceService {
     return {
       service: 'ANCLINE API',
       environment: process.env.NODE_ENV || 'unknown',
+      deploymentTier: process.env.ANCLINE_DEPLOYMENT_TIER || 'unknown',
       releaseCommit: this.releaseCommit(),
       bootId: this.bootId,
       startedAt: this.startedAt,
