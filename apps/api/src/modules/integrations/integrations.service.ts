@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
@@ -17,6 +18,9 @@ export class IntegrationsService {
 
   private assertInternal(user:ScopeUser){this.scope.assertInternal(user);}
   private text(v:any){return v===undefined||v===null?'':String(v).trim();}
+  private deterministicId(sourceSystem:string,externalId:string){return `INGEST_${createHash('sha256').update(sourceSystem+'|'+externalId).digest('hex')}`;}
+  private uniqueError(e:any){return String(e?.code||'')==='P2002';}
+  private sleep(ms:number){return new Promise(resolve=>setTimeout(resolve,ms));}
   private date(v:any){if(!v)return null;const d=new Date(v);if(Number.isNaN(d.getTime()))throw new BadRequestException(`Invalid date/time: ${v}`);return d;}
 
   async list(user:ScopeUser){
@@ -229,7 +233,25 @@ export class IntegrationsService {
       const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem,externalId,status:'COMPLETED'},orderBy:{createdAt:'desc'}});
       if(prior)return {...prior,duplicate:true};
     }
-    const row=await this.prisma.integrationEvent.create({data:{sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:externalId||'PENDING',status:'RECEIVED',payload:body.payload}});
+
+    let row:any;
+    if(externalId){
+      const dedupeId=this.deterministicId(sourceSystem,externalId);
+      try{
+        row=await this.prisma.integrationEvent.create({data:{id:dedupeId,sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:externalId,status:'RECEIVED',payload:body.payload}});
+      }catch(e:any){
+        if(!this.uniqueError(e))throw e;
+        for(let i=0;i<120;i++){
+          const prior=await this.prisma.integrationEvent.findUnique({where:{id:dedupeId}});
+          if(prior?.status==='COMPLETED')return {...prior,duplicate:true};
+          if(prior?.status==='FAILED'||prior?.status==='DEAD_LETTER')throw new BadRequestException(`Duplicate event ${externalId} already exists in ${prior.status}; use the retry/reprocess control instead of inserting it again.`);
+          await this.sleep(100);
+        }
+        throw new BadRequestException(`Duplicate event ${externalId} is still processing`);
+      }
+    }else{
+      row=await this.prisma.integrationEvent.create({data:{sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:'PENDING',status:'RECEIVED',payload:body.payload}});
+    }
     await this.audit.log({actorId:user.sub,action:'INTEGRATION_EVENT_RECEIVED',objectType:'IntegrationEvent',objectId:row.id,detail:{sourceSystem,eventType,externalId}});
     return this.processEvent(row.id,user,false);
   }

@@ -1,0 +1,47 @@
+name: ANCLINE ECOM Final Hardening UAT
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/modules/workflow-automation/workflow-automation.service.ts'
+      - 'apps/api/src/modules/integrations/integrations.service.ts'
+      - 'apps/api/src/modules/accounting/accounting.service.ts'
+      - 'apps/api/test/resilience-hardening.spec.ts'
+      - 'tools/live_final_hardening_uat.mjs'
+      - '.github/workflows/final-hardening-uat.yml'
+
+concurrency:
+  group: ancline-final-hardening-staging
+  cancel-in-progress: true
+
+jobs:
+  final-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+      EXPECTED_API_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prove hardening source identity
+        run: |
+          set -euo pipefail
+          echo "commit=$GITHUB_SHA"
+          sha256sum tools/live_final_hardening_uat.mjs
+          grep -q "AutomationIdempotency" apps/api/src/modules/workflow-automation/workflow-automation.service.ts
+          grep -q "INGEST_" apps/api/src/modules/integrations/integrations.service.ts
+          grep -q "PAYREF" apps/api/src/modules/accounting/accounting.service.ts
+      - name: Run concurrency, idempotency, failure, security and load acceptance
+        run: node tools/live_final_hardening_uat.mjs
+      - name: Upload final hardening evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-final-hardening-${{ github.sha }}
+          path: ANCLINE_FINAL_HARDENING_REPORT.json
+          retention-days: 90

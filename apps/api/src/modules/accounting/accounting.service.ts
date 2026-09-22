@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser } from '../auth/scope';
@@ -24,6 +25,8 @@ export class AccountingService {
     if(Number.isNaN(d.getTime())) throw new BadRequestException(`${name} must be a valid date`);
     return d;
   }
+  private deterministicId(prefix:string,key:string){return `${prefix}_${createHash('sha256').update(key).digest('hex')}`;}
+  private uniqueError(e:any){return String(e?.code||'')==='P2002';}
   private generatedNo(type:string){
     const now=new Date();
     const ym=`${now.getUTCFullYear()}${String(now.getUTCMonth()+1).padStart(2,'0')}`;
@@ -258,20 +261,42 @@ export class AccountingService {
     this.access(user);
     const invoice:any=await this.getInvoice(invoiceNo,user);
     await this.scope.assertBookingAccess(user,invoice.bookingId);
-    if(['DRAFT','VOID','DISPUTED','PAID'].includes(invoice.status)) throw new BadRequestException(`Payment cannot be recorded against ${invoice.status} invoice`);
     const amount=Number(body?.amount);
     if(!Number.isFinite(amount)||amount<=0) throw new BadRequestException('Payment amount must be greater than zero');
-    if(amount-invoice.balanceAmount>0.005) throw new BadRequestException('Payment exceeds the outstanding balance');
     const currency=String(body?.currency||invoice.currency).toUpperCase();
+    const reference=body?.reference?String(body.reference).trim():null;
+    const rounded=this.round(amount);
+
+    const duplicateResult=async(event:any)=>{
+      const p:any=event?.payload||{};
+      if(this.round(Number(p.amount||0))!==rounded||String(p.currency||'').toUpperCase()!==currency)throw new BadRequestException('Payment reference was already used with different amount or currency');
+      return {...await this.getInvoice(invoiceNo,user),duplicate:true,duplicatePaymentReference:reference};
+    };
+    if(reference){
+      const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',objectType:'FinanceInvoice',objectId:invoiceNo,externalId:reference},orderBy:{createdAt:'desc'}});
+      if(prior)return duplicateResult(prior);
+    }
+
+    if(['DRAFT','VOID','DISPUTED','PAID'].includes(invoice.status)) throw new BadRequestException(`Payment cannot be recorded against ${invoice.status} invoice`);
+    if(amount-invoice.balanceAmount>0.005) throw new BadRequestException('Payment exceeds the outstanding balance');
     if(currency!==invoice.currency) throw new BadRequestException('Payment currency must match invoice currency');
     const paidAt=body?.paidAt?this.date(body.paidAt,'Payment date'):new Date();
-    const reference=body?.reference?String(body.reference).trim():null;
     const method=body?.method?String(body.method).trim().toUpperCase():'BANK_TRANSFER';
-    const event=await this.prisma.integrationEvent.create({data:{
-      sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',externalId:reference||`${invoiceNo}-${Date.now()}`,
-      objectType:'FinanceInvoice',objectId:invoiceNo,status:'COMPLETED',payload:{invoiceNo,amount:this.round(amount),currency,paidAt:paidAt.toISOString(),method,reference,notes:body?.notes?String(body.notes):null,recordedBy:user.sub},completedAt:new Date()
-    }});
-    await this.audit.log({actorId:user.sub,action:'ACCOUNTING_PAYMENT_RECORD',objectType:'FinanceInvoice',objectId:invoiceNo,bookingId:invoice.bookingId,detail:{paymentEventId:event.id,amount,currency,method,reference}});
+    const eventId=reference?this.deterministicId('PAYREF',invoiceNo+'|'+reference):null;
+    let event:any;
+    try{
+      event=await this.prisma.integrationEvent.create({data:{
+        ...(eventId?{id:eventId}:{}),
+        sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',externalId:reference||`${invoiceNo}-${Date.now()}`,
+        objectType:'FinanceInvoice',objectId:invoiceNo,status:'COMPLETED',payload:{invoiceNo,amount:rounded,currency,paidAt:paidAt.toISOString(),method,reference,notes:body?.notes?String(body.notes):null,recordedBy:user.sub},completedAt:new Date()
+      }});
+    }catch(e:any){
+      if(!eventId||!this.uniqueError(e))throw e;
+      const prior=await this.prisma.integrationEvent.findUnique({where:{id:eventId}});
+      if(!prior)throw e;
+      return duplicateResult(prior);
+    }
+    await this.audit.log({actorId:user.sub,action:'ACCOUNTING_PAYMENT_RECORD',objectType:'FinanceInvoice',objectId:invoiceNo,bookingId:invoice.bookingId,detail:{paymentEventId:event.id,amount:rounded,currency,method,reference}});
     return this.getInvoice(invoiceNo,user);
   }
 
