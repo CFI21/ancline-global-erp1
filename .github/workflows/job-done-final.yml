@@ -127,3 +127,5 @@ jobs:
             ui-acceptance-artifacts/
             ui-hardening-artifacts/
           retention-days: 90
+
+# final-rerun-trigger: 2026-09-22T21:39Z
