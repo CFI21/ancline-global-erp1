@@ -1,0 +1,129 @@
+name: ANCLINE Job Done Final Acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/job_done_final_business_day.mjs'
+      - '.github/workflows/job-done-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ancline-job-done-final
+  cancel-in-progress: true
+
+jobs:
+  job-done-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve frozen approved runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved.json
+          approved_web="$(jq -r '.current.web.commit' /tmp/approved.json)"
+          approved_api="$(jq -r '.current.api.commit' /tmp/approved.json)"
+          freeze_web="$(jq -r '.approvedRuntime.web.commit' infra/go-live/final-ui-freeze.json)"
+          freeze_api="$(jq -r '.approvedRuntime.api.commit' infra/go-live/final-ui-freeze.json)"
+          test "$approved_web" = "$freeze_web"
+          test "$approved_api" = "$freeze_api"
+          echo "EXPECTED_API_COMMIT=$approved_api" >> "$GITHUB_ENV"
+          echo "APPROVED_WEB_COMMIT=$approved_web" >> "$GITHUB_ENV"
+          echo "APPROVED_API_COMMIT=$approved_api" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run realistic business-day payment/release/reconciliation
+        run: node tools/job_done_final_business_day.mjs
+
+      - name: Run complete transactional lifecycle 50001-50005
+        run: node tools/live_transaction_mutation_uat.mjs | tee job-done-final-artifacts/TRANSACTION_MUTATION_UAT.log
+
+      - name: Run resilience, idempotency, provider/payment/security regression
+        run: node tools/live_final_hardening_uat.mjs
+
+      - name: Install browser and accessibility runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+
+      - name: Run all-role browser regression
+        run: node tools/live_ui_final_acceptance.mjs
+
+      - name: Run responsive, failure-state and accessibility regression
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Produce one authoritative final acceptance record
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p job-done-final-artifacts
+          cp ANCLINE_FINAL_HARDENING_REPORT.json job-done-final-artifacts/ 2>/dev/null || true
+          cp ui-acceptance-artifacts/ANCLINE_UI_FINAL_ACCEPTANCE.json job-done-final-artifacts/ 2>/dev/null || true
+          cp ui-hardening-artifacts/ANCLINE_UI_HARDENING.json job-done-final-artifacts/ 2>/dev/null || true
+          node - <<'NODE'
+          const fs=require('fs');
+          const business=JSON.parse(fs.readFileSync('job-done-final-artifacts/ANCLINE_JOB_DONE_BUSINESS_DAY.json','utf8'));
+          const freeze=JSON.parse(fs.readFileSync('infra/go-live/final-ui-freeze.json','utf8'));
+          const hard=fs.existsSync('ANCLINE_FINAL_HARDENING_REPORT.json')?JSON.parse(fs.readFileSync('ANCLINE_FINAL_HARDENING_REPORT.json','utf8')):null;
+          const ui=fs.existsSync('ui-acceptance-artifacts/ANCLINE_UI_FINAL_ACCEPTANCE.json')?JSON.parse(fs.readFileSync('ui-acceptance-artifacts/ANCLINE_UI_FINAL_ACCEPTANCE.json','utf8')):null;
+          const uiHard=fs.existsSync('ui-hardening-artifacts/ANCLINE_UI_HARDENING.json')?JSON.parse(fs.readFileSync('ui-hardening-artifacts/ANCLINE_UI_HARDENING.json','utf8')):null;
+          const required=[
+            ['businessDay',business?.status],
+            ['hardening',hard?.status],
+            ['uiFinal',ui?.status],
+            ['uiHardening',uiHard?.status]
+          ];
+          const failures=required.filter(([,s])=>s!=='PASS');
+          if(failures.length) throw new Error('Final acceptance incomplete: '+JSON.stringify(failures));
+          const record={
+            schema:'ANCLINE_JOB_DONE_FINAL_ACCEPTANCE_V1',
+            acceptedAt:new Date().toISOString(),
+            status:'FINAL_ACCEPTED',
+            decision:'JOB_DONE',
+            infrastructureMode:'SIMPLE_SECURE_SINGLE_RENDER_STACK',
+            frozenUiPreserved:true,
+            approvedRuntime:freeze.approvedRuntime,
+            businessDay:{
+              jobs:business.jobs,
+              roles:business.roles,
+              reconciliation:business.reconciliation,
+              privacy:business.privacy,
+              status:business.status
+            },
+            regression:{
+              transactionLifecycle:'PASS',
+              concurrencyIdempotencyProviderPaymentSecurity:hard.status,
+              roleByRoleBrowser:ui.status,
+              responsiveFailureAccessibility:uiHard.status
+            },
+            acceptancePolicy:'Future changes must preserve this accepted baseline and rerun the relevant regression suites before replacing this record.'
+          };
+          fs.writeFileSync('job-done-final-artifacts/ANCLINE_JOB_DONE_FINAL_ACCEPTANCE.json',JSON.stringify(record,null,2)+'\n');
+          console.log(JSON.stringify(record,null,2));
+          NODE
+
+      - name: Upload final evidence package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-job-done-final-${{ github.run_id }}
+          path: |
+            job-done-final-artifacts/
+            ANCLINE_FINAL_HARDENING_REPORT.json
+            ui-acceptance-artifacts/
+            ui-hardening-artifacts/
+          retention-days: 90
