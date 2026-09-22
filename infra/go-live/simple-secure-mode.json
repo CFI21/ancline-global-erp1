@@ -1,6 +1,7 @@
 {
   "schema": "ANCLINE_SIMPLE_SECURE_MODE_V2",
-  "status": "VALIDATION_REQUESTED",
+  "status": "PASS",
+  "testedAt": "2026-09-22T20:22:20Z",
   "architecture": "single Render stack",
   "webService": "ancline-web-live",
   "apiService": "ancline-api-staging",
@@ -9,5 +10,12 @@
   "approvedImagesPreserved": true,
   "externalDatabaseProviders": false,
   "paidInfrastructureRequired": false,
+  "databasePublicExposureAdded": false,
+  "backupEvidence": "PASS",
+  "backupRestoreDrill": "PASS",
+  "fullEcomUat": "PASS",
+  "uatRunId": "UAT-20260922202217-S4OPJ",
+  "runtimeSecurity": "PASS",
+  "redisPolicy": "noeviction",
   "supersededDedicatedProdServicesUsed": false
 }
