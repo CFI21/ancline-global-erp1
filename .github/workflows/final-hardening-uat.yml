@@ -22,12 +22,28 @@ jobs:
     timeout-minutes: 30
     env:
       WEB_URL: https://ancline-web-live.onrender.com
-      EXPECTED_API_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Resolve expected approved/candidate API runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved-hardening.json
+          approved_api="$(jq -r '.current.api.commit' /tmp/approved-hardening.json)"
+          if git diff --quiet "$approved_api" "$GITHUB_SHA" -- apps/api packages/db package.json package-lock.json tsconfig.json; then
+            expected="$approved_api"
+            echo "Hardening expects currently approved API: $expected"
+          else
+            expected="$GITHUB_SHA"
+            echo "Hardening expects candidate API from this commit: $expected"
+          fi
+          echo "EXPECTED_API_COMMIT=$expected" >> "$GITHUB_ENV"
       - name: Prove hardening source identity
         run: |
           set -euo pipefail
