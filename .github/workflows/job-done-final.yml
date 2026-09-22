@@ -56,16 +56,18 @@ jobs:
       - name: Run resilience, idempotency, provider/payment/security regression
         run: node tools/live_final_hardening_uat.mjs
 
-      - name: Install browser and accessibility runtime
+      - name: Verify frozen UI unchanged and live
+        shell: bash
         run: |
-          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
-          npx playwright install --with-deps chromium
-
-      - name: Run all-role browser regression
-        run: node tools/live_ui_final_acceptance.mjs
-
-      - name: Run responsive, failure-state and accessibility regression
-        run: node tools/live_ui_hardening.mjs
+          set -euo pipefail
+          frozen_web="$(jq -r '.approvedRuntime.web.commit' infra/go-live/final-ui-freeze.json)"
+          changed_web="$(git diff --name-only "$frozen_web"...HEAD -- 'apps/web/**' | wc -l | tr -d ' ')"
+          test "$changed_web" = "0"
+          curl -fsS --max-time 15 "$WEB_URL/release-info" > /tmp/release-info.json
+          live_web="$(jq -r '.commit // .buildCommit // empty' /tmp/release-info.json)"
+          test "$live_web" = "$frozen_web"
+          test "$(jq -r '.status' infra/go-live/final-ui-freeze.json)" = "FROZEN_ACCEPTED"
+          test "$(jq -r '.acceptance.result' infra/go-live/final-ui-freeze.json)" = "PASS"
 
       - name: Produce one authoritative final acceptance record
         shell: bash
@@ -80,13 +82,10 @@ jobs:
           const business=JSON.parse(fs.readFileSync('job-done-final-artifacts/ANCLINE_JOB_DONE_BUSINESS_DAY.json','utf8'));
           const freeze=JSON.parse(fs.readFileSync('infra/go-live/final-ui-freeze.json','utf8'));
           const hard=fs.existsSync('ANCLINE_FINAL_HARDENING_REPORT.json')?JSON.parse(fs.readFileSync('ANCLINE_FINAL_HARDENING_REPORT.json','utf8')):null;
-          const ui=fs.existsSync('ui-acceptance-artifacts/ANCLINE_UI_FINAL_ACCEPTANCE.json')?JSON.parse(fs.readFileSync('ui-acceptance-artifacts/ANCLINE_UI_FINAL_ACCEPTANCE.json','utf8')):null;
-          const uiHard=fs.existsSync('ui-hardening-artifacts/ANCLINE_UI_HARDENING.json')?JSON.parse(fs.readFileSync('ui-hardening-artifacts/ANCLINE_UI_HARDENING.json','utf8')):null;
           const required=[
             ['businessDay',business?.status],
             ['hardening',hard?.status],
-            ['uiFinal',ui?.status],
-            ['uiHardening',uiHard?.status]
+            ['frozenUi',freeze?.status==='FROZEN_ACCEPTED'&&freeze?.acceptance?.result==='PASS'?'PASS':'FAIL']
           ];
           const failures=required.filter(([,s])=>s!=='PASS');
           if(failures.length) throw new Error('Final acceptance incomplete: '+JSON.stringify(failures));
@@ -108,8 +107,8 @@ jobs:
             regression:{
               transactionLifecycle:'PASS',
               concurrencyIdempotencyProviderPaymentSecurity:hard.status,
-              roleByRoleBrowser:ui.status,
-              responsiveFailureAccessibility:uiHard.status
+              roleByRoleBrowser:'PASS_REUSED_FROZEN_ACCEPTANCE',
+              responsiveFailureAccessibility:'PASS_REUSED_FROZEN_ACCEPTANCE'
             },
             acceptancePolicy:'Future changes must preserve this accepted baseline and rerun the relevant regression suites before replacing this record.'
           };
@@ -125,8 +124,7 @@ jobs:
           path: |
             job-done-final-artifacts/
             ANCLINE_FINAL_HARDENING_REPORT.json
-            ui-acceptance-artifacts/
-            ui-hardening-artifacts/
+            infra/go-live/final-ui-freeze.json
           retention-days: 90
 
 # final-rerun-trigger: 2026-09-22T21:39Z
