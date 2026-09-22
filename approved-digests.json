@@ -1,24 +1,34 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-22T07:34:14Z",
-  "source": "validated-smart-release-run-35699181931",
+  "updatedAt": "2026-09-22T07:47:57.092059+00:00",
+  "source": "smart-release-hardened",
   "current": {
     "web": {
-      "commit": "3b15fc06391ca7211498747fb6c387d1bcd2f8cf",
-      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-3b15fc06391ca7211498747fb6c387d1bcd2f8cf",
-      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-3b15fc06391c",
-      "digest": "sha256:a27fe7f0654810d4ed7be042e4cbc6589b540a8e7acc7bbfe1f0dc158c988775",
-      "renderImageSha": "sha256:366ae4f2b54e779f3d299bcb916ef7a905de07d5519e7e1963f6d3bd19e1bded"
+      "commit": "fd5f33c84ef2980aa198fa4631721a754b1dffdb",
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-fd5f33c84ef2980aa198fa4631721a754b1dffdb",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-fd5f33c84ef2",
+      "digest": "sha256:68c9b55ed326026f55f6144a2c1d65e65e0eaa4e5393eb537e40ef71d85d4d91"
     },
     "api": {
-      "commit": "3b15fc06391ca7211498747fb6c387d1bcd2f8cf",
-      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-3b15fc06391ca7211498747fb6c387d1bcd2f8cf",
-      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-3b15fc06391c",
-      "digest": "sha256:7f8bd61aa5a8a2a11e5eb4aac1e45d81af84b73657c3840bf92850b5b084f96d",
-      "renderImageSha": "sha256:9c57a178a028429d55248df3321271d9900a8fe6a4c5d2e0851bb985023bc73f"
+      "commit": "fd5f33c84ef2980aa198fa4631721a754b1dffdb",
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-fd5f33c84ef2980aa198fa4631721a754b1dffdb",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-fd5f33c84ef2",
+      "digest": "sha256:0d49b0b661f343db2ba70ffc7697f6001e76072573dd7a6fd74ea4728e36c8c7"
     }
   },
   "history": [
+    {
+      "runId": "35700952114",
+      "approvedAt": "2026-09-22T07:47:57.092059+00:00",
+      "commit": "fd5f33c84ef2980aa198fa4631721a754b1dffdb",
+      "components": [
+        "web",
+        "api"
+      ],
+      "uatRunId": "UAT-20260922074709-9OALE",
+      "backupSha256": "92df419c44a40e94c085799bd0f599a256f9c776f6d463b0595884140925d2cf",
+      "offPlatformArtifactSha256": "8b45ea73ecd16741518f8510ecf3dcb9633b1e91e58d4c387d36fc029117b285"
+    },
     {
       "runId": "35699181931",
       "approvedAt": "2026-09-22T07:34:14Z",
