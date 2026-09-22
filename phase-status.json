@@ -1,47 +1,44 @@
 {
   "project": "ANCLINE WORLDWIDE ERP",
-  "phase": 9,
-  "status": "SOURCE_READY_FOR_STAGING_DEPLOYMENT",
-  "prototype": "FUNCTIONALLY_COMPLETE",
-  "production_code": "STAGING_DEPLOYABLE",
-  "public_staging": "BLOCKED_EXTERNAL_INPUTS",
-  "blockers": [
-    "Confirmed Render workspace for resource creation",
-    "Git repository URL Render can clone",
-    "Managed OIDC provider credentials",
-    "Object storage credentials/configuration",
-    "DNS/TLS configuration"
-  ],
-  "name": "Operations, Fleet & Finance Deepening",
-  "productionStatus": "IN PROGRESS",
-  "stagingStatus": "LIVE - bookings workspace upgrade package prepared",
+  "phase": 10,
+  "name": "Integrated Global Forwarding + NVOCC Staging",
+  "status": "STAGING_APPROVED",
+  "prototype": "INTEGRATED",
+  "production_code": "STAGING_VALIDATED",
+  "public_staging": "LIVE",
+  "approved_commit": "c27d32332a5010d539d821bdf526ed5386558ebe",
+  "approved_run": "35729660433",
+  "release_control": {
+    "method": "GitHub Actions + immutable GHCR images + authenticated Render API",
+    "automatic_candidate_deploy": true,
+    "transactional_uat": true,
+    "encrypted_offplatform_backup": true,
+    "automatic_rollback": true,
+    "approved_registry": "release-registry:approved-digests.json"
+  },
   "completed": [
-    "Live Render web/API deployment",
-    "Postgres connectivity",
-    "Bookings list workspace",
-    "Booking create workflow",
-    "Booking detail workspace",
-    "Booking controls",
-    "Job P&L view",
-    "Documents/tasks/approvals/audit booking panels"
+    "Global Control Tower with NVOCC and Forwarding lifecycle views",
+    "Carrier Rate -> ANC Quote -> Booking commercial flow",
+    "Forwarding quote acceptance before booking creation",
+    "NVOCC portal and Global Forwarding portal",
+    "5-digit ANCLINE job references",
+    "Booking, shipment, consol, schedule, routing, container and milestone control",
+    "Carrier payer/payment control for Forwarding",
+    "Carrier outbound customer/KYC/house-data privacy guardrails",
+    "Transactional UAT with cleanup",
+    "Encrypted off-platform staging backup evidence",
+    "Fully unattended Render API deployment and rollback",
+    "Approved digest registry and hardened release evidence"
   ],
-  "next": [
-    "Deploy Phase 8 source to GitHub",
-    "Run UAT seed if staging is empty",
-    "Connect Redis URL",
-    "Deepen Service/Voyage, Allocation and Container Fleet"
+  "staging_blockers": [],
+  "production_only_requirements": [
+    "Real carrier/provider production credentials and contractual connectivity",
+    "Production OIDC/SSO configuration and identity-provider acceptance",
+    "Production document/object-storage configuration where required",
+    "Production payment/banking provider configuration where required",
+    "Independent security/vulnerability review",
+    "Production disaster-recovery and restore exercise",
+    "Operational owner/handover and go-live authorization"
   ],
-  "public_staging_current": "Phase 7/8 deployment remains live until Phase 9 source is committed",
-  "modules_added": [
-    "Service/Voyage",
-    "Allocation Ledger",
-    "Booking Legs",
-    "Container Event Ledger",
-    "DG/OOG Controls",
-    "BL Lineage",
-    "Manifest",
-    "WIP/Accrual",
-    "CRT"
-  ],
-  "deployment_blocker": "GitHub write connector unavailable in current session; commit/upload required before Render auto-deploy"
+  "boundary": "Current approval is for free-tier staging release control and ERP transaction validation; it is not production authorization."
 }

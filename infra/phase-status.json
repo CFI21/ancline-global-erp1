@@ -1,15 +1,44 @@
 {
   "project": "ANCLINE WORLDWIDE ERP",
-  "phase": 7,
-  "status": "DEPLOYMENT_HANDOFF_READY",
-  "prototype": "FUNCTIONALLY_COMPLETE",
-  "production_code": "STAGING_DEPLOYABLE",
-  "public_staging": "BLOCKED_EXTERNAL_INPUTS",
-  "blockers": [
-    "Confirmed Render workspace for resource creation",
-    "Git repository URL Render can clone",
-    "Managed OIDC provider credentials",
-    "Object storage credentials/configuration",
-    "DNS/TLS configuration"
-  ]
+  "phase": 10,
+  "name": "Integrated Global Forwarding + NVOCC Staging",
+  "status": "STAGING_APPROVED",
+  "prototype": "INTEGRATED",
+  "production_code": "STAGING_VALIDATED",
+  "public_staging": "LIVE",
+  "approved_commit": "c27d32332a5010d539d821bdf526ed5386558ebe",
+  "approved_run": "35729660433",
+  "release_control": {
+    "method": "GitHub Actions + immutable GHCR images + authenticated Render API",
+    "automatic_candidate_deploy": true,
+    "transactional_uat": true,
+    "encrypted_offplatform_backup": true,
+    "automatic_rollback": true,
+    "approved_registry": "release-registry:approved-digests.json"
+  },
+  "completed": [
+    "Global Control Tower with NVOCC and Forwarding lifecycle views",
+    "Carrier Rate -> ANC Quote -> Booking commercial flow",
+    "Forwarding quote acceptance before booking creation",
+    "NVOCC portal and Global Forwarding portal",
+    "5-digit ANCLINE job references",
+    "Booking, shipment, consol, schedule, routing, container and milestone control",
+    "Carrier payer/payment control for Forwarding",
+    "Carrier outbound customer/KYC/house-data privacy guardrails",
+    "Transactional UAT with cleanup",
+    "Encrypted off-platform staging backup evidence",
+    "Fully unattended Render API deployment and rollback",
+    "Approved digest registry and hardened release evidence"
+  ],
+  "staging_blockers": [],
+  "production_only_requirements": [
+    "Real carrier/provider production credentials and contractual connectivity",
+    "Production OIDC/SSO configuration and identity-provider acceptance",
+    "Production document/object-storage configuration where required",
+    "Production payment/banking provider configuration where required",
+    "Independent security/vulnerability review",
+    "Production disaster-recovery and restore exercise",
+    "Operational owner/handover and go-live authorization"
+  ],
+  "boundary": "Current approval is for free-tier staging release control and ERP transaction validation; it is not production authorization."
 }
