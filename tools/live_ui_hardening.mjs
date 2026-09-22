@@ -66,7 +66,11 @@ try{
     if(p.name==='desktop') assert(await menuSearch.isVisible(),'desktop sidebar menu search hidden');
     else assert(await menuSearch.isVisible()||await mobileToggle.count()>0,p.name+' has no usable navigation control');
     const search=page.locator('input[placeholder="Search bookings..."]'); assert(await search.isVisible(),p.name+' booking search hidden');
-    await search.fill('50004'); await page.waitForTimeout(200); assert((await page.locator('body').innerText()).includes('50004'),p.name+' filtered booking not visible');
+    const dataReady=await page.waitForFunction(()=>document.body?.innerText?.includes('50004'),{timeout:10000}).then(()=>true).catch(()=>false);
+    assert(dataReady,p.name+' booking data did not finish loading');
+    await search.fill('50004');
+    const filtered=await page.waitForFunction(()=>document.body?.innerText?.includes('50004'),{timeout:5000}).then(()=>true).catch(()=>false);
+    assert(filtered,p.name+' filtered booking not visible');
     const ax=await a11y(page,p.name+' bookings');
     await snap(page,p.name+'-bookings');
     report.responsive.push({profile:p.name,viewport:p.viewport,layout:l,navigation:'PASS',bookingGrid:'PASS'});
