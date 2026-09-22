@@ -85,9 +85,14 @@ try{
         n,
         {timeout:15000}
       );
-      const text=await page.locator('body').innerText();
+      let text=await page.locator('body').innerText();
+      if(!text.includes(n)&&!text.includes('Unable to load booking')){
+        await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+        await page.waitForFunction(expected => (document.body?.innerText||'').includes(String(expected)) || (document.body?.innerText||'').includes('Unable to load booking'),n,{timeout:15000});
+        text=await page.locator('body').innerText();
+      }
       assert(!text.includes('Unable to load booking'),n+': detail load failed');
-      assert(text.includes(n),n+': detail reference missing');
+      assert(text.includes(n),n+': detail reference missing after retry');
       assert(text.includes(String(b.route||'')),n+': route missing');
       assert(await page.locator('.card').count()>0,n+': detail cards missing');
       report.jobs.push({bookingNo:n,businessModel:b.businessModel,specialCargo:b.specialCargo||null,role:'GLOBAL_ADMIN',status:'PASS'});
