@@ -1,0 +1,54 @@
+{
+  "schema": "ANCLINE_POST_ACCEPTANCE_CHANGE_CONTROL_V1",
+  "status": "ACTIVE",
+  "baselineRecord": "infra/go-live/job-done-final-acceptance.json",
+  "baselineStatusRequired": "FINAL_ACCEPTED",
+  "mode": "SIMPLE_SECURE_SINGLE_RENDER_STACK",
+  "rules": {
+    "runtimeChangeRequiresApprovedChangeRequest": true,
+    "documentationTestGovernanceOnlyChangesMayProceedWithoutChangeRequest": true,
+    "candidateDeploymentIsNotPromotion": true,
+    "promotionRequiresImpactScopedRegression": true,
+    "failedCandidateMustRollbackToApprovedRuntime": true,
+    "baselineMayOnlyBeReplacedBySuccessfulPromotion": true
+  },
+  "impactMatrix": {
+    "web": [
+      "WEB_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY"
+    ],
+    "api": [
+      "API_TEST_BUILD",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ],
+    "shared": [
+      "WEB_BUILD",
+      "API_TEST_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ]
+  },
+  "changeRequest": {
+    "path": "infra/change-control/active-change-request.json",
+    "requiredStatus": "APPROVED",
+    "requiredFields": [
+      "id",
+      "status",
+      "baselineWebCommit",
+      "baselineApiCommit",
+      "components",
+      "regressionScopes",
+      "approvedAt",
+      "approvedBy"
+    ],
+    "allowedComponents": [
+      "web",
+      "api",
+      "shared"
+    ]
+  }
+}
