@@ -1,24 +1,22 @@
 # ANCLINE Smart Release Hardened
 
-ANCLINE staging releases use GitHub Actions, immutable GHCR images, Render image runtime, transactional UAT, encrypted off-platform backup, a persistent approved-digest registry, and rollback recovery.
+ANCLINE staging releases use GitHub Actions, immutable GHCR images, authenticated Render API deployment, transactional UAT, encrypted off-platform backup, a persistent approved-digest registry, and automatic rollback recovery.
 
 ## Release chain
 
 1. Detect Web/API/shared changes.
-2. Load the trusted approved baseline from the `release-registry` branch.
-3. Refuse release if GHCR `latest` pointers or live runtime identities drift from that approved baseline.
+2. Validate the single `RENDER_API_KEY` against the exact ANCLINE Web and API service IDs.
+3. Load the trusted approved baseline from the `release-registry` branch and require the live Web/API build identities to match it.
 4. Run targeted source quality gates.
 5. Build immutable OCI candidates tagged `sha-<commit>`.
-6. Promote candidate images to `latest` only after quality succeeds.
-7. Deploy the changed image-backed Render services.
-8. Require embedded Web/API build identities to match the candidate commit.
-9. Run the 20-step transactional API UAT with cleanup.
-10. Create an encrypted logical staging backup using RSA-OAEP-SHA256 + AES-256-GCM.
-11. Copy the encrypted backup envelope to a GitHub Actions artifact, outside Render.
-12. Verify Web -> API proxy and public Web routes.
-13. Register approved immutable digests and persist the new baseline to the `release-registry` branch.
-14. Publish hardened release evidence.
-15. If the remote gate fails after promotion, restore the previously approved image digests and verify runtime recovery.
+6. Deploy the exact immutable candidate images to the changed Render services through the authenticated Render API.
+7. Require embedded Web/API build identities to match the candidate commit.
+8. Run the 20-step transactional API UAT with cleanup.
+9. Require encrypted staging backup evidence and copy the encrypted envelope to a GitHub Actions artifact outside Render.
+10. Verify the Web -> API runtime proxy and public Web routes.
+11. For a normal successful release, register the candidate as approved, update `latest`, and persist the new baseline to `release-registry`.
+12. If a real post-promotion gate fails, automatically deploy the exact previously approved immutable images through the Render API and verify recovery.
+13. For a controlled `[rollback-drill]`, validate the candidate completely, skip approval, automatically restore the approved immutable images, verify recovery, and report the workflow as PASS only when the drill checkpoint and recovery both succeed.
 
 ## Approved digest registry
 
@@ -26,7 +24,27 @@ The durable registry is:
 
 `release-registry:approved-digests.json`
 
-It stores the current approved immutable Web/API digest, commit, immutable image tag, approved tag, and recent approval history. Rollback uses this trusted baseline instead of trusting whatever happens to be tagged `latest`.
+It stores the current approved immutable Web/API digest, commit, immutable image tag, approved tag, and recent approval history. Release control and rollback trust this registry rather than a mutable registry tag.
+
+## Render deployment control
+
+The pipeline uses one GitHub Actions secret:
+
+`RENDER_API_KEY`
+
+The Render Web and API service IDs are fixed in the workflow. Candidate deployment and rollback both use the authenticated Render API with exact immutable GHCR image tags. This removes the previous per-service URL-copy workflow and prevents a mutable `latest` tag from being used as the rollback source.
+
+## Failure recovery
+
+After a real post-promotion failure, or during a validated rollback drill:
+
+- candidate approval is denied or skipped;
+- the exact registry-approved Web and API immutable images are submitted to Render through the API;
+- Render runtime identities are required to return to the approved commits;
+- the Web -> API proxy is rechecked;
+- a failure-recovery evidence artifact is retained.
+
+A controlled recovery was successfully proven on GitHub Actions run `35727286594`: both candidate images were deployed through the Render API, runtime/UAT/proxy/public-route gates passed, and both services were automatically returned to approved commit `fd5f33c84ef2980aa198fa4631721a754b1dffdb` without manual Render intervention.
 
 ## Off-platform backup
 
@@ -36,38 +54,6 @@ The API creates a staging-only logical backup and encrypts it with a random AES-
 
 The encrypted envelope is uploaded by GitHub Actions and retained outside Render. The RSA private recovery key must remain offline and must never be committed to GitHub or stored in Render.
 
-## Render deployment control
-
-Render image-backed services do **not** automatically redeploy merely because a registry tag such as `latest` changes. For fully unattended deploy and rollback, configure these GitHub Actions secrets from the Render service deploy-hook URLs:
-
-- `RENDER_WEB_DEPLOY_HOOK`
-- `RENDER_API_DEPLOY_HOOK`
-
-Without those secrets, the pipeline can build, promote, register, and prepare rollback automatically, but a Render deploy still needs an operator/API trigger. Runtime identity gates prevent the release from being falsely approved before the correct image is actually running.
-
-## Failure recovery
-
-On a failed post-promotion remote gate:
-
-- candidate approval is denied;
-- the previous registry-approved GHCR digest is retagged to `latest`;
-- configured Render deploy hooks trigger rollback deployment;
-- Web/API build identities and Web -> API proxy are rechecked;
-- a failure-recovery evidence artifact is retained.
-
 ## Boundary
 
 This is free-tier staging release control. It is not evidence of real production carrier/provider connectivity, managed production PITR/DR, human handover acceptance, or final production authorization.
-
-
-## Validated failure-recovery drill
-
-A controlled staging rollback drill intentionally failed the post-promotion remote gate on run `35701583300`.
-
-The recovery job:
-- restored the registry-approved Web digest `sha256:68c9b55ed326026f55f6144a2c1d65e65e0eaa4e5393eb537e40ef71d85d4d91` to `ghcr.io/cfi21/ancline-web:latest`;
-- restored the registry-approved API digest `sha256:0d49b0b661f343db2ba70ffc7697f6001e76072573dd7a6fd74ea4728e36c8c7` to `ghcr.io/cfi21/ancline-api:latest`;
-- verified the already-approved Web/API runtime identities and Web -> API proxy;
-- published `ANCLINE_FAILURE_RECOVERY_EVIDENCE_V1` with recovery status PASS.
-
-Because Render deploy-hook secrets are not configured, this drill proves automatic approved-digest pointer rollback and runtime recovery while the live runtime remained on the approved release. A future drill with deploy hooks configured is required to prove fully unattended Render runtime rollback after a bad candidate has actually been deployed.

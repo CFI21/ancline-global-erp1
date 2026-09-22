@@ -326,6 +326,7 @@ jobs:
       backup_status: ${{ steps.runtime.outputs.backup_status }}
       backup_sha256: ${{ steps.runtime.outputs.backup_sha256 }}
       backup_artifact_sha256: ${{ steps.backup.outputs.artifact_sha256 }}
+      drill_triggered: ${{ steps.drill.outputs.triggered }}
     steps:
       - name: Wait for direct API
         run: |
@@ -395,11 +396,12 @@ jobs:
             [[ "$code" == "200" ]] || { echo "$path HTTP $code"; exit 1; }
           done
 
-      - name: Controlled full auto-rollback drill after runtime convergence
+      - id: drill
+        name: Mark validated full auto-rollback drill
         if: contains(github.event.head_commit.message, '[rollback-drill]')
         run: |
-          echo "Candidate runtime is live and validated. Intentionally failing now to prove hook-driven rollback."
-          exit 42
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+          echo "Candidate runtime passed all validation gates. Automatic Render API recovery drill requested."
 
       - id: backup
         name: Fetch encrypted off-platform backup envelope
@@ -437,7 +439,10 @@ jobs:
 
   finalize:
     needs: [changes, baseline, build-web, build-api, remote-gate]
-    if: always() && needs.remote-gate.result == 'success'
+    if: |
+      always() &&
+      needs.remote-gate.result == 'success' &&
+      needs.remote-gate.outputs.drill_triggered != 'true'
     runs-on: ubuntu-latest
     outputs:
       registry_sha256: ${{ steps.registry.outputs.registry_sha256 }}
@@ -557,7 +562,10 @@ jobs:
     if: |
       always() &&
       needs.promote.result == 'success' &&
-      needs.remote-gate.result == 'failure' &&
+      (
+        needs.remote-gate.result == 'failure' ||
+        (needs.remote-gate.result == 'success' && needs.remote-gate.outputs.drill_triggered == 'true')
+      ) &&
       (needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true')
     runs-on: ubuntu-latest
     outputs:
@@ -655,7 +663,7 @@ jobs:
             },
             "recoveryStatus":os.getenv("RECOVERY_STATUS") or "FAIL",
             "method":"Render API exact immutable image deployment",
-            "note":"Candidate promotion and failure recovery use the authenticated Render API. Deploy-hook URLs are not required."
+            "note":"Candidate promotion and recovery use authenticated Render API deployment of exact immutable image tags."
           }
           open("ANCLINE_FAILURE_RECOVERY_EVIDENCE.json","w").write(json.dumps(evidence,indent=2)+"\n")
           PY
@@ -693,10 +701,15 @@ jobs:
           BACKUP_SHA256: ${{ needs.remote-gate.outputs.backup_sha256 }}
           BACKUP_ARTIFACT_SHA256: ${{ needs.remote-gate.outputs.backup_artifact_sha256 }}
           REGISTRY_SHA256: ${{ needs.finalize.outputs.registry_sha256 }}
+          DRILL_TRIGGERED: ${{ needs.remote-gate.outputs.drill_triggered }}
         run: |
           python - <<'PY'
           import json, os
           remote=os.getenv("REMOTE_GATE_RESULT")
+          drill=os.getenv("DRILL_TRIGGERED")=="true"
+          recovery=os.getenv("RECOVERY_RESULT")
+          finalize=os.getenv("FINALIZE_RESULT")
+          drill_passed=drill and remote=="success" and recovery=="success" and finalize=="skipped"
           evidence={
             "schema":"ANCLINE_SMART_RELEASE_EVIDENCE_V2",
             "commit":os.environ["GITHUB_SHA"],
@@ -723,10 +736,14 @@ jobs:
               "promotion":os.getenv("PROMOTION_RESULT"),
               "remoteGate":remote,
               "finalize":os.getenv("FINALIZE_RESULT"),
-              "automaticRecovery":os.getenv("RECOVERY_RESULT")
+              "automaticRecovery":recovery
             },
-            "approved":remote=="success" and os.getenv("FINALIZE_RESULT")=="success",
-            "rollbackRequired":remote=="failure" and (os.getenv("WEB_CHANGED")=="true" or os.getenv("API_CHANGED")=="true"),
+            "drill":{
+              "triggered":drill,
+              "passed":drill_passed
+            },
+            "approved":(not drill) and remote=="success" and finalize=="success",
+            "rollbackRequired":(remote=="failure" or drill) and (os.getenv("WEB_CHANGED")=="true" or os.getenv("API_CHANGED")=="true"),
             "boundary":"Free staging release evidence; not final production authorization."
           }
           open("ANCLINE_SMART_RELEASE_EVIDENCE_V2.json","w").write(json.dumps(evidence,indent=2)+"\n")
@@ -737,12 +754,28 @@ jobs:
           name: ancline-smart-release-evidence-v2-${{ github.sha }}
           path: ANCLINE_SMART_RELEASE_EVIDENCE_V2.json
           retention-days: 90
-      - name: Enforce release outcome
+      - name: Enforce release or rollback-drill outcome
+        env:
+          DRILL_TRIGGERED: ${{ needs.remote-gate.outputs.drill_triggered }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          PROMOTION_RESULT: ${{ needs.promote.result }}
+          REMOTE_GATE_RESULT: ${{ needs.remote-gate.result }}
+          FINALIZE_RESULT: ${{ needs.finalize.result }}
+          RECOVERY_RESULT: ${{ needs.recovery.result }}
         run: |
           set -euo pipefail
-          [[ "${{ needs.quality.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.promote.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.remote-gate.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.finalize.result }}" == "success" ]] || exit 1
+          [[ "$QUALITY_RESULT" == "success" ]] || exit 1
+          [[ "$PROMOTION_RESULT" == "success" ]] || exit 1
 
-# render-api-drill-trigger: 2026-09-22T14:28+02:00 immutable-baseline
+          if [[ "$DRILL_TRIGGERED" == "true" ]]; then
+            [[ "$REMOTE_GATE_RESULT" == "success" ]] || exit 1
+            [[ "$FINALIZE_RESULT" == "skipped" ]] || exit 1
+            [[ "$RECOVERY_RESULT" == "success" ]] || exit 1
+            echo "Validated full auto-rollback drill PASS"
+            exit 0
+          fi
+
+          [[ "$REMOTE_GATE_RESULT" == "success" ]] || exit 1
+          [[ "$FINALIZE_RESULT" == "success" ]] || exit 1
+
+# render-api-drill-trigger: final-green-drill
