@@ -761,3 +761,5 @@ jobs:
           [[ "${{ needs.promote.result }}" == "success" ]] || exit 1
           [[ "${{ needs.remote-gate.result }}" == "success" ]] || exit 1
           [[ "${{ needs.finalize.result }}" == "success" ]] || exit 1
+
+# render-api-drill-trigger: 2026-09-22T14:25+02:00
