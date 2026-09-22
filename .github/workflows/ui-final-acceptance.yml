@@ -1,0 +1,43 @@
+name: ANCLINE Simple Secure UI Final Acceptance
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_ui_final_acceptance.mjs'
+      - '.github/workflows/ui-final-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ui-final-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve approved API runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved-ui.json
+          echo "EXPECTED_API_COMMIT=$(jq -r '.current.api.commit' /tmp/approved-ui.json)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run role-by-role browser UI acceptance
+        run: node tools/live_ui_final_acceptance.mjs
+      - name: Upload UI acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-ui-final-acceptance-${{ github.run_id }}
+          path: ui-acceptance-artifacts/
+          retention-days: 90
