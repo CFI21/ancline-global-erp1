@@ -6,8 +6,8 @@
   "prototype": "INTEGRATED",
   "production_code": "STAGING_VALIDATED",
   "public_staging": "LIVE",
-  "approved_commit": "c27d32332a5010d539d821bdf526ed5386558ebe",
-  "approved_run": "35729660433",
+  "approved_commit": "ee2eefbc1f16789ed3328598d6a807435b68bf91",
+  "approved_run": "35733993240",
   "release_control": {
     "method": "GitHub Actions + immutable GHCR images + authenticated Render API",
     "automatic_candidate_deploy": true,
@@ -26,6 +26,8 @@
     "Carrier payer/payment control for Forwarding",
     "Carrier outbound customer/KYC/house-data privacy guardrails",
     "Transactional UAT with cleanup",
+    "Expanded regression suite: 7 suites / 32 tests covering Forwarding controls, shipment/consol readiness, Web navigation/API contracts, privacy, scope and bulk data",
+    "Phase 10 staging-gate and release-package coherence checks in CI",
     "Encrypted off-platform staging backup evidence",
     "Fully unattended Render API deployment and rollback",
     "Approved digest registry and hardened release evidence"

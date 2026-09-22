@@ -3,8 +3,8 @@
   "name": "Integrated Global Forwarding + NVOCC Staging",
   "status": "STAGING_APPROVED",
   "scope": "FREE_TIER_STAGING",
-  "approved_commit": "c27d32332a5010d539d821bdf526ed5386558ebe",
-  "approved_run": "35729660433",
+  "approved_commit": "ee2eefbc1f16789ed3328598d6a807435b68bf91",
+  "approved_run": "35733993240",
   "mandatory": [
     {
       "id": "RENDER_API",
@@ -18,7 +18,7 @@
     },
     {
       "id": "BUILD_TEST",
-      "description": "Clean dependency install, Prisma generation, API tests and Web/API production builds",
+      "description": "Clean dependency install, Prisma generation, 7 regression suites / 32 tests, and Web/API production builds",
       "pass": true
     },
     {
@@ -28,7 +28,17 @@
     },
     {
       "id": "PORTAL_PRIVACY",
-      "description": "NVOCC/Forwarding scope and carrier-outbound privacy controls are release-tested",
+      "description": "NVOCC/Forwarding scope, quote-acceptance controls and carrier-outbound privacy controls are release-tested",
+      "pass": true
+    },
+    {
+      "id": "SHIPMENT_CONTROL",
+      "description": "Shipment/consol date, equipment and departure-readiness controls are regression-tested",
+      "pass": true
+    },
+    {
+      "id": "WEB_CONTRACTS",
+      "description": "Workflow menu routes and critical Web/API transaction endpoint contracts are regression-tested",
       "pass": true
     },
     {
