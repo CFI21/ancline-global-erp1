@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { bookingScope } from './auth/scope';
 
 type StepResult = {
   name: string;
@@ -36,7 +37,7 @@ export class UatService {
       coverage: [
         'organization', 'rate', 'booking', 'workflow controls', 'container',
         'document', 'finance', 'task', 'approval', 'integration', 'notification',
-        'audit trail', 'portal visibility query', 'closeout readiness', 'cleanup'
+        'audit trail', 'portal visibility query', 'role-by-role authorization scope', 'external-role segregation', 'closeout readiness', 'cleanup'
       ]
     };
   }
@@ -66,6 +67,7 @@ export class UatService {
         steps.push({ name, status: 'FAIL', durationMs: Date.now() - t0, error: e?.message || String(e) });
         throw e;
       }
+      if (ids.branchId) await this.p.branch.deleteMany({ where: { id: ids.branchId } });
     };
 
     const cleanupData = async () => {
@@ -83,6 +85,7 @@ export class UatService {
         await this.p.booking.deleteMany({ where: { id: bookingId } });
       }
       if (ids.rateId) await this.p.rateQuote.deleteMany({ where: { id: ids.rateId } });
+      if (ids.forwardingBookingId) await this.p.booking.deleteMany({ where: { id: ids.forwardingBookingId } });
       if (ids.customerId || ids.agentId) {
         const orgIds = [ids.customerId, ids.agentId].filter((v): v is string => Boolean(v));
         if (orgIds.length) {
@@ -97,10 +100,17 @@ export class UatService {
       }), x => ({ id: x.id, code: x.code }));
       ids.customerId = customer.id;
 
-      const agent = await step('02 Create UAT producing agent', () => this.p.organization.create({
-        data: { code: `${runId}-AGT`, name: `${runId} Agent`, roles: ['AGENT'], countryCode: 'AE' }
-      }), x => ({ id: x.id, code: x.code }));
+      const roleFoundation = await step('02 Create UAT branch and producing agent', async () => {
+        const branch = await this.p.branch.create({ data: { code: `${runId.slice(-12)}-BR`, name: `${runId} Branch`, countryCode: 'NL', active: true } });
+        const agent = await this.p.organization.create({
+          data: { code: `${runId}-AGT`, name: `${runId} Agent`, roles: ['AGENT'], countryCode: 'AE' }
+        });
+        return { branch, agent };
+      }, x => ({ branchId: x.branch.id, agentId: x.agent.id }));
+      const agent = roleFoundation.agent;
+      const branch = roleFoundation.branch;
       ids.agentId = agent.id;
+      ids.branchId = branch.id;
 
       const rate = await step('03 Create and approve rate', async () => {
         const r = await this.p.rateQuote.create({ data: {
@@ -113,7 +123,8 @@ export class UatService {
       ids.rateId = rate.id;
 
       const booking = await step('04 Create booking', () => this.p.booking.create({ data: {
-        bookingNo: `${runId}-BK`, customerId: customer.id, producingAgentId: agent.id,
+        bookingNo: `${runId}-BK`, customerId: customer.id, producingAgentId: agent.id, owningBranchId: branch.id,
+        businessModel: 'NVOCC', bookingChannel: 'AGENT_PORTAL',
         origin: 'CNSHA', destination: 'AEJEA', carrier: 'UAT CARRIER', vesselVoyage: 'UAT-V001',
         equipment: '40HC', currency: 'USD', status: 'DRAFT', creditStatus: 'Pending',
         slotStatus: 'Pending', equipmentStatus: 'Pending', notes: `Automated UAT ${runId}`
@@ -220,6 +231,44 @@ export class UatService {
           throw new Error('Portal booking projection incomplete');
         }
         return { bookingNo: visible.bookingNo, customer: visible.customer.name, containers: visible.containers.length, documents: visible.documents.length };
+      });
+
+
+      await step('17B Role-by-role authorization projection', async () => {
+        const forwarding = await this.p.booking.create({ data: {
+          bookingNo: `${runId}-FWD`, customerId: customer.id, owningBranchId: branch.id,
+          businessModel: 'FORWARDING', bookingChannel: 'CUSTOMER_PORTAL',
+          origin: 'NLRTM', destination: 'AEJEA', equipment: '40HC', currency: 'USD', status: 'BOOKING_REQUESTED',
+          notes: `Role-scope UAT ${runId}`
+        }});
+        ids.forwardingBookingId = forwarding.id;
+        const roleCases:any[] = [
+          {role:'GLOBAL_ADMIN',user:{sub:'uat-admin',email:'admin@uat.invalid',role:'GLOBAL_ADMIN'},expected:2},
+          {role:'CONTROL_TOWER',user:{sub:'uat-control',email:'control@uat.invalid',role:'CONTROL_TOWER'},expected:2},
+          {role:'FINANCE',user:{sub:'uat-finance',email:'finance@uat.invalid',role:'FINANCE'},expected:2},
+          {role:'BRANCH_OPS',user:{sub:'uat-ops',email:'ops@uat.invalid',role:'BRANCH_OPS',branchId:branch.id},expected:2},
+          {role:'CUSTOMER',user:{sub:'uat-customer',email:'customer@uat.invalid',role:'CUSTOMER',customerId:customer.id},expected:2},
+          {role:'AGENT',user:{sub:'uat-agent',email:'agent@uat.invalid',role:'AGENT',agentId:agent.id},expected:1},
+          {role:'SHIPPER',user:{sub:'uat-shipper',email:'shipper@uat.invalid',role:'SHIPPER',partyId:customer.id},expected:1},
+          {role:'CONSIGNEE',user:{sub:'uat-consignee',email:'consignee@uat.invalid',role:'CONSIGNEE',partyId:customer.id},expected:1}
+        ];
+        const results:any[]=[];
+        for(const x of roleCases){
+          const visible=await this.p.booking.count({where:{id:{in:[booking.id,forwarding.id]},...bookingScope(x.user)}});
+          if(visible!==x.expected)throw new Error(`${x.role} expected ${x.expected} UAT jobs but saw ${visible}`);
+          results.push({role:x.role,visible,expected:x.expected});
+        }
+        const blockedCases:any[]=[
+          {role:'BRANCH_OPS_WRONG_BRANCH',user:{sub:'bad-branch',email:'badbranch@uat.invalid',role:'BRANCH_OPS',branchId:'__other__'}},
+          {role:'CUSTOMER_OTHER',user:{sub:'bad-customer',email:'badcustomer@uat.invalid',role:'CUSTOMER',customerId:'__other__'}},
+          {role:'AGENT_OTHER',user:{sub:'bad-agent',email:'badagent@uat.invalid',role:'AGENT',agentId:'__other__'}}
+        ];
+        for(const x of blockedCases){
+          const visible=await this.p.booking.count({where:{id:{in:[booking.id,forwarding.id]},...bookingScope(x.user)}});
+          if(visible!==0)throw new Error(`${x.role} scope leaked ${visible} UAT job(s)`);
+          results.push({role:x.role,visible,expected:0});
+        }
+        return {results};
       });
 
       await step('18 Closeout readiness', async () => {

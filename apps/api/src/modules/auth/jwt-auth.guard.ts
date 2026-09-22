@@ -27,6 +27,10 @@ export class JwtAuthGuard implements CanActivate {
         branchId:account.branchId||null,
         agentId:account.agentId||null,
         customerId:account.customerId||null,
+        partyId:account.partyId||null,
+        costCenterCode:account.costCenterCode||null,
+        agentMode:account.agentMode||null,
+        permissions:Array.isArray(account.permissions)?account.permissions:[],
         managedAccount:true,
         authSource:claims.authSource||'MANAGED'
       };
@@ -42,7 +46,7 @@ export class JwtAuthGuard implements CanActivate {
     const devAllowed=String(process.env.ALLOW_DEV_LOGIN||'true').toLowerCase()!=='false';
     if(!devAllowed) throw new UnauthorizedException('Managed ANCLINE sign-in is required');
 
-    const allowed=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER'];
+    const allowed=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'];
     if(!allowed.includes(String(claims?.role||''))) throw new UnauthorizedException('Invalid ANCLINE role');
     req.user={...claims,managedAccount:false,authSource:claims.authSource||'DEV'};
     return true;

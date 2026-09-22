@@ -2,7 +2,7 @@
 
 import {useEffect,useState} from 'react';
 import type {ReactNode} from 'react';
-import {signOut} from '../lib/api';
+import {currentUser,signOut} from '../lib/api';
 
 const portalLinks=[
   ['/nvocc-portal','NVOCC Portal'],
@@ -126,7 +126,9 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   const [openGroup,setOpenGroup]=useState<string|null>(activeGroup);
   const [menuQuery,setMenuQuery]=useState('');
   const [embedded,setEmbedded]=useState(false);
+  const [session,setSession]=useState<any>({role:'',permissions:[]});
   useEffect(()=>{
+    setSession(currentUser());
     const isEmbedded=new URLSearchParams(location.search).get('embed')==='1';
     setEmbedded(isEmbedded);
     document.body.classList.toggle('ancline-embed-mode',isEmbedded);
@@ -134,12 +136,21 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   },[]);
   const query=menuQuery.trim().toLowerCase();
   const searching=query.length>0;
+  const role=String(session?.role||'').toUpperCase();
+  const permissions=Array.isArray(session?.permissions)?session.permissions:[];
+  const internalRole=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE'].includes(role);
+  const portalAllowed=(href:string)=>{
+    if(internalRole)return true;
+    if(href==='/nvocc-portal')return role==='AGENT';
+    if(href==='/customer-portal')return ['CUSTOMER','SHIPPER','CONSIGNEE'].includes(role)||(role==='AGENT'&&permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE'));
+    return false;
+  };
 
   const visiblePortals=portalLinks.filter(([href,label])=>
-    !searching||label.toLowerCase().includes(query)||href.toLowerCase().includes(query)
+    portalAllowed(href)&&(!searching||label.toLowerCase().includes(query)||href.toLowerCase().includes(query))
   );
 
-  const visibleGroups=menuGroups.map(group=>{
+  const visibleGroups=(internalRole?menuGroups:[]).map(group=>{
     if(!searching)return group;
     const groupMatch=group.label.toLowerCase().includes(query);
     const items=groupMatch

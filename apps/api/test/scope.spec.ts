@@ -20,4 +20,17 @@ describe('bookingScope',()=>{
   it('scopes customer',()=>expect(
     bookingScope({sub:'1',email:'a',role:'CUSTOMER',customerId:'cus1'} as any)
   ).toEqual({customerId:'cus1'}));
+
+  it('scopes shipper and consignee to Forwarding jobs for their party',()=>{
+    expect(bookingScope({sub:'1',email:'s',role:'SHIPPER',partyId:'party1'} as any))
+      .toEqual({customerId:'party1',businessModel:'FORWARDING'});
+    expect(bookingScope({sub:'2',email:'c',role:'CONSIGNEE',partyId:'party1'} as any))
+      .toEqual({customerId:'party1',businessModel:'FORWARDING'});
+  });
+
+  it('fails closed when an external role has no scope id',()=>{
+    expect(bookingScope({sub:'1',email:'a',role:'AGENT'} as any)).toEqual({id:'__none__'});
+    expect(bookingScope({sub:'1',email:'c',role:'CUSTOMER'} as any)).toEqual({id:'__none__'});
+    expect(bookingScope({sub:'1',email:'s',role:'SHIPPER'} as any)).toEqual({id:'__none__'});
+  });
 });

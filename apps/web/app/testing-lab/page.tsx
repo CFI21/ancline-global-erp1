@@ -30,6 +30,7 @@ export default function TestingLabPage(){
       <div className="card"><div className="sub">TEST CARRIERS</div><div className="kpi">{data?.summary?.carriers||0}</div></div>
       <div className="card"><div className="sub">TEST BOOKINGS</div><div className="kpi">{data?.summary?.bookings||0}</div></div>
       <div className="card"><div className="sub">TEST LOGIN ACCOUNTS</div><div className="kpi">{data?.summary?.testUsers||0}</div></div>
+      <div className="card"><div className="sub">ROLES COVERED</div><div className="kpi">{data?.summary?.rolesCovered||0}</div></div>
     </div>
 
     <div className="card" style={{marginBottom:12}}>
@@ -54,6 +55,15 @@ export default function TestingLabPage(){
       <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Email</th><th>Role</th><th>Name</th><th>Scope</th><th>Permissions</th></tr></thead><tbody>
         {(data?.users||[]).map((x:any)=><tr key={x.email}><td><b>{x.email}</b></td><td>{x.role}</td><td>{x.displayName}</td><td>{x.customerId||x.agentId||'-'}</td><td>{(x.permissions||[]).join(', ')}</td></tr>)}
         {!data?.users?.length&&<tr><td colSpan={5}>No synthetic login accounts seeded.</td></tr>}
+      </tbody></table></div>
+    </div>
+
+    <div className="card" style={{marginBottom:12}}>
+      <h3 style={{marginTop:0}}>Role-by-Role UI / Scope UAT</h3>
+      <div className="sub" style={{marginBottom:8}}>Use these managed synthetic accounts to verify sidebar visibility, portal entry, booking scope and API authorization. No real identities or external providers are used.</div>
+      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Role</th><th>Test Account</th><th>Scope</th><th>Visible UI</th><th>Expected UAT Result</th></tr></thead><tbody>
+        {(data?.roleMatrix||[]).map((x:any)=><tr key={x.role}><td><b>{x.role}</b></td><td>{x.email}</td><td>{x.scope}</td><td>{x.ui}</td><td>{x.expected}</td></tr>)}
+        {!data?.roleMatrix?.length&&<tr><td colSpan={5}>Seed / refresh the synthetic pack to load role coverage.</td></tr>}
       </tbody></table></div>
     </div>
 

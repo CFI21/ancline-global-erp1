@@ -87,6 +87,22 @@ export class TestDataService implements OnModuleInit {
       create:{email:'test.agent.sg@ancline.invalid',displayName:'Test Liner Agent Singapore',role:'AGENT',agentId:agent.id,costCenterCode:'TEST-AGT-SG',agentMode:'LINER_AGENCY_ONLY',permissions:['NVOCC_PORTAL','NVOCC_RATES','NVOCC_DOCUMENTS','CARRIER_SPACE_CONTROL','FORWARDING_DIRECT_COLOAD_CROSS_TRADE'],active:true}
     });
 
+    const roleUsers=[
+      {email:'test.admin@ancline.invalid',displayName:'Test Global Administrator',role:'GLOBAL_ADMIN',permissions:['ALL_TEST_WORKSPACES']},
+      {email:'test.control@ancline.invalid',displayName:'Test Control Tower',role:'CONTROL_TOWER',permissions:['CARRIER_SPACE_CONTROL']},
+      {email:'test.ops@ancline.invalid',displayName:'Test Netherlands Operations',role:'BRANCH_OPS',branchId:branch.id,costCenterCode:'TEST-FWD-NL',permissions:['NVOCC_PORTAL','NVOCC_RATES','NVOCC_DOCUMENTS','CARRIER_SPACE_CONTROL']},
+      {email:'test.finance@ancline.invalid',displayName:'Test Finance',role:'FINANCE',branchId:branch.id,costCenterCode:'TEST-FIN-NL',permissions:['FINANCE']},
+      {email:'test.shipper.nl@ancline.invalid',displayName:'Test Forwarding Shipper',role:'SHIPPER',partyId:customerRows[0].id,costCenterCode:customerRows[0].costCenterCode,permissions:['FORWARDING_PORTAL','FORWARDING_QUOTES','FORWARDING_BOOKINGS']},
+      {email:'test.consignee.ae@ancline.invalid',displayName:'Test Forwarding Consignee',role:'CONSIGNEE',partyId:customerRows[1].id,costCenterCode:customerRows[1].costCenterCode,permissions:['FORWARDING_PORTAL','FORWARDING_QUOTES','FORWARDING_BOOKINGS']}
+    ];
+    for(const x of roleUsers){
+      await this.db.userAccount.upsert({
+        where:{email:x.email},
+        update:{displayName:x.displayName,role:x.role,branchId:x.branchId||null,partyId:x.partyId||null,costCenterCode:x.costCenterCode||null,permissions:x.permissions,active:true},
+        create:{email:x.email,displayName:x.displayName,role:x.role,branchId:x.branchId||null,partyId:x.partyId||null,costCenterCode:x.costCenterCode||null,permissions:x.permissions,active:true}
+      });
+    }
+
     const carriers=[
       {code:'TEST-CARRIER-ATL',name:'TEST Atlantic Ocean Line',countryCode:'DE',providerCode:'TEST_ATLANTIC',accountCode:'ANC-TEST-ATL-ACCOUNT'},
       {code:'TEST-CARRIER-PAC',name:'TEST Pacific Container Line',countryCode:'SG',providerCode:'TEST_PACIFIC',accountCode:'ANC-TEST-PAC-ACCOUNT'},
@@ -254,10 +270,20 @@ export class TestDataService implements OnModuleInit {
     ]);
     return {
       warning:'SYNTHETIC TEST DATA ONLY — NEVER USE FOR REAL CUSTOMERS, CARRIERS OR SHIPMENTS.',
-      summary:{customers:customers.length,carriers:carriers.length,bookings:bookings.length,testUsers:users.length},
+      summary:{customers:customers.length,carriers:carriers.length,bookings:bookings.length,testUsers:users.length,rolesCovered:new Set(users.map((x:any)=>x.role)).size},
       customers:customers.map((x:any)=>({id:x.id,code:x.code,name:x.name,countryCode:x.countryCode,customerRef:x.customerRef,registrationRef:x.registrationRef,costCenterCode:x.costCenterCode,kycStatus:x.kycStatus})),
       carriers:carriers.map((x:any)=>({id:x.id,code:x.code,name:x.name,countryCode:x.countryCode})),
-      users:users.map((x:any)=>({email:x.email,displayName:x.displayName,role:x.role,customerId:x.customerId,agentId:x.agentId,permissions:x.permissions})),
+      users:users.map((x:any)=>({email:x.email,displayName:x.displayName,role:x.role,branchId:x.branchId,customerId:x.customerId,agentId:x.agentId,partyId:x.partyId,costCenterCode:x.costCenterCode,agentMode:x.agentMode,permissions:x.permissions})),
+      roleMatrix:[
+        {role:'GLOBAL_ADMIN',email:'test.admin@ancline.invalid',scope:'All branches / all jobs',ui:'Internal ERP + both portals',expected:'Full test administration and all job visibility'},
+        {role:'CONTROL_TOWER',email:'test.control@ancline.invalid',scope:'All operational jobs',ui:'Internal ERP + both portals',expected:'Global operational visibility without finance-only mutation rights'},
+        {role:'BRANCH_OPS',email:'test.ops@ancline.invalid',scope:'TEST-NL-BR',ui:'Internal ERP + both portals',expected:'Only jobs owned by assigned branch'},
+        {role:'FINANCE',email:'test.finance@ancline.invalid',scope:'Finance / all jobs',ui:'Internal ERP + both portals',expected:'Finance access with global job scope'},
+        {role:'AGENT',email:'test.agent.sg@ancline.invalid',scope:'TEST-AGENT-SG',ui:'NVOCC Portal + authorized Forwarding portal',expected:'Own NVOCC plus permitted direct/co-load/cross-trade work'},
+        {role:'CUSTOMER',email:'test.customer.nl@ancline.invalid',scope:'TEST-CUST-NL',ui:'Global Forwarding Portal only',expected:'Own customer bookings and ANC quotes only'},
+        {role:'SHIPPER',email:'test.shipper.nl@ancline.invalid',scope:'TEST-CUST-NL party scope',ui:'Global Forwarding Portal only',expected:'Forwarding party visibility only'},
+        {role:'CONSIGNEE',email:'test.consignee.ae@ancline.invalid',scope:'TEST-CUST-AE party scope',ui:'Global Forwarding Portal only',expected:'Forwarding party visibility only'}
+      ],
       bookings:bookings.map((b:any)=>({id:b.id,bookingNo:b.bookingNo,businessModel:b.businessModel,channel:b.bookingChannel,status:b.status,shipmentStatus:b.shipmentStatus,customerRef:b.customerRef,carrier:b.carrier,carrierBookingNo:b.carrierBookingNo,route:`${b.origin} → ${b.destination}`,equipment:`${b.quantity||0} x ${b.equipment||'-'}`,specialCargo:b.specialCargo,quoteNo:b.rateQuote?.quoteNo||null,houseBL:b.houseBL,masterBL:b.masterBL,containers:b.containers.length,documents:b.documents.length,financeLines:b.financeLines.length,tasks:b.tasks.length,approvals:b.approvals.length,routingLegs:b.routingLegs.length,milestones:b.milestones.length,closeoutItems:b.closeoutChecklist.length}))
     };
   }
