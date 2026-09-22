@@ -189,3 +189,5 @@ jobs:
             infra/go-live/restore-drill.json
             infra/go-live/simple-secure-mode.json
           retention-days: 90
+
+# manual-simple-secure-validation-trigger: 2026-09-22T20:29Z
