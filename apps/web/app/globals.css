@@ -25,7 +25,18 @@
 .table th,.table td{padding:9px;border-bottom:1px solid #e5ebf0;text-align:left;font-size:13px}
 .status{font-size:11px;padding:4px 7px;border-radius:10px;background:#eaf4fb}
 .btn{background:#123b61;color:#fff;border:0;border-radius:6px;padding:8px 10px;cursor:pointer}
-@media(max-width:900px){.shell{grid-template-columns:1fr}.side{display:none}.grid{grid-template-columns:repeat(2,1fr)}}
+.mobile-nav-toggle,.mobile-nav-backdrop,.mobile-nav-head{display:none}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .side{display:none}
+  .side.mobile-open{display:block;position:fixed;left:0;top:0;bottom:0;width:min(86vw,320px);height:100vh;z-index:1002;box-shadow:8px 0 28px rgba(0,0,0,.24)}
+  .mobile-nav-toggle{display:inline-flex;position:fixed;left:8px;top:8px;z-index:1001;align-items:center;gap:6px;min-height:38px;padding:7px 10px;border:1px solid #9fb0bd;border-radius:6px;background:#fff;color:#173b59;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+  .mobile-nav-backdrop{display:block;position:fixed;inset:0;z-index:1000;border:0;background:rgba(8,24,38,.42)}
+  .mobile-nav-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 6px 10px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.14);font-size:10px;font-weight:900;letter-spacing:.7px;color:#a9bfd2}
+  .mobile-nav-head button{width:30px;height:30px;border:0;border-radius:5px;background:#183a5c;color:#fff;font-size:20px;cursor:pointer}
+  .main{padding-top:54px}
+  .grid{grid-template-columns:repeat(2,1fr)}
+}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
 
 .booking-context-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px;padding:9px 10px;background:#fff;border:1px solid #dce4eb;border-radius:8px}
