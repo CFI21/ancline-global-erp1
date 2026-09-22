@@ -1,0 +1,68 @@
+{
+  "schema": "ANCLINE_UI_FINAL_FREEZE_V1",
+  "status": "FROZEN_PASS",
+  "frozenAt": "2026-09-22T21:31:16Z",
+  "web": {
+    "service": "ancline-web-live",
+    "serviceId": "srv-dajbrh3m8hqs73fmdk30",
+    "url": "https://ancline-web-live.onrender.com",
+    "commit": "95f94f74972e6882c50f01da4d24d2b2480005e8",
+    "image": "ghcr.io/cfi21/ancline-web:ui-freeze-95f94f74972e6882c50f01da4d24d2b2480005e8",
+    "imageDigest": "sha256:19f338e7676e95045f2e5c533337270cb937e1bddc9b00bb97c7f0643b8fe676",
+    "renderDeployId": "dep-dapf5v4ja7ms73b4bgmg",
+    "renderStatus": "live"
+  },
+  "api": {
+    "service": "ancline-api-staging",
+    "commit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a"
+  },
+  "acceptance": {
+    "workflow": "ANCLINE UI Candidate Build + Hardening + Freeze",
+    "runId": 35786582020,
+    "conclusion": "success",
+    "candidateHardening": "PASS",
+    "liveHardening": "PASS",
+    "roleUiRegression": "PASS",
+    "ecomResilienceTransactionRegression": "PASS",
+    "coverage": [
+      "desktop",
+      "tablet",
+      "mobile",
+      "accessibility-wcag2a-aa",
+      "horizontal-overflow",
+      "clipped-controls",
+      "empty-state",
+      "required-field-validation",
+      "session-expiry",
+      "api-503-recovery",
+      "slow-api",
+      "admin",
+      "ops",
+      "finance",
+      "customer",
+      "agent",
+      "shipper",
+      "jobs-50001-50005",
+      "concurrency",
+      "idempotency",
+      "provider-failure",
+      "payment-failure",
+      "duplicate-callback",
+      "security",
+      "load"
+    ]
+  },
+  "evidence": {
+    "candidateArtifactId": 10720705938,
+    "candidateArtifactDigest": "sha256:0618ed79744e6aa09e4e14fdfb3e573071ecd4ade187f2dc5f6c6fbf9b729e76",
+    "finalArtifactId": 10720731320,
+    "finalArtifactDigest": "sha256:54e24d12c591a3a3db195930acd2d55d592b237e19952d35c0d11bb5994bdd07",
+    "expiresAt": "2026-12-21T21:25:43Z"
+  },
+  "policy": {
+    "infrastructure": "KEEP_CURRENT_SINGLE_RENDER_STACK",
+    "paidInfrastructureIntroduced": false,
+    "externalDatabaseProvidersIntroduced": false,
+    "freezeRule": "Do not alter this UI image or accepted behavior without an explicit approved change followed by the same candidate/live/regression gate."
+  }
+}
