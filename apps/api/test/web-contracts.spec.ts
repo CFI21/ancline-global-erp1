@@ -45,4 +45,24 @@ describe('Web navigation and API contract wiring',()=>{
     expect(bookings).toContain('/customer-portal#new-booking');
     expect(customerPortal).toContain('id="new-booking"');
   });
+  it('keeps the unified Job Flow navigation wired through core operational workspaces',()=>{
+    const nav=read('../../web/components/JobFlowNav.tsx');
+    for(const route of ['/schedules','/routing','/carrier-operations','/shipment-control','/documents']){
+      expect(nav).toContain(route);
+    }
+    const pages=[
+      '../../web/app/bookings/[id]/page.tsx',
+      '../../web/app/schedules/page.tsx',
+      '../../web/app/routing/page.tsx',
+      '../../web/app/carrier-operations/page.tsx',
+      '../../web/app/shipment-control/page.tsx',
+      '../../web/app/documents/page.tsx'
+    ];
+    for(const page of pages){
+      const source=read(page);
+      expect(source).toContain('JobFlowNav');
+      expect(source).toMatch(/active="(BOOKING|SCHEDULE|ROUTING|CARRIER|SHIPMENT|DOCUMENTS)"/);
+    }
+  });
+
 });

@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,requireToken} from '../../lib/api';
 
 export default function CarrierOperationsPage(){
@@ -26,6 +27,11 @@ export default function CarrierOperationsPage(){
 
   return <WorkspaceShell title="Carrier Booking / Space Control" subtitle="Ocean carrier confirmation, allocation, equipment release, sailing capacity and cutoff exposure" active="/carrier-operations" actions={<button className="btn" disabled={busy} onClick={()=>load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {form.bookingId&&<JobFlowNav
+      bookingId={form.bookingId}
+      bookingNo={selectedBooking?.bookingNo}
+      active="CARRIER"
+    />}
     {form.bookingId&&<JobContextRail
       bookingId={form.bookingId}
       bookingNo={selectedBooking?.bookingNo}

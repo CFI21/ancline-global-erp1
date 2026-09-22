@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
 import JobContextRail from '../../../components/JobContextRail';
+import JobFlowNav from '../../../components/JobFlowNav';
 import CommercialFlowGrid from '../../../components/CommercialFlowGrid';
 
 const API=process.env.NEXT_PUBLIC_API_URL||'/api-proxy';
@@ -165,6 +166,7 @@ export default function EditBookingPage(){
       {booking.specialCargo&&<span className="status">Cargo {booking.specialCargo}</span>}
     </div>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    <JobFlowNav bookingId={id} bookingNo={booking.bookingNo} active="BOOKING"/>
     <CommercialFlowGrid
       active="BOOKING"
       bookingId={id}

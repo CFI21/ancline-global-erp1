@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Customer={name:string;code?:string};
@@ -122,6 +123,11 @@ export default function ShipmentControlPage(){
 
   return <WorkspaceShell title="Shipment / Consol Control" subtitle="Promote bookings into operational shipments and manage master consol movements" active="/shipment-control" actions={<><button className="btn" onClick={()=>setShowShipmentForm(v=>!v)}>+ Shipment</button><button className="btn" onClick={()=>setShowConsolForm(v=>!v)}>+ Consol</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {(contextBookingId||shipmentBookingId)&&<JobFlowNav
+      bookingId={contextBookingId||shipmentBookingId}
+      bookingNo={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.bookingNo}
+      active="SHIPMENT"
+    />}
     {(contextBookingId||shipmentBookingId)&&<JobContextRail
       bookingId={contextBookingId||shipmentBookingId}
       bookingNo={bookings.find(b=>b.id===(contextBookingId||shipmentBookingId))?.bookingNo}

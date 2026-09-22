@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;customer?:{name:string}};
@@ -60,6 +61,11 @@ export default function RoutingPage(){
 
   return <WorkspaceShell title="Routing / Voyage Plan" subtitle="Multi-leg routing, feeder/main vessel planning and transshipment control" active="/routing" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {(form.bookingId||bookingFilter)&&<JobFlowNav
+      bookingId={form.bookingId||bookingFilter}
+      bookingNo={bookings.find(b=>b.id===(form.bookingId||bookingFilter))?.bookingNo}
+      active="ROUTING"
+    />}
     {(form.bookingId||bookingFilter)&&<JobContextRail
       bookingId={form.bookingId||bookingFilter}
       bookingNo={bookings.find(b=>b.id===(form.bookingId||bookingFilter))?.bookingNo}
