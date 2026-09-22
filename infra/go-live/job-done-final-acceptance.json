@@ -1,12 +1,13 @@
 {
   "schema": "ANCLINE_JOB_DONE_FINAL_ACCEPTANCE_V1",
-  "acceptedAt": "2026-09-22T21:43:25.668Z",
+  "acceptedAt": "2026-09-22T21:43:25Z",
   "status": "FINAL_ACCEPTED",
   "decision": "JOB_DONE",
   "infrastructureMode": "SIMPLE_SECURE_SINGLE_RENDER_STACK",
   "frozenUiPreserved": true,
-  "acceptanceRun": {
-    "id": 35787804062,
+  "sourceRun": {
+    "workflow": "ANCLINE Job Done Final Acceptance",
+    "runId": 35787804062,
     "headSha": "9b77d24e8236784497e5107e9132130b76a3911a",
     "result": "PASS",
     "artifact": {
@@ -38,6 +39,7 @@
         "paid": 1725,
         "balance": 0,
         "releaseMode": "CREDIT",
+        "preReleaseBlocked": false,
         "hblReleased": true,
         "status": "PASS"
       },
@@ -49,6 +51,7 @@
         "paid": 2650,
         "balance": 0,
         "releaseMode": "CREDIT",
+        "preReleaseBlocked": false,
         "hblReleased": true,
         "status": "PASS"
       },
@@ -60,6 +63,7 @@
         "paid": 6125,
         "balance": 0,
         "releaseMode": "CREDIT",
+        "preReleaseBlocked": false,
         "hblReleased": true,
         "status": "PASS"
       },
@@ -83,9 +87,18 @@
         "paid": 1625,
         "balance": 0,
         "releaseMode": "NVOCC_SEPARATE_CONTROL",
+        "preReleaseBlocked": false,
         "hblReleased": true,
         "status": "PASS"
       }
+    ],
+    "roles": [
+      "GLOBAL_ADMIN",
+      "BRANCH_OPS",
+      "FINANCE",
+      "CUSTOMER",
+      "AGENT",
+      "SHIPPER"
     ],
     "reconciliation": {
       "jobs": 5,
@@ -94,14 +107,25 @@
       "totalBalance": 0,
       "status": "PASS"
     },
-    "roleScopeBoundaries": "PASS"
+    "privacy": {
+      "roleScopeBoundaries": "PASS"
+    },
+    "status": "PASS"
   },
   "regression": {
-    "realisticBusinessDay": "PASS",
-    "transactionLifecycle50001to50005": "PASS",
+    "transactionLifecycle": "PASS",
     "concurrencyIdempotencyProviderPaymentSecurity": "PASS",
     "roleByRoleBrowser": "PASS",
     "responsiveFailureAccessibility": "PASS"
+  },
+  "controls": {
+    "duplicatePaymentIdempotency": "PASS",
+    "duplicateDocumentReleaseBlocked": "PASS",
+    "finalFinanceEditBlocked": "PASS",
+    "prematureCloseoutBlocked": "PASS",
+    "nvoccForwardingBoundary": "PASS",
+    "providerRetryDeadLetter": "PASS",
+    "anonymousInvalidTokenExternalRoleBlocked": "PASS"
   },
   "acceptancePolicy": "Future changes must preserve this accepted baseline and rerun the relevant regression suites before replacing this record."
 }
