@@ -1,0 +1,81 @@
+{
+  "schema": "ANCLINE_FINAL_UI_FREEZE_V1",
+  "frozenAt": "2026-09-22T21:13:42Z",
+  "status": "FROZEN_ACCEPTED",
+  "infrastructureMode": "SIMPLE_SECURE_SINGLE_RENDER_STACK",
+  "approvedRuntime": {
+    "web": {
+      "commit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "image": "ghcr.io/cfi21/ancline-web:sha-86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "digest": "sha256:72717994ce43258af3b4fa81526d79d12c9338c852352c86124e2780082c8e85"
+    },
+    "api": {
+      "commit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "image": "ghcr.io/cfi21/ancline-api:sha-07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "digest": "sha256:b1164b482ffdfabbaa0b5a6d73d1320c4c268559b9e94ed999c605e1da33c996"
+    }
+  },
+  "acceptance": {
+    "workflow": "ANCLINE Simple Secure UI Hardening",
+    "runId": 35785174589,
+    "result": "PASS",
+    "headSha": "784532da97aace06bf11f13dc5e2ec009f0d4c4b",
+    "artifact": {
+      "id": 10718994176,
+      "name": "ancline-ui-hardening-35785174589",
+      "digest": "sha256:2d0aad629c00b645c3a2030f19cbb288a73ce4150f65f012316760d96bc075cd",
+      "expiresAt": "2026-12-21T21:12:19Z"
+    },
+    "coverage": {
+      "responsive": [
+        {
+          "profile": "desktop",
+          "viewport": "1440x1000",
+          "overflow": "PASS",
+          "clippedControls": 0,
+          "navigation": "PASS",
+          "bookingGrid": "PASS"
+        },
+        {
+          "profile": "tablet",
+          "viewport": "820x1180",
+          "overflow": "PASS",
+          "clippedControls": 0,
+          "navigation": "PASS",
+          "bookingGrid": "PASS"
+        },
+        {
+          "profile": "mobile",
+          "viewport": "390x844",
+          "overflow": "PASS",
+          "clippedControls": 0,
+          "navigation": "PASS",
+          "bookingGrid": "PASS"
+        }
+      ],
+      "accessibility": {
+        "wcagTags": [
+          "wcag2a",
+          "wcag2aa"
+        ],
+        "desktopViolations": 0,
+        "tabletViolations": 0,
+        "mobileViolations": 0,
+        "status": "PASS"
+      },
+      "failureStates": {
+        "emptySearch": "PASS",
+        "api503RecoverableNotice": "PASS",
+        "slowApi": "PASS",
+        "slowApiObservedMs": 2754
+      },
+      "validation": {
+        "bookingRequiredFields": "PASS"
+      },
+      "session": {
+        "missingTokenRedirectLogin": "PASS"
+      }
+    }
+  },
+  "freezePolicy": "Future UI changes must preserve this approved runtime baseline and rerun UI final acceptance plus UI hardening before replacing this freeze."
+}
