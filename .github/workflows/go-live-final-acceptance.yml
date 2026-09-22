@@ -1,0 +1,91 @@
+name: ANCLINE ECOM Go-Live Final Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_go_live_final_acceptance.mjs'
+      - '.github/workflows/go-live-final-acceptance.yml'
+      - 'infra/go-live/**'
+      - 'packages/db/prisma/migrations/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ancline-go-live-final-acceptance
+  cancel-in-progress: true
+
+env:
+  WEB_URL: https://ancline-web-live.onrender.com
+  API_URL: https://ancline-api-staging.onrender.com
+
+jobs:
+  go-live-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Freeze exact approved Web/API candidate digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved-go-live.json
+
+          web_commit="$(jq -r '.current.web.commit // empty' /tmp/approved-go-live.json)"
+          api_commit="$(jq -r '.current.api.commit // empty' /tmp/approved-go-live.json)"
+          web_digest="$(jq -r '.current.web.digest // empty' /tmp/approved-go-live.json)"
+          api_digest="$(jq -r '.current.api.digest // empty' /tmp/approved-go-live.json)"
+          [[ -n "$web_commit" && -n "$api_commit" && -n "$web_digest" && -n "$api_digest" ]] || {
+            echo "::error::Approved digest registry is incomplete"; exit 1;
+          }
+
+          registry_sha="$(sha256sum /tmp/approved-go-live.json | awk '{print $1}')"
+          echo "EXPECTED_WEB_COMMIT=$web_commit" >> "$GITHUB_ENV"
+          echo "EXPECTED_API_COMMIT=$api_commit" >> "$GITHUB_ENV"
+          echo "EXPECTED_WEB_DIGEST=$web_digest" >> "$GITHUB_ENV"
+          echo "EXPECTED_API_DIGEST=$api_digest" >> "$GITHUB_ENV"
+
+          jq -n             --arg frozenAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)"             --arg sourceRegistrySha256 "$registry_sha"             --arg webCommit "$web_commit"             --arg apiCommit "$api_commit"             --arg webDigest "$web_digest"             --arg apiDigest "$api_digest"             '{
+              schema:"ANCLINE_GO_LIVE_CANDIDATE_FREEZE_V1",
+              status:"CANDIDATE_FROZEN",
+              frozenAt:$frozenAt,
+              sourceRegistrySha256:$sourceRegistrySha256,
+              web:{commit:$webCommit,digest:$webDigest},
+              api:{commit:$apiCommit,digest:$apiDigest},
+              note:"Exact previously approved immutable candidate; this freeze does not itself authorize production."
+            }' > ANCLINE_GO_LIVE_CANDIDATE_FREEZE.json
+
+      - name: Run final production acceptance gate
+        env:
+          GO_LIVE_TEST_BEARER: ${{ secrets.GO_LIVE_TEST_BEARER }}
+        run: node tools/live_go_live_final_acceptance.mjs
+
+      - name: Upload go-live candidate and acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-go-live-final-${{ github.sha }}
+          path: |
+            ANCLINE_GO_LIVE_CANDIDATE_FREEZE.json
+            ANCLINE_GO_LIVE_FINAL_ACCEPTANCE.json
+          retention-days: 90
+
+      - name: Enforce final go-live sign-off
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ANCLINE_GO_LIVE_FINAL_ACCEPTANCE.json
+          status="$(jq -r '.status' ANCLINE_GO_LIVE_FINAL_ACCEPTANCE.json)"
+          blockers="$(jq -r '.blockers | length' ANCLINE_GO_LIVE_FINAL_ACCEPTANCE.json)"
+          echo "Go-live status=$status blockers=$blockers"
+          if [[ "$status" != "PASS" ]]; then
+            jq -r '.blockers[] | "::error::" + .code + " — " + .detail' ANCLINE_GO_LIVE_FINAL_ACCEPTANCE.json
+            exit 1
+          fi
+          echo "ANCLINE ECOM FINAL GO-LIVE SIGN-OFF: PASS"
