@@ -1,0 +1,29 @@
+name: ANCLINE Live Role UAT
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_role_uat.mjs'
+      - '.github/workflows/live-role-uat.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  live-role-uat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run live role-by-role UI/UAT
+        run: node tools/live_role_uat.mjs
