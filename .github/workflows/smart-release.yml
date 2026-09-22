@@ -1,5 +1,4 @@
-name: ANCLINE Smart Release
-# v2: full-history component detection for fast-forward and multi-commit pushes
+name: ANCLINE Smart Release Hardened
 
 on:
   push:
@@ -34,9 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          web=false
-          api=false
-          shared=false
+          web=false; api=false; shared=false
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             web=true; api=true; shared=true
           else
@@ -57,6 +54,36 @@ jobs:
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "shared=$shared" >> "$GITHUB_OUTPUT"
           echo "Affected: web=$web api=$api shared=$shared"
+
+  baseline:
+    needs: changes
+    runs-on: ubuntu-latest
+    outputs:
+      web_digest: ${{ steps.capture.outputs.web_digest }}
+      api_digest: ${{ steps.capture.outputs.api_digest }}
+      web_commit: ${{ steps.capture.outputs.web_commit }}
+      api_commit: ${{ steps.capture.outputs.api_commit }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: capture
+        name: Capture currently approved runtime baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          web_digest="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-web:latest | awk '/^Digest:/ {print $2; exit}')"
+          api_digest="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-api:latest | awk '/^Digest:/ {print $2; exit}')"
+          web_commit="$(curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" 2>/dev/null | jq -r '.buildCommit // "unknown"' || echo unknown)"
+          api_commit="$(curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" 2>/dev/null | jq -r '.buildCommit // "unknown"' || echo unknown)"
+          echo "web_digest=$web_digest" >> "$GITHUB_OUTPUT"
+          echo "api_digest=$api_digest" >> "$GITHUB_OUTPUT"
+          echo "web_commit=$web_commit" >> "$GITHUB_OUTPUT"
+          echo "api_commit=$api_commit" >> "$GITHUB_OUTPUT"
+          printf 'Baseline web=%s (%s) api=%s (%s)\n' "$web_digest" "$web_commit" "$api_digest" "$api_commit"
 
   quality:
     needs: changes
@@ -104,7 +131,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: build
-        name: Build immutable Web candidate
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -131,7 +157,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: build
-        name: Build immutable API candidate
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -144,14 +169,27 @@ jobs:
           cache-to: type=gha,mode=max,scope=api
 
   promote:
-    needs: [changes, quality, build-web, build-api]
+    needs: [changes, baseline, quality, build-web, build-api]
     if: |
       always() &&
+      needs.baseline.result == 'success' &&
       needs.quality.result == 'success' &&
       (needs.build-web.result == 'success' || needs.build-web.result == 'skipped') &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
+      - name: Require deterministic deployment hooks before changing runtime pointers
+        env:
+          WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
+          API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+            [[ -n "$WEB_HOOK" ]] || { echo "Missing RENDER_WEB_DEPLOY_HOOK"; exit 1; }
+          fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+            [[ -n "$API_HOOK" ]] || { echo "Missing RENDER_API_DEPLOY_HOOK"; exit 1; }
+          fi
       - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
         uses: docker/setup-buildx-action@v3
       - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
@@ -161,36 +199,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - if: needs.changes.outputs.web == 'true'
-        name: Promote tested Web candidate
-        run: |
-          docker buildx imagetools create             --tag ghcr.io/cfi21/ancline-web:latest             --tag ghcr.io/cfi21/ancline-web:staging-approved-${GITHUB_SHA::12}             ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA
+        run: docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA
       - if: needs.changes.outputs.api == 'true'
-        name: Promote tested API candidate
-        run: |
-          docker buildx imagetools create             --tag ghcr.io/cfi21/ancline-api:latest             --tag ghcr.io/cfi21/ancline-api:staging-approved-${GITHUB_SHA::12}             ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
-      - name: Trigger deterministic Render deploy hooks
+        run: docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
+      - name: Trigger Render deployment
         env:
           WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
           API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
         run: |
           set -euo pipefail
-          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
-            [[ -n "$WEB_HOOK" ]] || { echo "RENDER_WEB_DEPLOY_HOOK is required for Web releases; image-tag polling is not accepted as deployment proof."; exit 1; }
-            curl -fsS -X POST "$WEB_HOOK" >/dev/null
-            echo "Web deploy hook triggered"
-          else
-            echo "Web unchanged; no Web deployment trigger required."
-          fi
-          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-            [[ -n "$API_HOOK" ]] || { echo "RENDER_API_DEPLOY_HOOK is required for API releases; image-tag polling is not accepted as deployment proof."; exit 1; }
-            curl -fsS -X POST "$API_HOOK" >/dev/null
-            echo "API deploy hook triggered"
-          else
-            echo "API unchanged; no API deployment trigger required."
-          fi
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; fi
 
   remote-gate:
-    needs: [changes, build-web, build-api, promote]
+    needs: [changes, baseline, build-web, build-api, promote]
     if: always() && needs.promote.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -201,33 +223,36 @@ jobs:
       uat_run_id: ${{ steps.runtime.outputs.uat_run_id }}
       backup_status: ${{ steps.runtime.outputs.backup_status }}
       backup_sha256: ${{ steps.runtime.outputs.backup_sha256 }}
+      backup_artifact_sha256: ${{ steps.backup.outputs.artifact_sha256 }}
     steps:
       - name: Wait for direct API
         run: |
           set -euo pipefail
           for i in $(seq 1 60); do
             code="$(curl -L -sS -o /tmp/api-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/health" || true)"
-            if [[ "$code" == "200" ]]; then cat /tmp/api-health.json; break; fi
-            [[ "$i" == "60" ]] && { echo "API health timeout"; exit 1; }
+            if [[ "$code" == "200" ]]; then
+              if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+                jq -e --arg sha "$GITHUB_SHA" '.buildCommit == $sha' /tmp/api-health.json >/dev/null && break
+              else
+                jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/api-health.json >/dev/null && break
+              fi
+            fi
+            [[ "$i" == "60" ]] && { echo "API health/identity timeout"; cat /tmp/api-health.json 2>/dev/null || true; exit 1; }
             sleep 10
           done
 
-      - name: Require API UAT and encrypted backup evidence
+      - name: Require API transactional UAT and backup evidence
         run: |
           set -euo pipefail
           for i in $(seq 1 60); do
             code="$(curl -L -sS -o /tmp/release-evidence.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/release/evidence" || true)"
             if [[ "$code" == "200" ]]; then
               if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-                predicate='.releaseCommit == $sha and .ready == true and .uat.status == "PASS" and .backup.status == "PASS"'
+                predicate='.releaseCommit == $sha and .ready == true and .uat.status == "PASS" and .uat.summary.passed == 20 and .uat.summary.failed == 0 and .backup.status == "PASS" and .backup.offPlatformArtifactReady == true'
               else
                 predicate='.ready == true and .uat.status == "PASS" and .backup.status == "PASS"'
               fi
-              if jq -e --arg sha "$GITHUB_SHA" "$predicate" /tmp/release-evidence.json >/dev/null; then
-                cat /tmp/release-evidence.json
-                echo "API UAT + backup evidence PASS"
-                break
-              fi
+              jq -e --arg sha "$GITHUB_SHA" "$predicate" /tmp/release-evidence.json >/dev/null && break
             fi
             [[ "$i" == "60" ]] && { echo "API release evidence timeout"; cat /tmp/release-evidence.json 2>/dev/null || true; exit 1; }
             sleep 10
@@ -240,14 +265,9 @@ jobs:
             code="$(curl -L -sS -o /tmp/web-release.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" || true)"
             if [[ "$code" == "200" ]]; then
               if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
-                predicate='.buildCommit == $sha'
+                jq -e --arg sha "$GITHUB_SHA" '.status == "online" and .service == "ANCLINE Web" and .buildCommit == $sha' /tmp/web-release.json >/dev/null && break
               else
-                predicate='.status == "online" and .service == "ANCLINE Web" and (.buildCommit | type == "string")'
-              fi
-              if jq -e --arg sha "$GITHUB_SHA" "$predicate" /tmp/web-release.json >/dev/null; then
-                cat /tmp/web-release.json
-                echo "Web image identity PASS"
-                break
+                jq -e '.status == "online" and .service == "ANCLINE Web"' /tmp/web-release.json >/dev/null && break
               fi
             fi
             [[ "$i" == "60" ]] && { echo "Web release identity timeout"; cat /tmp/web-release.json 2>/dev/null || true; exit 1; }
@@ -257,17 +277,13 @@ jobs:
       - name: Validate Web to API runtime proxy
         run: |
           set -euo pipefail
-          direct_code="$(curl -L -sS -o /tmp/api-health-current.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/health")"
-          proxy_code="$(curl -L -sS -o /tmp/proxy-health.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL/api-proxy/health")"
-          [[ "$direct_code" == "200" ]] || { echo "Direct API HTTP $direct_code"; exit 1; }
-          [[ "$proxy_code" == "200" ]] || { echo "Proxy HTTP $proxy_code"; exit 1; }
+          curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" -o /tmp/api-health-current.json
+          curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/api-proxy/health" -o /tmp/proxy-health.json
           jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/api-health-current.json >/dev/null
           jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/proxy-health.json >/dev/null
           direct="$(jq -r .buildCommit /tmp/api-health-current.json)"
           proxy="$(jq -r .buildCommit /tmp/proxy-health.json)"
-          [[ -n "$direct" && "$direct" != "null" ]] || { echo "Direct API missing build identity"; exit 1; }
           [[ "$direct" == "$proxy" ]] || { echo "API identity mismatch direct=$direct proxy=$proxy"; exit 1; }
-          echo "Web -> API proxy PASS commit=$direct"
 
       - name: Validate public Web routes
         run: |
@@ -275,102 +291,251 @@ jobs:
           for path in / /login; do
             code="$(curl -L -sS -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL$path")"
             [[ "$code" == "200" ]] || { echo "$path HTTP $code"; exit 1; }
-            echo "$path PASS"
           done
+
+      - id: backup
+        name: Fetch encrypted off-platform backup envelope
+        run: |
+          set -euo pipefail
+          curl -L -fsS --connect-timeout 10 --max-time 60 "$API_URL/api/free-backup/offplatform-envelope" -o ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE.json
+          jq -e '.format == "ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE_V1" and .algorithm == "RSA-OAEP-SHA256+AES-256-GCM"' ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE.json >/dev/null
+          release_sha="$(jq -r .releaseCommit ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE.json)"
+          evidence_sha="$(jq -r .backup.sha256 /tmp/release-evidence.json)"
+          envelope_sha="$(jq -r .ciphertextSha256 ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE.json)"
+          [[ "$envelope_sha" == "$evidence_sha" ]] || { echo "Backup evidence mismatch"; exit 1; }
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then [[ "$release_sha" == "$GITHUB_SHA" ]] || { echo "Backup release identity mismatch"; exit 1; }; fi
+          artifact_sha="$(sha256sum ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE.json | awk '{print $1}')"
+          echo "artifact_sha256=$artifact_sha" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ancline-offplatform-backup-${{ github.sha }}
+          path: ANCLINE_OFFPLATFORM_BACKUP_ENVELOPE.json
+          retention-days: 30
 
       - id: runtime
         name: Capture deployed runtime evidence
         run: |
           set -euo pipefail
-          curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" -o /tmp/api-health-final.json
-          curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/release/evidence" -o /tmp/release-evidence-final.json
-          curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" -o /tmp/web-release-final.json
+          curl -L -fsS "$API_URL/api/health" -o /tmp/api-health-final.json
+          curl -L -fsS "$API_URL/api/release/evidence" -o /tmp/release-evidence-final.json
+          curl -L -fsS "$WEB_URL/release-info" -o /tmp/web-release-final.json
           echo "api_commit=$(jq -r .buildCommit /tmp/api-health-final.json)" >> "$GITHUB_OUTPUT"
           echo "web_commit=$(jq -r .buildCommit /tmp/web-release-final.json)" >> "$GITHUB_OUTPUT"
           echo "uat_status=$(jq -r .uat.status /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
           echo "uat_run_id=$(jq -r '.uat.runId // ""' /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
           echo "backup_status=$(jq -r .backup.status /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
           echo "backup_sha256=$(jq -r '.backup.sha256 // ""' /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
-          jq -e '.ready == true and .uat.status == "PASS" and .backup.status == "PASS"' /tmp/release-evidence-final.json >/dev/null
-          echo "Runtime evidence captured"
+
+  finalize:
+    needs: [changes, baseline, build-web, build-api, remote-gate]
+    if: always() && needs.remote-gate.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      registry_sha256: ${{ steps.registry.outputs.registry_sha256 }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: needs.changes.outputs.web == 'true'
+        name: Register approved Web digest
+        run: |
+          set -euo pipefail
+          actual="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA | awk '/^Digest:/ {print $2; exit}')"
+          [[ "$actual" == "${{ needs.build-web.outputs.digest }}" ]] || { echo "Web digest mismatch"; exit 1; }
+          docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:staging-approved-current --tag ghcr.io/cfi21/ancline-web:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA
+      - if: needs.changes.outputs.api == 'true'
+        name: Register approved API digest
+        run: |
+          set -euo pipefail
+          actual="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA | awk '/^Digest:/ {print $2; exit}')"
+          [[ "$actual" == "${{ needs.build-api.outputs.digest }}" ]] || { echo "API digest mismatch"; exit 1; }
+          docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:staging-approved-current --tag ghcr.io/cfi21/ancline-api:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
+      - id: registry
+        name: Write approved digest registry
+        env:
+          WEB_CHANGED: ${{ needs.changes.outputs.web }}
+          API_CHANGED: ${{ needs.changes.outputs.api }}
+          BASE_WEB_DIGEST: ${{ needs.baseline.outputs.web_digest }}
+          BASE_API_DIGEST: ${{ needs.baseline.outputs.api_digest }}
+          NEW_WEB_DIGEST: ${{ needs.build-web.outputs.digest }}
+          NEW_API_DIGEST: ${{ needs.build-api.outputs.digest }}
+          WEB_COMMIT: ${{ needs.remote-gate.outputs.web_commit }}
+          API_COMMIT: ${{ needs.remote-gate.outputs.api_commit }}
+          BACKUP_SHA: ${{ needs.remote-gate.outputs.backup_sha256 }}
+        run: |
+          python - <<'PY'
+          import json, os, hashlib
+          reg={
+            "schema":"ANCLINE_APPROVED_DIGEST_REGISTRY_V1",
+            "releaseCommit":os.environ["GITHUB_SHA"],
+            "web":{
+              "digest": os.getenv("NEW_WEB_DIGEST") if os.getenv("WEB_CHANGED")=="true" else os.getenv("BASE_WEB_DIGEST"),
+              "runtimeCommit":os.getenv("WEB_COMMIT"),
+              "changed":os.getenv("WEB_CHANGED")=="true"
+            },
+            "api":{
+              "digest": os.getenv("NEW_API_DIGEST") if os.getenv("API_CHANGED")=="true" else os.getenv("BASE_API_DIGEST"),
+              "runtimeCommit":os.getenv("API_COMMIT"),
+              "changed":os.getenv("API_CHANGED")=="true"
+            },
+            "backupCiphertextSha256":os.getenv("BACKUP_SHA"),
+            "status":"APPROVED"
+          }
+          raw=(json.dumps(reg,indent=2)+"\n").encode()
+          open("ANCLINE_APPROVED_DIGEST_REGISTRY.json","wb").write(raw)
+          print(json.dumps(reg,indent=2))
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+            f.write("registry_sha256="+hashlib.sha256(raw).hexdigest()+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ancline-approved-digest-registry-${{ github.sha }}
+          path: ANCLINE_APPROVED_DIGEST_REGISTRY.json
+          retention-days: 90
+
+  recovery:
+    needs: [changes, baseline, promote, remote-gate]
+    if: |
+      always() &&
+      needs.promote.result == 'success' &&
+      needs.remote-gate.result == 'failure' &&
+      (needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true')
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.verify.outputs.status }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore previous approved image pointers
+        run: |
+          set -euo pipefail
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+            docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest ghcr.io/cfi21/ancline-web${{@ needs.baseline.outputs.web_digest }}
+          fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+            docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api${{@ needs.baseline.outputs.api_digest }}
+          fi
+      - name: Trigger rollback deploys
+        env:
+          WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
+          API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; fi
+      - id: verify
+        name: Verify recovered runtime
+        env:
+          BASE_WEB_COMMIT: ${{ needs.baseline.outputs.web_commit }}
+          BASE_API_COMMIT: ${{ needs.baseline.outputs.api_commit }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            api_ok=false; web_ok=false
+            if curl -L -fsS "$API_URL/api/health" -o /tmp/recovery-api.json; then
+              current="$(jq -r '.buildCommit // "unknown"' /tmp/recovery-api.json)"
+              if [[ "${{ needs.changes.outputs.api }}" != "true" || "$BASE_API_COMMIT" == "unknown" || "$current" == "$BASE_API_COMMIT" ]]; then api_ok=true; fi
+            fi
+            if curl -L -fsS "$WEB_URL/" -o /dev/null; then
+              if [[ "${{ needs.changes.outputs.web }}" != "true" || "$BASE_WEB_COMMIT" == "unknown" ]]; then
+                web_ok=true
+              elif curl -L -fsS "$WEB_URL/release-info" -o /tmp/recovery-web.json && [[ "$(jq -r '.buildCommit // "unknown"' /tmp/recovery-web.json)" == "$BASE_WEB_COMMIT" ]]; then
+                web_ok=true
+              fi
+            fi
+            if [[ "$api_ok" == "true" && "$web_ok" == "true" ]] && curl -L -fsS "$WEB_URL/api-proxy/health" -o /tmp/recovery-proxy.json; then
+              jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/recovery-proxy.json >/dev/null
+              echo "status=PASS" >> "$GITHUB_OUTPUT"
+              echo "Automatic rollback and recovery PASS"
+              exit 0
+            fi
+            [[ "$i" == "60" ]] && { echo "Automatic rollback recovery timeout"; exit 1; }
+            sleep 10
+          done
 
   evidence:
-    needs: [changes, quality, build-web, build-api, promote, remote-gate]
+    needs: [changes, baseline, quality, build-web, build-api, promote, remote-gate, finalize, recovery]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Create release evidence artifact
+      - name: Create hardened release evidence
         env:
           WEB_CHANGED: ${{ needs.changes.outputs.web }}
           API_CHANGED: ${{ needs.changes.outputs.api }}
           SHARED_CHANGED: ${{ needs.changes.outputs.shared }}
+          BASE_WEB_DIGEST: ${{ needs.baseline.outputs.web_digest }}
+          BASE_API_DIGEST: ${{ needs.baseline.outputs.api_digest }}
           WEB_DIGEST: ${{ needs.build-web.outputs.digest }}
           API_DIGEST: ${{ needs.build-api.outputs.digest }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           PROMOTION_RESULT: ${{ needs.promote.result }}
           REMOTE_GATE_RESULT: ${{ needs.remote-gate.result }}
+          FINALIZE_RESULT: ${{ needs.finalize.result }}
+          RECOVERY_RESULT: ${{ needs.recovery.result }}
           DEPLOYED_API_COMMIT: ${{ needs.remote-gate.outputs.api_commit }}
           DEPLOYED_WEB_COMMIT: ${{ needs.remote-gate.outputs.web_commit }}
           UAT_STATUS: ${{ needs.remote-gate.outputs.uat_status }}
           UAT_RUN_ID: ${{ needs.remote-gate.outputs.uat_run_id }}
           BACKUP_STATUS: ${{ needs.remote-gate.outputs.backup_status }}
           BACKUP_SHA256: ${{ needs.remote-gate.outputs.backup_sha256 }}
+          BACKUP_ARTIFACT_SHA256: ${{ needs.remote-gate.outputs.backup_artifact_sha256 }}
+          REGISTRY_SHA256: ${{ needs.finalize.outputs.registry_sha256 }}
         run: |
           python - <<'PY'
           import json, os
-          evidence = {
-            "schema": "ANCLINE_SMART_RELEASE_EVIDENCE_V1",
-            "commit": os.environ["GITHUB_SHA"],
-            "runId": os.environ["GITHUB_RUN_ID"],
-            "components": {
-              "webChanged": os.getenv("WEB_CHANGED") == "true",
-              "apiChanged": os.getenv("API_CHANGED") == "true",
-              "sharedChanged": os.getenv("SHARED_CHANGED") == "true"
+          remote=os.getenv("REMOTE_GATE_RESULT")
+          evidence={
+            "schema":"ANCLINE_SMART_RELEASE_EVIDENCE_V2",
+            "commit":os.environ["GITHUB_SHA"],
+            "runId":os.environ["GITHUB_RUN_ID"],
+            "components":{
+              "webChanged":os.getenv("WEB_CHANGED")=="true",
+              "apiChanged":os.getenv("API_CHANGED")=="true",
+              "sharedChanged":os.getenv("SHARED_CHANGED")=="true"
             },
-            "images": {
-              "web": {
-                "immutableTag": f"ghcr.io/cfi21/ancline-web:sha-{os.environ['GITHUB_SHA']}" if os.getenv("WEB_CHANGED") == "true" else None,
-                "digest": os.getenv("WEB_DIGEST") or None
-              },
-              "api": {
-                "immutableTag": f"ghcr.io/cfi21/ancline-api:sha-{os.environ['GITHUB_SHA']}" if os.getenv("API_CHANGED") == "true" else None,
-                "digest": os.getenv("API_DIGEST") or None
-              }
+            "baseline":{"webDigest":os.getenv("BASE_WEB_DIGEST"),"apiDigest":os.getenv("BASE_API_DIGEST")},
+            "candidate":{"webDigest":os.getenv("WEB_DIGEST") or None,"apiDigest":os.getenv("API_DIGEST") or None},
+            "runtime":{
+              "webCommit":os.getenv("DEPLOYED_WEB_COMMIT") or None,
+              "apiCommit":os.getenv("DEPLOYED_API_COMMIT") or None,
+              "uatStatus":os.getenv("UAT_STATUS") or None,
+              "uatRunId":os.getenv("UAT_RUN_ID") or None,
+              "backupStatus":os.getenv("BACKUP_STATUS") or None,
+              "backupCiphertextSha256":os.getenv("BACKUP_SHA256") or None,
+              "offPlatformArtifactSha256":os.getenv("BACKUP_ARTIFACT_SHA256") or None
             },
-            "runtime": {
-              "apiCommit": os.getenv("DEPLOYED_API_COMMIT") or None,
-              "webCommit": os.getenv("DEPLOYED_WEB_COMMIT") or None,
-              "uatStatus": os.getenv("UAT_STATUS") or None,
-              "uatRunId": os.getenv("UAT_RUN_ID") or None,
-              "backupStatus": os.getenv("BACKUP_STATUS") or None,
-              "backupSha256": os.getenv("BACKUP_SHA256") or None
+            "approvedRegistrySha256":os.getenv("REGISTRY_SHA256") or None,
+            "results":{
+              "quality":os.getenv("QUALITY_RESULT"),
+              "promotion":os.getenv("PROMOTION_RESULT"),
+              "remoteGate":remote,
+              "finalize":os.getenv("FINALIZE_RESULT"),
+              "automaticRecovery":os.getenv("RECOVERY_RESULT")
             },
-            "results": {
-              "quality": os.getenv("QUALITY_RESULT"),
-              "promotion": os.getenv("PROMOTION_RESULT"),
-              "remoteGate": os.getenv("REMOTE_GATE_RESULT")
-            },
-            "releaseMode": "runtime-release" if (os.getenv("WEB_CHANGED") == "true" or os.getenv("API_CHANGED") == "true") else "pipeline-only-validation",
-            "approved": all(os.getenv(x) == "success" for x in ["QUALITY_RESULT","PROMOTION_RESULT","REMOTE_GATE_RESULT"]),
-            "boundary": "Staging release evidence only; not proof of production provider connectivity or final production authorization."
+            "approved":remote=="success" and os.getenv("FINALIZE_RESULT")=="success",
+            "rollbackRequired":remote=="failure" and (os.getenv("WEB_CHANGED")=="true" or os.getenv("API_CHANGED")=="true"),
+            "boundary":"Free staging release evidence; not final production authorization."
           }
-          open("ANCLINE_SMART_RELEASE_EVIDENCE.json","w").write(json.dumps(evidence, indent=2))
-          print(json.dumps(evidence, indent=2))
+          open("ANCLINE_SMART_RELEASE_EVIDENCE_V2.json","w").write(json.dumps(evidence,indent=2)+"\n")
+          print(json.dumps(evidence,indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: ancline-smart-release-evidence-${{ github.sha }}
-          path: ANCLINE_SMART_RELEASE_EVIDENCE.json
-          retention-days: 30
-      - name: Publish summary
+          name: ancline-smart-release-evidence-v2-${{ github.sha }}
+          path: ANCLINE_SMART_RELEASE_EVIDENCE_V2.json
+          retention-days: 90
+      - name: Enforce release outcome
         run: |
-          echo "## ANCLINE Smart Release" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Commit: `$GITHUB_SHA`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Web changed: `${{ needs.changes.outputs.web }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- API changed: `${{ needs.changes.outputs.api }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Quality: `${{ needs.quality.result }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Promotion: `${{ needs.promote.result }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Remote gate: `${{ needs.remote-gate.result }}`" >> "$GITHUB_STEP_SUMMARY"
-      - if: needs.quality.result != 'success' || needs.promote.result != 'success' || needs.remote-gate.result != 'success'
-        name: Enforce release gate
-        run: exit 1
+          set -euo pipefail
+          [[ "${{ needs.quality.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.promote.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.remote-gate.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.finalize.result }}" == "success" ]] || exit 1

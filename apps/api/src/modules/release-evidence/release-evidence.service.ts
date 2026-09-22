@@ -3,6 +3,17 @@ import { createHash, randomUUID } from 'crypto';
 
 type GateStatus = 'PENDING' | 'PASS' | 'FAIL' | 'SKIPPED';
 
+type BackupEvidence = {
+  sha256: string;
+  encryptedBytes: number;
+  gzipBytes: number;
+  chunks: number;
+  algorithm?: string;
+  envelopeFormat?: string;
+  publicKeySha256?: string;
+  offPlatformArtifactReady?: boolean;
+};
+
 @Injectable()
 export class ReleaseEvidenceService {
   private readonly bootId = randomUUID();
@@ -34,7 +45,7 @@ export class ReleaseEvidenceService {
     this.uat = { status: 'SKIPPED', reason, finishedAt: new Date().toISOString() };
   }
 
-  recordBackup(meta: { sha256: string; encryptedBytes: number; gzipBytes: number; chunks: number }) {
+  recordBackup(meta: BackupEvidence) {
     this.backup = { status: 'PASS', ...meta, finishedAt: new Date().toISOString() };
   }
 
@@ -57,6 +68,7 @@ export class ReleaseEvidenceService {
       service: 'ANCLINE API',
       environment: process.env.NODE_ENV || 'unknown',
       deploymentTier: process.env.ANCLINE_DEPLOYMENT_TIER || 'unknown',
+      releasePipeline: 'smart-release-hardened-v4',
       releaseCommit: this.releaseCommit(),
       bootId: this.bootId,
       startedAt: this.startedAt,
