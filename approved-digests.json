@@ -1,13 +1,13 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-22T21:00:56.123109+00:00",
+  "updatedAt": "2026-09-22T21:09:47.574550+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
-      "commit": "fc70e4fec3d9a1d3de3df133888fa397646dcb37",
-      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-fc70e4fec3d9a1d3de3df133888fa397646dcb37",
-      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-fc70e4fec3d9",
-      "digest": "sha256:6a63cd04a29a81f87041c0f802aeef7b53856578bfdcfcc1699ad85bad1f6771"
+      "commit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-86872d0bf546",
+      "digest": "sha256:72717994ce43258af3b4fa81526d79d12c9338c852352c86124e2780082c8e85"
     },
     "api": {
       "commit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
@@ -17,6 +17,17 @@
     }
   },
   "history": [
+    {
+      "runId": "35784400175",
+      "approvedAt": "2026-09-22T21:09:47.574550+00:00",
+      "commit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "components": [
+        "web"
+      ],
+      "uatRunId": "UAT-20260922202158-P5M9D",
+      "backupSha256": "6b901618b225680e0ad5e3c6a18c478b2993eb8c0855b767421de20156642fab",
+      "offPlatformArtifactSha256": "a552fb052b869af6674adaba5aa3ced618167c8c388f45ce34905501b187ebbc"
+    },
     {
       "runId": "35783472427",
       "approvedAt": "2026-09-22T21:00:56.123109+00:00",
@@ -494,15 +505,6 @@
       "uatRunId": "UAT-20260922133614-SQHE9",
       "backupSha256": "fa77dd594cb6271f3001cf13a521afa270419051f9859e77b8cd79760e26a1a7",
       "offPlatformArtifactSha256": "a89993635d6c8911550b00dd404a48a0211dece302dcf305d027910c14ea6a83"
-    },
-    {
-      "runId": "35730540962",
-      "approvedAt": "2026-09-22T13:00:18.618923+00:00",
-      "commit": "3b32c6169f15f06d2533c637a32cb5f3b62bc41d",
-      "components": [],
-      "uatRunId": "UAT-20260922125450-DMYCM",
-      "backupSha256": "345c10d72efcebfc6d33cdc9dfadb59b9553cc6e804d6049007f42614d79e018",
-      "offPlatformArtifactSha256": "c3768576efab2f2327b159c6f37839975c4e524fd3a856c46196a7242f5021a2"
     }
   ]
 }
