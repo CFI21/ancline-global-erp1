@@ -16,4 +16,9 @@ export class UatController {
   run(@Req() req: any, @Body() body: any = {}) {
     return this.uat.run(req.user, body || {});
   }
+
+  @Post('database-restore-drill')
+  databaseRestoreDrill(@Req() req: any) {
+    return this.uat.databaseRestoreDrill(req.user);
+  }
 }
