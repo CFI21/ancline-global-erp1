@@ -1,0 +1,50 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260923-001",
+  "status": "DRAFT",
+  "title": "Next ANCLINE approved change — requirement pending definition",
+  "businessRequirement": "TO_BE_DEFINED_BEFORE_APPROVAL",
+  "objective": "Define the requested business change without altering the FINAL_ACCEPTED baseline until scope and regression requirements are approved.",
+  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "baselineDecision": "JOB_DONE",
+  "baselineStatus": "FINAL_ACCEPTED",
+  "impactedModules": [],
+  "components": [],
+  "regressionScopes": [],
+  "impactAssessment": {
+    "web": "NOT_ASSESSED",
+    "api": "NOT_ASSESSED",
+    "shared": "NOT_ASSESSED",
+    "dataMigration": "NOT_ASSESSED",
+    "securityPrivacy": "NOT_ASSESSED",
+    "financeReleaseControls": "NOT_ASSESSED"
+  },
+  "regressionPlan": {
+    "rule": "Populate automatically from approved component scope before build.",
+    "web": [
+      "WEB_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY"
+    ],
+    "api": [
+      "API_TEST_BUILD",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ],
+    "shared": [
+      "WEB_BUILD",
+      "API_TEST_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ]
+  },
+  "buildAllowed": false,
+  "deploymentAllowed": false,
+  "promotionAllowed": false,
+  "approvedAt": null,
+  "approvedBy": null,
+  "notes": "DRAFT ONLY. No runtime build/deploy/promotion is authorized until the business requirement, impacted modules, component scope, and required regressionScopes are defined and status is explicitly changed to APPROVED."
+}
