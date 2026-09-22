@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_FINAL_UI_FREEZE_V1",
-  "frozenAt": "2026-09-22T21:13:42Z",
+  "frozenAt": "2026-09-22T21:26:25Z",
   "status": "FROZEN_ACCEPTED",
   "infrastructureMode": "SIMPLE_SECURE_SINGLE_RENDER_STACK",
   "approvedRuntime": {
@@ -17,14 +17,14 @@
   },
   "acceptance": {
     "workflow": "ANCLINE Simple Secure UI Hardening",
-    "runId": 35785174589,
+    "runId": 35786542643,
     "result": "PASS",
-    "headSha": "784532da97aace06bf11f13dc5e2ec009f0d4c4b",
+    "headSha": "2962b389c611c69218feefdc658c1253f496c564",
     "artifact": {
-      "id": 10718994176,
-      "name": "ancline-ui-hardening-35785174589",
-      "digest": "sha256:2d0aad629c00b645c3a2030f19cbb288a73ce4150f65f012316760d96bc075cd",
-      "expiresAt": "2026-12-21T21:12:19Z"
+      "id": 10719199898,
+      "name": "ancline-ui-hardening-35786542643",
+      "digest": "sha256:a4ea71bcd041be03990fabeeb609e40139d3bcda1ea56655ca56cfc810d5566b",
+      "expiresAt": "2026-12-21T21:25:20Z"
     },
     "coverage": {
       "responsive": [
@@ -67,7 +67,7 @@
         "emptySearch": "PASS",
         "api503RecoverableNotice": "PASS",
         "slowApi": "PASS",
-        "slowApiObservedMs": 2754
+        "slowApiObservedMs": 2738
       },
       "validation": {
         "bookingRequiredFields": "PASS"
@@ -77,5 +77,5 @@
       }
     }
   },
-  "freezePolicy": "Future UI changes must preserve this approved runtime baseline and rerun UI final acceptance plus UI hardening before replacing this freeze."
+  "freezePolicy": "UI baseline is frozen. Future UI changes must preserve the approved Web/API runtime and rerun final browser acceptance plus responsive/accessibility hardening before this record may be replaced."
 }
