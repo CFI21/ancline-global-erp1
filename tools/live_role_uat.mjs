@@ -62,10 +62,24 @@ try{
     for(const j of spec.must)assert(visible.includes(j),`${spec.role}: missing required job ${j}`);
 
     if(spec.internal){
-      await page.waitForSelector('input[aria-label="Search ANCLINE menu"]',{timeout:15000});
-      await page.waitForFunction(()=>document.querySelectorAll('.menu-section').length>0,{timeout:15000});
-      const internalLinks=await page.locator('.menu-section').count();
-      assert(internalLinks>0,`${spec.role}: internal workflow menu missing`);
+      let shellState=null;
+      for(let attempt=0;attempt<3;attempt++){
+        shellState=await page.evaluate(()=>({
+          url:location.href,
+          searchCount:document.querySelectorAll('input[aria-label="Search ANCLINE menu"]').length,
+          menuCount:document.querySelectorAll('.menu-section').length,
+          body:(document.body?.innerText||'').slice(0,900)
+        }));
+        if(shellState.searchCount>0&&shellState.menuCount>0)break;
+        if(attempt<2){
+          await page.reload({waitUntil:'domcontentloaded'});
+          await page.waitForTimeout(1200);
+        }
+      }
+      assert(shellState?.searchCount>0,`${spec.role}: internal menu search missing after retries; url=${shellState?.url}; viewport=${JSON.stringify(await page.viewportSize())}; body=${shellState?.body}`);
+      assert(shellState?.menuCount>0,`${spec.role}: internal workflow menu missing after retries; url=${shellState?.url}; body=${shellState?.body}`);
+      const searchVisible=await page.locator('input[aria-label="Search ANCLINE menu"]').isVisible();
+      assert(searchVisible,`${spec.role}: internal menu exists but is not visible at viewport ${JSON.stringify(await page.viewportSize())}`);
     }else{
       await page.waitForTimeout(700);
       const internalLinks=await page.locator('.menu-section').count();
