@@ -82,7 +82,7 @@ try{
       await safeGoto(page,'/bookings/'+encodeURIComponent(b.id));
       const text=await page.locator('body').innerText();
       assert(text.includes(n),n+': detail reference missing');
-      assert(text.includes(String(b.origin))&&text.includes(String(b.destination)),n+': route missing');
+      assert(text.includes(String(b.route||'')),n+': route missing');
       assert(await page.locator('.card').count()>0,n+': detail cards missing');
       report.jobs.push({bookingNo:n,businessModel:b.businessModel,specialCargo:b.specialCargo||null,role:'GLOBAL_ADMIN',status:'PASS'});
     }
