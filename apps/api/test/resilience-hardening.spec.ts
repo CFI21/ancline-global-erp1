@@ -44,4 +44,14 @@ describe('Final ECOM resilience hardening contracts',()=>{
     expect(s).toContain('Render API automatic rollback + runtime recovery PASS');
     expect(s).toContain('approved-digests.json');
   });
+  it('registers only the canonical integrations controller for the /integrations route family',()=>{
+    const operations=read('../src/modules/operations/operations.module.ts');
+    expect(operations).not.toContain("IntegrationsController");
+    expect(operations).not.toContain("IntegrationsService");
+    const canonical=read('../src/modules/integrations/integrations.module.ts');
+    expect(canonical).toContain("controllers:[IntegrationsController]");
+    const app=read('../src/app.module.ts');
+    expect(app).toContain("IntegrationsModule");
+  });
+
 });
