@@ -270,6 +270,11 @@ jobs:
       backup_sha256: ${{ steps.runtime.outputs.backup_sha256 }}
       backup_artifact_sha256: ${{ steps.backup.outputs.artifact_sha256 }}
     steps:
+      - name: Controlled rollback drill
+        if: contains(github.event.head_commit.message, '[rollback-drill]')
+        run: |
+          echo "Intentional failure: validating approved-digest rollback and recovery."
+          exit 42
       - name: Wait for direct API
         run: |
           set -euo pipefail
