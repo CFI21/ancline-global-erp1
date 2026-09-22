@@ -113,7 +113,7 @@ export default function BookingsPage(){
       if(!customerId){const org=await request('/organizations',{method:'POST',body:JSON.stringify({code:`CUS-${Date.now().toString().slice(-7)}`,name:form.customerName.trim(),roles:['CUSTOMER'],active:true})});customerId=org.id;}
       const bookingNo=form.bookingNo.trim();
       const body:any={
-        businessModel:form.businessModel,bookingNo,customerId,producingAgentId:form.producingAgentId||null,bookingType:form.bookingType||null,transportMode:form.transportMode||null,serviceType:form.serviceType||null,
+        businessModel:'NVOCC',bookingNo,customerId,producingAgentId:form.producingAgentId||null,bookingType:form.bookingType||null,transportMode:form.transportMode||null,serviceType:form.serviceType||null,
         bookingDate:toIso(form.bookingDate),customerReference:form.customerReference||null,shipperReference:form.shipperReference||null,carrierBookingNo:form.carrierBookingNo||null,houseBL:form.houseBL||null,masterBL:form.masterBL||null,
         shipper:form.shipper||null,consignee:form.consignee||null,notifyParty:form.notifyParty||null,origin:form.origin.trim(),destination:form.destination.trim(),placeOfReceipt:form.placeOfReceipt||null,portOfLoading:form.portOfLoading||null,portOfDischarge:form.portOfDischarge||null,placeOfDelivery:form.placeOfDelivery||null,transshipmentPort:form.transshipmentPort||null,terminal:form.terminal||null,polAgent:form.polAgent||null,podAgent:form.podAgent||null,
         etd:toIso(form.etd),eta:toIso(form.eta),atd:toIso(form.atd),ata:toIso(form.ata),cyClosing:toIso(form.cyClosing),siCutoff:toIso(form.siCutoff),vgmCutoff:toIso(form.vgmCutoff),docCutoff:toIso(form.docCutoff),portCutoff:toIso(form.portCutoff),
@@ -151,9 +151,10 @@ export default function BookingsPage(){
 
   return <WorkspaceShell
     title="Bookings"
-    subtitle="Ocean Booking Intake, Readiness & Exception Control"
+    subtitle="Internal NVOCC Booking Intake, Readiness & Exception Control"
     active="/bookings"
     actions={<>
+      {isAdmin&&<a className="btn" href="/customer-portal#new-booking" style={{textDecoration:'none'}}>+ Forwarding via ANC Quote</a>}
       <a className="btn" href="/carrier-operations" style={{textDecoration:'none'}}>Carrier Space Control</a>
       <a className="btn" href="/shipment-control" style={{textDecoration:'none'}}>Shipment Control</a>
       <button className="btn" onClick={()=>setShowForm(v=>!v)}>{showForm?'Booking Register':'New Booking'}</button>
@@ -233,7 +234,11 @@ export default function BookingsPage(){
         <details className="booking-detail-section">
           <summary>References & Commercial Details</summary>
           <div className="booking-detail-fields">
-            {isAdmin?<Select l="Operating Model" k="businessModel"><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></Select>:<div><span style={label}>Operating Model</span><div className="status">NVOCC</div></div>}
+            <div>
+              <span style={label}>Operating Model</span>
+              <div className="status">NVOCC · INTERNAL</div>
+              {isAdmin&&<div className="sub" style={{marginTop:4}}>Forwarding jobs must start from Carrier Rate → ANC Quote → customer acceptance. <a href="/customer-portal#new-booking">Start Forwarding flow</a>.</div>}
+            </div>
             <Input l="Shipper Ref." k="shipperReference"/>
             <Input l="House B/L" k="houseBL"/>
             <Input l="Master B/L" k="masterBL"/>
