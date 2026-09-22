@@ -55,8 +55,54 @@ jobs:
           echo "shared=$shared" >> "$GITHUB_OUTPUT"
           echo "Affected: web=$web api=$api shared=$shared"
 
-  baseline:
+
+  preflight-hooks:
     needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Render deploy-hook secrets without triggering deploys
+        shell: bash
+        env:
+          WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
+          API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+        run: |
+          set -euo pipefail
+          validate_hook() {
+            local label="$1"
+            local value="$2"
+            local service_id="$3"
+            local prefix="https://api.render.com/deploy/${service_id}?key="
+
+            if [[ -z "$value" ]]; then
+              echo "::error::${label} is missing."
+              return 1
+            fi
+            if [[ "$value" != "$prefix"* ]]; then
+              echo "::error::${label} is malformed or points to the wrong Render service."
+              return 1
+            fi
+            if [[ "$value" =~ [[:space:]] ]]; then
+              echo "::error::${label} contains whitespace."
+              return 1
+            fi
+            local key="${value:${#prefix}}"
+            if [[ -z "$key" ]]; then
+              echo "::error::${label} has no deploy-hook key."
+              return 1
+            fi
+            echo "${label} structure PASS"
+          }
+
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+            validate_hook "RENDER_WEB_DEPLOY_HOOK" "$WEB_HOOK" "srv-dajbrh3m8hqs73fmdk30"
+          fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+            validate_hook "RENDER_API_DEPLOY_HOOK" "$API_HOOK" "srv-daisqstg1s2s738kklb0"
+          fi
+          echo "Render deploy-hook preflight PASS"
+
+  baseline:
+    needs: [changes, preflight-hooks]
     runs-on: ubuntu-latest
     outputs:
       web_digest: ${{ steps.capture.outputs.web_digest }}
@@ -152,7 +198,7 @@ jobs:
           printf 'Trusted baseline web=%s (%s) api=%s (%s) registry=%s\n' "$web_digest" "$web_commit" "$api_digest" "$api_commit" "$registry_present"
 
   quality:
-    needs: changes
+    needs: [changes, preflight-hooks]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -235,7 +281,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=api
 
   promote:
-    needs: [changes, baseline, quality, build-web, build-api]
+    needs: [changes, preflight-hooks, baseline, quality, build-web, build-api]
     if: |
       always() &&
       needs.baseline.result == 'success' &&
@@ -697,4 +743,4 @@ jobs:
           [[ "${{ needs.promote.result }}" == "success" ]] || exit 1
           [[ "${{ needs.remote-gate.result }}" == "success" ]] || exit 1
           [[ "${{ needs.finalize.result }}" == "success" ]] || exit 1
-# full-auto-rollback drill trigger: 2026-09-22T13:10+02:00 fresh-api-hook
+# full-auto-rollback drill trigger: 2026-09-22T13:22+02:00 preflight-hardened
