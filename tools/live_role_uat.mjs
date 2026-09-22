@@ -41,6 +41,7 @@ async function login(page,{email,role}){
   const user=result.user;
   const target=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(user.role)?'/customer-portal':user.role==='AGENT'?'/agent-portal':user.role==='BRANCH_OPS'?'/nvocc-portal':'/';
   await page.goto(WEB_URL+target,{waitUntil:'domcontentloaded'});
+  await page.waitForSelector('input[aria-label="Search ANCLINE menu"]',{timeout:30000});
   return user;
 }
 const browser=await chromium.launch({headless:true});
@@ -61,9 +62,11 @@ try{
     for(const j of spec.must)assert(visible.includes(j),`${spec.role}: missing required job ${j}`);
 
     if(spec.internal){
-      const search=page.getByLabel('Search ANCLINE menu');
-      assert(await search.count()===1,`${spec.role}: internal workflow menu missing`);
+      await page.waitForFunction(()=>document.querySelectorAll('.menu-section').length>0,{timeout:15000});
+      const internalLinks=await page.locator('.menu-section').count();
+      assert(internalLinks>0,`${spec.role}: internal workflow menu missing`);
     }else{
+      await page.waitForTimeout(700);
       const internalLinks=await page.locator('.menu-section').count();
       assert(internalLinks===0,`${spec.role}: external role exposed internal workflow groups`);
     }
