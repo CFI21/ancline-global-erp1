@@ -15,9 +15,24 @@ jobs:
     timeout-minutes: 40
     env:
       WEB_URL: https://ancline-web-live.onrender.com
-      EXPECTED_API_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve expected approved/candidate API runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved-mutation.json
+          approved_api="$(jq -r '.current.api.commit' /tmp/approved-mutation.json)"
+          if git diff --quiet "$approved_api" "$GITHUB_SHA" -- apps/api packages/db package.json package-lock.json tsconfig.json; then
+            expected="$approved_api"
+          else
+            expected="$GITHUB_SHA"
+          fi
+          echo "EXPECTED_API_COMMIT=$expected" >> "$GITHUB_ENV"
+          echo "Mutation UAT expects API runtime: $expected"
       - name: Prove source identity
         run: |
           echo "HEAD=$(git rev-parse HEAD)"
@@ -27,3 +42,5 @@ jobs:
           node-version: '22'
       - name: Run full 50001-50005 mutation / role / privacy / exception acceptance
         run: node tools/live_transaction_mutation_uat.mjs
+
+# simple-secure-final-hardening-trigger: 2026-09-22T20:25Z
