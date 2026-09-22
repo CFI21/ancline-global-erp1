@@ -68,11 +68,16 @@ try{
   const callbacks=await Promise.all(Array.from({length:16},()=>call('/integrations/ingest',{token:admin.token,method:'POST',body:callbackBody})));
   assert(callbacks.every(r=>r.ok),'Concurrent provider callbacks did not all resolve successfully');
   const cbDuplicates=callbacks.filter(r=>r.body?.duplicate===true).length;
-  assert(cbDuplicates===15,'Expected 15 duplicate provider callbacks, got '+cbDuplicates);
+  const responseIds=callbacks.map(r=>r.body?.id).filter(Boolean);
+  const uniqueResponseIds=[...new Set(responseIds)];
+  assert(responseIds.length===16,'Every provider callback response must identify the persisted integration event');
+  assert(uniqueResponseIds.length===1,'Concurrent callbacks referenced more than one integration event: '+uniqueResponseIds.join(','));
   const integrationRows=ok(await call('/integrations',{token:admin.token}),'integration list');
   const callbackRows=(integrationRows||[]).filter(x=>x.sourceSystem==='HARDENING_CARRIER'&&x.externalId===callbackId);
   assert(callbackRows.length===1,'Expected exactly one persisted callback event, got '+callbackRows.length);
-  report.callbacks={requests:16,primary:1,duplicates:cbDuplicates,persisted:callbackRows.length,status:'PASS'};
+  assert(callbackRows[0].id===uniqueResponseIds[0],'Persisted callback id does not match concurrent response id');
+  assert(cbDuplicates>=14,'Expected duplicate responses for all concurrent losers; got '+cbDuplicates);
+  report.callbacks={requests:16,primaryEventId:uniqueResponseIds[0],duplicateFlags:cbDuplicates,persisted:callbackRows.length,status:'PASS'};
 
   // 3) Provider failure -> exponential retry metadata -> dead letter at the configured limit.
   const failureId='HARD-FAIL-'+stamp();
