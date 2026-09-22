@@ -3,8 +3,8 @@
   "name": "Integrated Global Forwarding + NVOCC Staging",
   "status": "STAGING_APPROVED",
   "scope": "FREE_TIER_STAGING",
-  "approved_commit": "ee2eefbc1f16789ed3328598d6a807435b68bf91",
-  "approved_run": "35733993240",
+  "approved_commit": "2344f9027b9ca756b1d34b771c01ae185ac6b402",
+  "approved_run": "35740883330",
   "mandatory": [
     {
       "id": "RENDER_API",
@@ -18,12 +18,12 @@
     },
     {
       "id": "BUILD_TEST",
-      "description": "Clean dependency install, Prisma generation, 7 regression suites / 32 tests, and Web/API production builds",
+      "description": "Clean dependency install, Prisma generation, 9 regression suites / 43 tests, and Web/API production builds",
       "pass": true
     },
     {
       "id": "TRANSACTIONAL_UAT",
-      "description": "20-step staging transactional UAT with cleanup",
+      "description": "Dynamic cleanup-enabled staging transactional UAT; every configured check must pass (current approved release 21/21)",
       "pass": true
     },
     {

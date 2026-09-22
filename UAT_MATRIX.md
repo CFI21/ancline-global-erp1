@@ -1,15 +1,15 @@
 # ANCLINE Staging UAT & Release Evidence
 
-Current approved staging release: `ee2eefbc1f16789ed3328598d6a807435b68bf91`  
-GitHub Actions approval run: `35733993240`  
-Transactional UAT run: `UAT-20260922133614-SQHE9`
+Current approved staging release: `2344f9027b9ca756b1d34b771c01ae185ac6b402`  
+GitHub Actions approval run: `35740883330`  
+Transactional UAT run: `UAT-20260922143609-JJ8QX`
 
 ## Automated release gates — PASS
 
 - [x] Render API key and exact Web/API service preflight
 - [x] Approved runtime baseline identity check
 - [x] Clean dependency install and Prisma client generation
-- [x] API regression suite: **7 suites / 32 tests PASS**
+- [x] API regression suite: **9 suites / 43 tests PASS**
 - [x] API production build
 - [x] Phase 10 staging-gate and release-package coherence check
 - [x] Web production build
@@ -17,7 +17,7 @@ Transactional UAT run: `UAT-20260922133614-SQHE9`
 - [x] Immutable Web/API image build
 - [x] Exact immutable candidate deployment through Render API
 - [x] Direct API health and embedded commit identity
-- [x] 20-step transactional staging UAT with cleanup
+- [x] dynamic cleanup-enabled transactional staging UAT — current release 21/21 checks PASS
 - [x] Web embedded commit identity
 - [x] Web -> API proxy health and identity match
 - [x] Public Web route checks
@@ -45,6 +45,10 @@ The Shipment / Consol suite proves ETA/ETD validation, FCL equipment completenes
 The Web contract suite proves every static WorkspaceShell workflow target has a page and verifies the critical Forwarding and Shipment Control Web/API endpoint contracts remain aligned.
 
 ## Security / scope — automated coverage
+
+- [x] Managed-account login and stored-scope enforcement
+- [x] External-role sidebar / portal UI contract checks
+- [x] Role matrix for GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS, FINANCE, AGENT, CUSTOMER, SHIPPER and CONSIGNEE
 
 - [x] Global Admin scope
 - [x] Agent NVOCC scope
@@ -77,6 +81,16 @@ The staging UAT runner creates isolated test data, executes transaction controls
 - [x] Financial close state
 - [x] Final transaction verification
 - [x] UAT data cleanup
+
+## Synthetic ECOM staging pack — seeded
+
+- [x] 3 synthetic customers with approved test KYC
+- [x] 3 synthetic carrier/provider records with test-only adapters
+- [x] 5 full-field jobs using 5-digit refs `50001`–`50005`
+- [x] 10 managed synthetic accounts across 8 roles
+- [x] Standard FCL, DG, reefer, OOG / door-to-door and NVOCC scenarios
+- [x] Containers, routing legs, milestones, documents, finance lines, tasks, approvals and closeout data
+- [x] Automatic startup seeding disabled again after one-time staging seed
 
 ## Functional flows present and release-gated
 

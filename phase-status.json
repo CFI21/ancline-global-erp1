@@ -6,8 +6,8 @@
   "prototype": "INTEGRATED",
   "production_code": "STAGING_VALIDATED",
   "public_staging": "LIVE",
-  "approved_commit": "c27d32332a5010d539d821bdf526ed5386558ebe",
-  "approved_run": "35729660433",
+  "approved_commit": "2344f9027b9ca756b1d34b771c01ae185ac6b402",
+  "approved_run": "35740883330",
   "release_control": {
     "method": "GitHub Actions + immutable GHCR images + authenticated Render API",
     "automatic_candidate_deploy": true,
@@ -28,7 +28,11 @@
     "Transactional UAT with cleanup",
     "Encrypted off-platform staging backup evidence",
     "Fully unattended Render API deployment and rollback",
-    "Approved digest registry and hardened release evidence"
+    "Approved digest registry and hardened release evidence",
+    "Expanded regression suite: 9 suites / 43 tests including managed login, role UI contracts, Forwarding controls, shipment/consol readiness, Web/API contracts, privacy, scope and bulk data",
+    "Dynamic cleanup-enabled transactional UAT requiring every configured check to pass",
+    "Synthetic ECOM staging pack: 3 customers, 3 carriers, 5 full-field jobs, 10 managed test accounts across 8 roles",
+    "Role-by-role scope validation including Agent NVOCC plus authorized cross-trade Forwarding"
   ],
   "staging_blockers": [],
   "production_only_requirements": [

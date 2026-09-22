@@ -11,7 +11,7 @@ ANCLINE staging releases use GitHub Actions, immutable GHCR images, authenticate
 5. Build immutable OCI candidates tagged `sha-<commit>`.
 6. Deploy the exact immutable candidate images to the changed Render services through the authenticated Render API.
 7. Require embedded Web/API build identities to match the candidate commit.
-8. Run the 20-step transactional API UAT with cleanup.
+8. Run the dynamic cleanup-enabled transactional API UAT; every configured check must pass and the release gate enforces a minimum coverage floor.
 9. Require encrypted staging backup evidence and copy the encrypted envelope to a GitHub Actions artifact outside Render.
 10. Verify the Web -> API runtime proxy and public Web routes.
 11. For a normal successful release, register the candidate as approved, update `latest`, and persist the new baseline to `release-registry`.

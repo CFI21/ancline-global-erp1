@@ -11,7 +11,7 @@ This free-tier staging release pipeline removes Render source-build minutes from
    - candidate is moved to `latest` only after source quality passes;
    - `staging-approved-current` is updated only after the remote gate succeeds.
 5. **Approved digest registry**: every successful release stores a JSON registry artifact with approved digests and runtime identities.
-6. **Automated transactional UAT**: API changes require the 20-step cleanup-enabled UAT to pass.
+6. **Automated transactional UAT**: API changes require the dynamic cleanup-enabled UAT to pass every configured check, with a minimum release-coverage floor.
 7. **Off-platform backup**: the API creates a hybrid-encrypted logical staging backup envelope. GitHub Actions downloads the ciphertext and retains it as an Actions artifact outside Render.
 8. **Private recovery key stays outside GitHub/Render**: only the RSA public key is committed. The private key is kept separately by the operator.
 9. **Remote Web/API gate**: direct API health, Web identity, Web→API proxy and public routes must pass.
@@ -27,7 +27,7 @@ This free-tier staging release pipeline removes Render source-build minutes from
 - Recovery requires the separately held private key and `tools/restore_offplatform_backup.py`.
 
 Public key SHA-256:
-`dec28b0907a1205a45d1880da7af72669af450992b0c4770fb88ac8dc8b61198`
+`b3d03bdf6327b15d0786f2436656c99561d2761aae344a49146e73971cba419c`
 
 ## Boundary
 
