@@ -1,0 +1,19 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-YYYYMMDD-001",
+  "status": "DRAFT",
+  "title": "Describe the approved change",
+  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "components": [
+    "web"
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY"
+  ],
+  "approvedAt": null,
+  "approvedBy": null,
+  "notes": "Set status to APPROVED only after the change scope is explicitly approved."
+}
