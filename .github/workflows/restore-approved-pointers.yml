@@ -25,3 +25,5 @@ jobs:
           set -euo pipefail
           docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest ghcr.io/cfi21/ancline-web@sha256:68c9b55ed326026f55f6144a2c1d65e65e0eaa4e5393eb537e40ef71d85d4d91
           docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api@sha256:0d49b0b661f343db2ba70ffc7697f6001e76072573dd7a6fd74ea4728e36c8c7
+
+# restore-trigger: 2026-09-22T13:16+02:00
