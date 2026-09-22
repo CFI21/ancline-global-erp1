@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tools/job_done_final_business_day.mjs'
+      - 'tools/live_ui_final_acceptance.mjs'
       - '.github/workflows/job-done-final.yml'
   workflow_dispatch:
 
@@ -129,3 +130,5 @@ jobs:
           retention-days: 90
 
 # final-rerun-trigger: 2026-09-22T21:39Z
+
+# final-rerun-after-browser-detail-retry: 2026-09-22T21:38Z
