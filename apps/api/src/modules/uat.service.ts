@@ -86,6 +86,7 @@ export class UatService {
       }
       if (ids.rateId) await this.p.rateQuote.deleteMany({ where: { id: ids.rateId } });
       if (ids.forwardingBookingId) await this.p.booking.deleteMany({ where: { id: ids.forwardingBookingId } });
+      if (ids.agentForwardingBookingId) await this.p.booking.deleteMany({ where: { id: ids.agentForwardingBookingId } });
       if (ids.customerId || ids.agentId) {
         const orgIds = [ids.customerId, ids.agentId].filter((v): v is string => Boolean(v));
         if (orgIds.length) {
@@ -242,19 +243,26 @@ export class UatService {
           notes: `Role-scope UAT ${runId}`
         }});
         ids.forwardingBookingId = forwarding.id;
+        const agentForwarding = await this.p.booking.create({ data: {
+          bookingNo: `${runId}-AGT-FWD`, customerId: agent.id, owningBranchId: branch.id,
+          businessModel: 'FORWARDING', bookingChannel: 'AGENT_PORTAL', forwardingTradeType: 'CROSS_TRADE',
+          origin: 'SGSIN', destination: 'AEJEA', equipment: '20GP', currency: 'USD', status: 'BOOKING_REQUESTED',
+          notes: `Agent Forwarding role-scope UAT ${runId}`
+        }});
+        ids.agentForwardingBookingId = agentForwarding.id;
         const roleCases:any[] = [
-          {role:'GLOBAL_ADMIN',user:{sub:'uat-admin',email:'admin@uat.invalid',role:'GLOBAL_ADMIN'},expected:2},
-          {role:'CONTROL_TOWER',user:{sub:'uat-control',email:'control@uat.invalid',role:'CONTROL_TOWER'},expected:2},
-          {role:'FINANCE',user:{sub:'uat-finance',email:'finance@uat.invalid',role:'FINANCE'},expected:2},
-          {role:'BRANCH_OPS',user:{sub:'uat-ops',email:'ops@uat.invalid',role:'BRANCH_OPS',branchId:branch.id},expected:2},
+          {role:'GLOBAL_ADMIN',user:{sub:'uat-admin',email:'admin@uat.invalid',role:'GLOBAL_ADMIN'},expected:3},
+          {role:'CONTROL_TOWER',user:{sub:'uat-control',email:'control@uat.invalid',role:'CONTROL_TOWER'},expected:3},
+          {role:'FINANCE',user:{sub:'uat-finance',email:'finance@uat.invalid',role:'FINANCE'},expected:3},
+          {role:'BRANCH_OPS',user:{sub:'uat-ops',email:'ops@uat.invalid',role:'BRANCH_OPS',branchId:branch.id},expected:3},
           {role:'CUSTOMER',user:{sub:'uat-customer',email:'customer@uat.invalid',role:'CUSTOMER',customerId:customer.id},expected:2},
-          {role:'AGENT',user:{sub:'uat-agent',email:'agent@uat.invalid',role:'AGENT',agentId:agent.id},expected:1},
+          {role:'AGENT',user:{sub:'uat-agent',email:'agent@uat.invalid',role:'AGENT',agentId:agent.id,permissions:['FORWARDING_DIRECT_COLOAD_CROSS_TRADE']},expected:2},
           {role:'SHIPPER',user:{sub:'uat-shipper',email:'shipper@uat.invalid',role:'SHIPPER',partyId:customer.id},expected:1},
           {role:'CONSIGNEE',user:{sub:'uat-consignee',email:'consignee@uat.invalid',role:'CONSIGNEE',partyId:customer.id},expected:1}
         ];
         const results:any[]=[];
         for(const x of roleCases){
-          const visible=await this.p.booking.count({where:{id:{in:[booking.id,forwarding.id]},...bookingScope(x.user)}});
+          const visible=await this.p.booking.count({where:{id:{in:[booking.id,forwarding.id,agentForwarding.id]},...bookingScope(x.user)}});
           if(visible!==x.expected)throw new Error(`${x.role} expected ${x.expected} UAT jobs but saw ${visible}`);
           results.push({role:x.role,visible,expected:x.expected});
         }
@@ -264,7 +272,7 @@ export class UatService {
           {role:'AGENT_OTHER',user:{sub:'bad-agent',email:'badagent@uat.invalid',role:'AGENT',agentId:'__other__'}}
         ];
         for(const x of blockedCases){
-          const visible=await this.p.booking.count({where:{id:{in:[booking.id,forwarding.id]},...bookingScope(x.user)}});
+          const visible=await this.p.booking.count({where:{id:{in:[booking.id,forwarding.id,agentForwarding.id]},...bookingScope(x.user)}});
           if(visible!==0)throw new Error(`${x.role} scope leaked ${visible} UAT job(s)`);
           results.push({role:x.role,visible,expected:0});
         }

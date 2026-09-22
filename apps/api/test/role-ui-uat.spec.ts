@@ -50,4 +50,13 @@ describe('Role-by-role UI and managed-session contracts',()=>{
     expect(auth).toContain("if((role==='SHIPPER'||role==='CONSIGNEE')&&!body.partyId)");
   });
 
+  it('exercises the agent Forwarding cross-trade branch in transactional UAT',()=>{
+    const uat=read('../src/modules/uat.service.ts');
+    expect(uat).toContain("forwardingTradeType: 'CROSS_TRADE'");
+    expect(uat).toContain("permissions:['FORWARDING_DIRECT_COLOAD_CROSS_TRADE']");
+    expect(uat).toContain("ids.agentForwardingBookingId = agentForwarding.id");
+    expect(uat).toContain("role:'AGENT'");
+    expect(uat).toContain("expected:2");
+  });
+
 });
