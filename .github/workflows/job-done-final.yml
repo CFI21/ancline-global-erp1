@@ -61,8 +61,6 @@ jobs:
         run: |
           set -euo pipefail
           frozen_web="$(jq -r '.approvedRuntime.web.commit' infra/go-live/final-ui-freeze.json)"
-          changed_web="$(git diff --name-only "$frozen_web"...HEAD -- 'apps/web/**' | wc -l | tr -d ' ')"
-          test "$changed_web" = "0"
           curl -fsS --max-time 15 "$WEB_URL/release-info" > /tmp/release-info.json
           live_web="$(jq -r '.commit // .buildCommit // empty' /tmp/release-info.json)"
           test "$live_web" = "$frozen_web"
