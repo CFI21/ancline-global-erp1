@@ -200,7 +200,7 @@ jobs:
           printf 'Trusted baseline web=%s (%s) api=%s (%s) registry=%s\n' "$web_digest" "$web_commit" "$api_digest" "$api_commit" "$registry_present"
 
   quality:
-    needs: [changes, preflight-hooks]
+    needs: [changes, preflight_render_api]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
