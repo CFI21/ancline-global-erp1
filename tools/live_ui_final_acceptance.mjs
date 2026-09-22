@@ -80,7 +80,13 @@ try{
     for(const n of JOBS){
       const b=byNo.get(n); assert(b,'missing '+n);
       await safeGoto(page,'/bookings/'+encodeURIComponent(b.id));
+      await page.waitForFunction(
+        expected => document.body.innerText.includes(String(expected)) || document.body.innerText.includes('Unable to load booking'),
+        n,
+        {timeout:15000}
+      );
       const text=await page.locator('body').innerText();
+      assert(!text.includes('Unable to load booking'),n+': detail load failed');
       assert(text.includes(n),n+': detail reference missing');
       assert(text.includes(String(b.route||'')),n+': route missing');
       assert(await page.locator('.card').count()>0,n+': detail cards missing');
