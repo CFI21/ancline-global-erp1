@@ -41,7 +41,7 @@ try{
    for(const line of revenues)if(!line.invoiceReady)ok(await call('/finance/'+line.id+'/invoice-ready',{token:finance.token,method:'POST',body:{ready:true}}),n+' invoice ready');
    const stamp=Date.now().toString(36).toUpperCase()+n;
    const invoiceNo='FINAL-AR-'+n+'-'+stamp;
-   const inv=ok(await call('/accounting/invoices',{token:finance.token,method:'POST',body:{bookingId:base.id,invoiceNo,invoiceType:'AR',lineIds:revenues.map(x=>x.id),reference:'JOB_DONE_FINAL_'+n}}),n+' invoice create');
+   const inv=ok(await call('/accounting/invoices',{token:finance.token,method:'POST',body:{bookingId:base.id,invoiceNo,invoiceType:'AR',reference:'JOB_DONE_FINAL_'+n}}),n+' invoice create');
    const issued=ok(await call('/accounting/invoices/'+encodeURIComponent(invoiceNo)+'/issue',{token:finance.token,method:'POST',body:{}}),n+' invoice issue');
    assert(Number(issued.totalAmount)>0,n+': invoice total not positive');
    const doc=ok(await call('/documents',{token:admin.token,method:'POST',body:{bookingId:base.id,documentNo:'FINAL-HBL-'+n+'-'+stamp,type:'HOUSE_BL',status:'Draft',releaseControl:'Clear'}}),n+' HBL create');
