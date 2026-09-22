@@ -63,3 +63,5 @@ jobs:
           retention-days: 90
 
 # manual-final-hardening-trigger: 2026-09-22T21:22+02:00
+
+# simple-secure-business-hardening-trigger: 2026-09-22T20:25Z
