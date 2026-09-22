@@ -1,0 +1,75 @@
+name: Generate Prisma Production Baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/generate-prisma-baseline.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Generate versioned baseline migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="packages/db/prisma/migrations/20260922_production_baseline"
+          mkdir -p "$dir"
+          if npx prisma migrate diff --from-empty --to-schema packages/db/prisma/schema.prisma --script > "$dir/migration.sql"; then
+            :
+          else
+            npx prisma migrate diff --from-empty --to-schema-datamodel packages/db/prisma/schema.prisma --script > "$dir/migration.sql"
+          fi
+          test -s "$dir/migration.sql"
+          printf 'provider = "postgresql"\n' > packages/db/prisma/migrations/migration_lock.toml
+      - name: Add production migration runner
+        shell: bash
+        run: |
+          cat > infra/scripts/production_migrate.sh <<'SH'
+          #!/usr/bin/env sh
+          set -eu
+          : "${DATABASE_URL:?DATABASE_URL is required}"
+          echo "Checking production Prisma migration status..."
+          npx prisma migrate status --schema=packages/db/prisma/schema.prisma
+          echo "Applying committed production migrations..."
+          npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma
+          echo "Production migration deploy complete."
+          SH
+          chmod +x infra/scripts/production_migrate.sh
+      - name: Add controlled existing-database baseline helper
+        shell: bash
+        run: |
+          cat > infra/scripts/baseline_existing_database.sh <<'SH'
+          #!/usr/bin/env sh
+          set -eu
+          : "${DATABASE_URL:?DATABASE_URL is required}"
+          : "${ALLOW_BASELINE_EXISTING_DB:?Set ALLOW_BASELINE_EXISTING_DB=true only after schema equivalence is independently verified}"
+          [ "$ALLOW_BASELINE_EXISTING_DB" = "true" ] || { echo "Refusing baseline without ALLOW_BASELINE_EXISTING_DB=true"; exit 1; }
+          migration="20260922_production_baseline"
+          echo "Marking $migration applied; this does not execute its SQL."
+          npx prisma migrate resolve --schema=packages/db/prisma/schema.prisma --applied "$migration"
+          npx prisma migrate status --schema=packages/db/prisma/schema.prisma
+          SH
+          chmod +x infra/scripts/baseline_existing_database.sh
+      - name: Commit generated baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "ANCLINE Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add packages/db/prisma/migrations infra/scripts/production_migrate.sh infra/scripts/baseline_existing_database.sh
+          git commit -m "Add governed Prisma production migration baseline"
+          git push origin HEAD:main
