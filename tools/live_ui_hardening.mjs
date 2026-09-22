@@ -4,7 +4,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 
 const WEB_URL=(process.env.WEB_URL||'https://ancline-web-live.onrender.com').replace(/\/$/,'');
 const OUT='ui-hardening-artifacts';
-// Freeze-candidate rerun after responsive/accessibility fixes. mkdirSync(OUT,{recursive:true});
+// Freeze-candidate rerun after responsive/accessibility fixes.
+mkdirSync(OUT,{recursive:true});
 const assert=(x,m)=>{if(!x)throw new Error(m)};
 const profiles=[
   {name:'desktop',viewport:{width:1440,height:1000}},
