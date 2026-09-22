@@ -1988,3 +1988,10 @@ body{
   .main:not(:has(.cw-screen)) .card:has(> .table),
   .main:not(:has(.cw-screen)) .card:has(> div > .table){max-width:100%;overflow-x:auto}
 }
+
+
+/* UI HARDENING — WCAG AA compact ERP secondary text */
+.sub{color:#4d6273}
+.commercial-flow-title>div>span{color:#425a6b!important}
+.commercial-flow-subtitle{color:#4b6070!important}
+.booking-summary-strip span{color:#526878!important}
