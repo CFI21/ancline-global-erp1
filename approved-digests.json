@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-22T20:15:39.775387+00:00",
+  "updatedAt": "2026-09-22T20:22:47.643481+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
@@ -10,13 +10,24 @@
       "digest": "sha256:ea3ae4c6ea4e3e93a108cd94ab88d6494d139b054308731916c0d2a24313dbed"
     },
     "api": {
-      "commit": "f57462950fe1f8c6420806a25436a4685dc7f54d",
-      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d",
-      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-f57462950fe1",
-      "digest": "sha256:c7a55b4cb1347703313899566782b7a745f91843d6396eee2f9ed2a6ba31bc3b"
+      "commit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-07bdc8d181a6",
+      "digest": "sha256:b1164b482ffdfabbaa0b5a6d73d1320c4c268559b9e94ed999c605e1da33c996"
     }
   },
   "history": [
+    {
+      "runId": "35779383873",
+      "approvedAt": "2026-09-22T20:22:47.643481+00:00",
+      "commit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "components": [
+        "api"
+      ],
+      "uatRunId": "UAT-20260922202158-P5M9D",
+      "backupSha256": "6b901618b225680e0ad5e3c6a18c478b2993eb8c0855b767421de20156642fab",
+      "offPlatformArtifactSha256": "a552fb052b869af6674adaba5aa3ced618167c8c388f45ce34905501b187ebbc"
+    },
     {
       "runId": "35778971678",
       "approvedAt": "2026-09-22T20:15:39.775387+00:00",
