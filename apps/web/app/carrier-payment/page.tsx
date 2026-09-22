@@ -2,6 +2,7 @@
 
 import {useEffect,useState} from 'react';
 import WorkspaceShell,{fieldStyle,labelStyle} from '../../components/WorkspaceShell';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,requireToken} from '../../lib/api';
 
 const GROUPS=[
@@ -44,6 +45,7 @@ export default function CarrierPaymentPage(){
   const offices:Office[]=ctx?.offices||[],countries:string[]=ctx?.registeredCountries||[];
   return <WorkspaceShell title="Carrier Payment / Payer Control" subtitle="FORWARDING ONLY · ANC-to-carrier settlement · customer commercial terms remain private to ANC" active="/carrier-payment" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={save} >{busy?'Saving...':'Validate & Submit Carrier Booking'}</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {bookingId&&<JobFlowNav bookingId={bookingId} bookingNo={ctx?.booking?.bookingNo} active="PAYMENT"/>}
     {!bookingId&&<div className="card">Open Carrier Payment / Payer Control from a Forwarding booking.</div>}
     {ctx&&<>
       <div className="card" style={{marginBottom:12}}>

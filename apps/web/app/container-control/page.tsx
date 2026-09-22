@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;customer?:{name:string}};
@@ -46,6 +47,7 @@ export default function ContainerControlPage(){
 
   return <WorkspaceShell title="Container Control" subtitle="Equipment allocation, depot movements, free time, detention / demurrage and event history" active="/container-control" actions={<button className="btn" onClick={()=>bookingId?void selectBooking(bookingId):void loadBookings()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {selected&&<JobFlowNav bookingId={selected.id} bookingNo={selected.bookingNo} active="CONTAINERS"/>}
     {selected&&<JobContextRail
       bookingId={selected.id}
       bookingNo={selected.bookingNo}

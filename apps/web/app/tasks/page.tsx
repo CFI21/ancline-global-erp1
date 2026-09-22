@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string};
@@ -34,6 +35,7 @@ export default function TasksPage(){
 
   return <WorkspaceShell title="My Work" subtitle="Operational tasks, ownership, due dates and SLA control" active="/tasks" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {form.bookingId&&<JobFlowNav bookingId={form.bookingId} bookingNo={bookings.find(b=>b.id===form.bookingId)?.bookingNo} active="TASKS"/>}
     {form.bookingId&&<JobContextRail bookingId={form.bookingId} bookingNo={bookings.find(b=>b.id===form.bookingId)?.bookingNo} active="TASKS"/>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">OPEN TASKS</div><div className="kpi">{open}</div></div><div className="card"><div className="sub">OVERDUE</div><div className="kpi">{overdue}</div></div><div className="card"><div className="sub">COMPLETED</div><div className="kpi">{rows.length-open}</div></div><div className="card"><div className="sub">TOTAL</div><div className="kpi">{rows.length}</div></div></div>
     <div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Create Task</h3><div style={formGrid}>

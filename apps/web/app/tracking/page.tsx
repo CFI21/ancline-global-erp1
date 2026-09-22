@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Booking={id:string;bookingNo:string;origin:string;destination:string;status:string;customer?:{name:string};carrier?:string;vesselVoyage?:string};
@@ -35,6 +36,11 @@ export default function TrackingPage(){
 
   return <WorkspaceShell title="Shipment Tracking" subtitle="Operational milestones, movement events and shipment progress" active="/tracking" actions={<button className="btn" onClick={()=>void load()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {(bookingFilter||form.bookingId)&&<JobFlowNav
+      bookingId={bookingFilter||form.bookingId}
+      bookingNo={bookings.find(b=>b.id===(bookingFilter||form.bookingId))?.bookingNo}
+      active="TRACKING"
+    />}
     {(bookingFilter||form.bookingId)&&<JobContextRail bookingId={bookingFilter||form.bookingId} bookingNo={bookings.find(b=>b.id===(bookingFilter||form.bookingId))?.bookingNo} active="TRACKING"/>}
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">Milestones</div><div className="kpi">{rows.length}</div></div><div className="card"><div className="sub">Pending</div><div className="kpi">{pending}</div></div><div className="card"><div className="sub">Overdue</div><div className="kpi">{overdue}</div></div><div className="card"><div className="sub">Completed</div><div className="kpi">{completed}</div></div></div>
 

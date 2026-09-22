@@ -47,7 +47,7 @@ describe('Web navigation and API contract wiring',()=>{
   });
   it('keeps the unified Job Flow navigation wired through core operational workspaces',()=>{
     const nav=read('../../web/components/JobFlowNav.tsx');
-    for(const route of ['/schedules','/routing','/carrier-operations','/shipment-control','/documents']){
+    for(const route of ['/schedules','/routing','/carrier-operations','/carrier-payment','/shipment-control','/container-control','/tracking','/documents','/finance','/tasks','/approvals']){
       expect(nav).toContain(route);
     }
     const pages=[
@@ -56,12 +56,18 @@ describe('Web navigation and API contract wiring',()=>{
       '../../web/app/routing/page.tsx',
       '../../web/app/carrier-operations/page.tsx',
       '../../web/app/shipment-control/page.tsx',
-      '../../web/app/documents/page.tsx'
+      '../../web/app/documents/page.tsx',
+      '../../web/app/container-control/page.tsx',
+      '../../web/app/tracking/page.tsx',
+      '../../web/app/finance/page.tsx',
+      '../../web/app/tasks/page.tsx',
+      '../../web/app/approvals/page.tsx',
+      '../../web/app/carrier-payment/page.tsx'
     ];
     for(const page of pages){
       const source=read(page);
       expect(source).toContain('JobFlowNav');
-      expect(source).toMatch(/active="(BOOKING|SCHEDULE|ROUTING|CARRIER|SHIPMENT|DOCUMENTS)"/);
+      expect(source).toMatch(/active="(BOOKING|SCHEDULE|ROUTING|CARRIER|PAYMENT|SHIPMENT|CONTAINERS|TRACKING|DOCUMENTS|FINANCE|TASKS|APPROVALS)"/);
     }
   });
 

@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
 import {api,fmtMoney,requireToken} from '../../lib/api';
 
 type RateQuote={id:string;quoteNo:string;buyRate:any;sellRate:any;currency:string;status:string};
@@ -71,6 +72,7 @@ export default function FinancePage(){
 
   return <WorkspaceShell title="Finance / Job Costing" subtitle="Commercial handover, revenue, cost, margin, accruals, invoicing readiness and financial close" active="/finance" actions={<button className="btn" onClick={()=>void loadFinance()}>Refresh</button>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
+    {bookingId&&<JobFlowNav bookingId={bookingId} bookingNo={selected?.bookingNo} active="FINANCE"/>}
     {bookingId&&<JobContextRail bookingId={bookingId} bookingNo={selected?.bookingNo} route={selected?`${selected.origin} → ${selected.destination}`:''} status={selected?.status||''} active="FINANCE"/>}
 
     <div className="card" style={{marginBottom:12}}><div style={formGrid}>

@@ -3,7 +3,7 @@
 type Props={
   bookingId?:string;
   bookingNo?:string;
-  active?:'BOOKING'|'SCHEDULE'|'ROUTING'|'CARRIER'|'SHIPMENT'|'DOCUMENTS';
+  active?:'BOOKING'|'SCHEDULE'|'ROUTING'|'CARRIER'|'PAYMENT'|'SHIPMENT'|'CONTAINERS'|'TRACKING'|'DOCUMENTS'|'FINANCE'|'TASKS'|'APPROVALS';
 };
 
 export default function JobFlowNav({bookingId='',bookingNo='',active}:Props){
@@ -13,8 +13,14 @@ export default function JobFlowNav({bookingId='',bookingNo='',active}:Props){
     {key:'SCHEDULE',label:'Vessel Schedule',href:`/schedules${q}`},
     {key:'ROUTING',label:'Routing',href:`/routing${q}`},
     {key:'CARRIER',label:'Carrier Space',href:`/carrier-operations${q}`},
+    {key:'PAYMENT',label:'Carrier Payer',href:`/carrier-payment${q}`},
     {key:'SHIPMENT',label:'Shipment / Consol',href:`/shipment-control${q}`},
+    {key:'CONTAINERS',label:'Containers',href:`/container-control${q}`},
+    {key:'TRACKING',label:'Tracking',href:`/tracking${q}`},
     {key:'DOCUMENTS',label:'Documents',href:`/documents${q}`},
+    {key:'FINANCE',label:'Finance',href:`/finance${q}`},
+    {key:'TASKS',label:'Tasks',href:`/tasks${q}`},
+    {key:'APPROVALS',label:'Approvals',href:`/approvals${q}`},
   ] as const;
 
   return <div className="job-flow-nav">
