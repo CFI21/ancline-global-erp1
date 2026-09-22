@@ -125,6 +125,6 @@ try{
 
   report.status='PASS';report.finishedAt=new Date().toISOString();
 }catch(e){report.status='FAIL';report.finishedAt=new Date().toISOString();report.error=String(e?.stack||e);console.error(report.error);process.exitCode=1}
-finally{writeFileSync(OUT+'/ANCLINE_UI_HARDENING.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));await browser.close()}
+finally{mkdirSync(OUT,{recursive:true});writeFileSync(OUT+'/ANCLINE_UI_HARDENING.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));await browser.close()}
 
 // live-hardening-rerun-after-responsive-accessibility-fixes: 2026-09-22T21:00Z
