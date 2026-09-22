@@ -7,6 +7,7 @@ export function middleware(_req:NextRequest){
   res.headers.set('X-Frame-Options','DENY');
   res.headers.set('Referrer-Policy','strict-origin-when-cross-origin');
   res.headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
+  // CSP live-UI acceptance marker: Next.js bootstrap must hydrate under the staging CSP.
   // Next.js App Router emits framework bootstrap data as inline scripts.
   // Keep eval blocked, but permit those framework inline scripts so the client can hydrate.
   res.headers.set('Content-Security-Policy',
