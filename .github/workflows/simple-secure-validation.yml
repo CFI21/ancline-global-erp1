@@ -49,6 +49,7 @@ jobs:
 
           db="$(jq -r '.externalConnectionString // .connectionInfo.externalConnectionString // empty' /tmp/pg-conn.json)"
           [[ -n "$db" ]] || { echo "::error::External Postgres connection string missing"; exit 1; }
+          db="$(DATABASE_URL_RAW="$db" node -e 'const u=new URL(process.env.DATABASE_URL_RAW); u.searchParams.set("sslmode","require"); console.log(u.toString())')"
           echo "::add-mask::$db"
           {
             echo "DATABASE_URL<<EOF"
