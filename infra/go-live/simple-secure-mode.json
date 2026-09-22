@@ -1,0 +1,13 @@
+{
+  "schema": "ANCLINE_SIMPLE_SECURE_MODE_V2",
+  "status": "VALIDATION_REQUESTED",
+  "architecture": "single Render stack",
+  "webService": "ancline-web-live",
+  "apiService": "ancline-api-staging",
+  "postgres": "ancline-staging-postgres",
+  "redis": "ancline-staging-redis",
+  "approvedImagesPreserved": true,
+  "externalDatabaseProviders": false,
+  "paidInfrastructureRequired": false,
+  "supersededDedicatedProdServicesUsed": false
+}
