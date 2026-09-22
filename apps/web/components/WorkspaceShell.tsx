@@ -125,6 +125,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   const activeGroup=menuGroups.find(group=>group.items.some(([href])=>href===active))?.id??null;
   const [openGroup,setOpenGroup]=useState<string|null>(activeGroup);
   const [menuQuery,setMenuQuery]=useState('');
+  const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [embedded,setEmbedded]=useState(false);
   const [session,setSession]=useState<any>({role:'',permissions:[]});
   useEffect(()=>{
@@ -164,7 +165,19 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   if(embedded)return <main className="main embedded-main">{children}</main>;
 
   return <div className="shell">
-    <aside className="side">
+    <button
+      type="button"
+      className="mobile-nav-toggle"
+      aria-label={mobileNavOpen?'Close navigation':'Open navigation'}
+      aria-expanded={mobileNavOpen}
+      onClick={()=>setMobileNavOpen(v=>!v)}
+    >{mobileNavOpen?'×':'☰'} <span>Menu</span></button>
+    {mobileNavOpen&&<button type="button" className="mobile-nav-backdrop" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}/>}
+    <aside className={'side'+(mobileNavOpen?' mobile-open':'')}>
+      <div className="mobile-nav-head">
+        <span>ANCLINE NAVIGATION</span>
+        <button type="button" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}>×</button>
+      </div>
       <div className="brand">ANCLINE <span>WORLDWIDE</span></div>
 
       <div className="menu-search-wrap">
@@ -188,6 +201,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
         className={'menu-portal'+(active===href?' active':'')}
         href={href}
         aria-current={active===href?'page':undefined}
+        onClick={()=>setMobileNavOpen(false)}
       >
         <span className="menu-portal-mark">↗</span><span>{label}</span>
       </a>)}
@@ -214,6 +228,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
                 href={href}
                 className={active===href?'active':''}
                 aria-current={active===href?'page':undefined}
+                onClick={()=>setMobileNavOpen(false)}
               >{label}</a>)}
             </div>}
           </div>;
