@@ -75,7 +75,7 @@ try{
       const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
       return {status:r.status,body};
     });
-    assert(seedResult.status===200,`Synthetic reseed failed HTTP ${seedResult.status}: ${JSON.stringify(seedResult.body)}`);
+    assert(seedResult.status>=200&&seedResult.status<300,`Synthetic reseed failed HTTP ${seedResult.status}: ${JSON.stringify(seedResult.body)}`);
     report.seed={status:'PASS',bookings:seedResult.body?.summary?.bookings??null,rolesCovered:seedResult.body?.summary?.rolesCovered??null};
     await ctx.close();
   }
