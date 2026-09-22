@@ -270,11 +270,6 @@ jobs:
       backup_sha256: ${{ steps.runtime.outputs.backup_sha256 }}
       backup_artifact_sha256: ${{ steps.backup.outputs.artifact_sha256 }}
     steps:
-      - name: Controlled rollback drill
-        if: contains(github.event.head_commit.message, '[rollback-drill]')
-        run: |
-          echo "Intentional failure: validating approved-digest rollback and recovery."
-          exit 42
       - name: Wait for direct API
         run: |
           set -euo pipefail
@@ -342,6 +337,12 @@ jobs:
             code="$(curl -L -sS -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 25 "$WEB_URL$path")"
             [[ "$code" == "200" ]] || { echo "$path HTTP $code"; exit 1; }
           done
+
+      - name: Controlled full auto-rollback drill after runtime convergence
+        if: contains(github.event.head_commit.message, '[rollback-drill]')
+        run: |
+          echo "Candidate runtime is live and validated. Intentionally failing now to prove hook-driven rollback."
+          exit 42
 
       - id: backup
         name: Fetch encrypted off-platform backup envelope
