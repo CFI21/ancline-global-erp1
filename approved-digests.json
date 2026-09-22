@@ -1,22 +1,34 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-22T13:40:15.760719+00:00",
+  "updatedAt": "2026-09-22T13:52:15.205883+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
-      "commit": "ee2eefbc1f16789ed3328598d6a807435b68bf91",
-      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-ee2eefbc1f16789ed3328598d6a807435b68bf91",
-      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-ee2eefbc1f16",
-      "digest": "sha256:67415447035b6d7e5fd11a1c70ec5f65092bdf055214fdd06a24152644d2d00b"
+      "commit": "59b8e153df80d537b3274925491627790eff052b",
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-59b8e153df80d537b3274925491627790eff052b",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-59b8e153df80",
+      "digest": "sha256:44206b71029e14c63c7f510c563f67893c9c6eea4e919f786c66e32b2ea32c45"
     },
     "api": {
-      "commit": "ee2eefbc1f16789ed3328598d6a807435b68bf91",
-      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-ee2eefbc1f16789ed3328598d6a807435b68bf91",
-      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-ee2eefbc1f16",
-      "digest": "sha256:d2a67d5593107343c0b5644097a6e9734297db1c38e177cea5dcf34667b6ce81"
+      "commit": "59b8e153df80d537b3274925491627790eff052b",
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-59b8e153df80d537b3274925491627790eff052b",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-59b8e153df80",
+      "digest": "sha256:cd5b49f7569c6cb1829041e8c19128a1f53e40aa0cb69c82451ca5d02b267f36"
     }
   },
   "history": [
+    {
+      "runId": "35735741120",
+      "approvedAt": "2026-09-22T13:52:15.205883+00:00",
+      "commit": "59b8e153df80d537b3274925491627790eff052b",
+      "components": [
+        "web",
+        "api"
+      ],
+      "uatRunId": "UAT-20260922135139-WZHQX",
+      "backupSha256": "78d6a514a4446b49bd7871632b27e10ecf093522177ae5adc2fe8c36542a906b",
+      "offPlatformArtifactSha256": "00ef16b43e335cab6c9ba9d4184c983a22317bba464429e9ba7689bd630056fb"
+    },
     {
       "runId": "35734901185",
       "approvedAt": "2026-09-22T13:40:15.760719+00:00",
