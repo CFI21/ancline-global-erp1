@@ -61,3 +61,5 @@ jobs:
           name: ancline-final-hardening-${{ github.sha }}
           path: ANCLINE_FINAL_HARDENING_REPORT.json
           retention-days: 90
+
+# manual-final-hardening-trigger: 2026-09-22T21:22+02:00
