@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-22T14:36:56.871535+00:00",
+  "updatedAt": "2026-09-22T14:45:46.341863+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
@@ -17,6 +17,15 @@
     }
   },
   "history": [
+    {
+      "runId": "35742464364",
+      "approvedAt": "2026-09-22T14:45:46.341863+00:00",
+      "commit": "8bfd42922e400bbec1496e86987415814cd7cfb1",
+      "components": [],
+      "uatRunId": "UAT-20260922144113-1DKUV",
+      "backupSha256": "04f86f140d178def9e155fbce640f0e83cb547056dc96f4c1cb2b67c6da83f3a",
+      "offPlatformArtifactSha256": "b0fb39dd97413e1a72d95444ab61f6092960cef8425d53daf5ab7fb9e181ab07"
+    },
     {
       "runId": "35740883330",
       "approvedAt": "2026-09-22T14:36:56.871535+00:00",
