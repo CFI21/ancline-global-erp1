@@ -805,3 +805,5 @@ jobs:
           [[ "$FINALIZE_RESULT" == "success" ]] || exit 1
 
 # render-api-drill-trigger: final-green-drill
+
+# final-hardening-drill-trigger: 2026-09-22-final-resilience-dr-proof
