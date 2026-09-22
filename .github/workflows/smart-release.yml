@@ -697,4 +697,4 @@ jobs:
           [[ "${{ needs.promote.result }}" == "success" ]] || exit 1
           [[ "${{ needs.remote-gate.result }}" == "success" ]] || exit 1
           [[ "${{ needs.finalize.result }}" == "success" ]] || exit 1
-# full-auto-rollback drill trigger: 2026-09-22 retry-after-hook-fix
+# full-auto-rollback drill trigger: 2026-09-22T13:10+02:00 fresh-api-hook
