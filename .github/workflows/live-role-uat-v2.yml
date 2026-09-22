@@ -1,0 +1,32 @@
+name: ANCLINE Live Role UAT v2
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_role_uat_v2.mjs'
+      - '.github/workflows/live-role-uat-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-role-uat-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove checkout/source identity
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          sha256sum tools/live_role_uat_v2.mjs
+          nl -ba tools/live_role_uat_v2.mjs | sed -n '1,90p'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run live role, job and exception acceptance
+        run: node tools/live_role_uat_v2.mjs
