@@ -1,0 +1,118 @@
+name: ANCLINE UI Candidate Build + Hardening + Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_ui_hardening.mjs'
+      - 'apps/web/**'
+      - '.github/workflows/ui-candidate-freeze.yml'
+permissions:
+  contents: read
+  packages: write
+
+env:
+  API_URL: https://ancline-api-staging.onrender.com
+  LIVE_WEB_URL: https://ancline-web-live.onrender.com
+  RENDER_WEB_SERVICE_ID: srv-dajbrh3m8hqs73fmdk30
+  IMAGE: ghcr.io/cfi21/ancline-web
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build exact Web candidate locally
+        run: |
+          set -euo pipefail
+          docker build             -f apps/web/Dockerfile             --build-arg ANCLINE_BUILD_COMMIT="$GITHUB_SHA"             -t ancline-web-ui-candidate:"$GITHUB_SHA" .
+
+      - name: Start candidate against approved live API
+        run: |
+          set -euo pipefail
+          docker run -d --rm             --name ancline-web-ui-candidate             -p 3000:3000             -e PORT=3000             -e ANCLINE_API_URL="$API_URL"             -e NEXT_PUBLIC_API_URL=""             ancline-web-ui-candidate:"$GITHUB_SHA"
+          for i in $(seq 1 60); do
+            code="$(curl -sS -o /tmp/release.json -w '%{http_code}' http://127.0.0.1:3000/release-info || true)"
+            if [[ "$code" == "200" ]] && jq -e --arg sha "$GITHUB_SHA" '.buildCommit == $sha' /tmp/release.json >/dev/null; then
+              cat /tmp/release.json
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs ancline-web-ui-candidate || true
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser + accessibility runtime once
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+
+      - name: Run consolidated candidate hardening
+        env:
+          WEB_URL: http://127.0.0.1:3000
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Upload candidate hardening evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-ui-candidate-hardening-${{ github.run_id }}
+          path: ui-hardening-artifacts/
+          retention-days: 90
+
+      - name: Push immutable candidate image only after PASS
+        if: success()
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag ancline-web-ui-candidate:"$GITHUB_SHA" "$IMAGE:ui-freeze-$GITHUB_SHA"
+          docker push "$IMAGE:ui-freeze-$GITHUB_SHA"
+
+      - name: Deploy exact passed candidate to Render
+        if: success()
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          image="$IMAGE:ui-freeze-$GITHUB_SHA"
+          payload="$(jq -nc --arg image "$image" '{imageUrl:$image}')"
+          code="$(curl -sS -o /tmp/render-deploy.json -w '%{http_code}' -X POST             --connect-timeout 10 --max-time 60             -H "Accept: application/json"             -H "Content-Type: application/json"             -H "Authorization: Bearer $RENDER_API_KEY"             --data "$payload"             "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys" || true)"
+          [[ "$code" == "201" || "$code" == "202" ]] || { cat /tmp/render-deploy.json; exit 1; }
+          cat /tmp/render-deploy.json
+
+      - name: Verify deployed Web identity and smoke
+        if: success()
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            code="$(curl -L -sS -o /tmp/live-release.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$LIVE_WEB_URL/release-info" || true)"
+            if [[ "$code" == "200" ]] && jq -e --arg sha "$GITHUB_SHA" '.buildCommit == $sha' /tmp/live-release.json >/dev/null; then
+              curl -L -fsS "$LIVE_WEB_URL/api-proxy/health" >/tmp/proxy-health.json
+              cat /tmp/live-release.json
+              cat /tmp/proxy-health.json
+              exit 0
+            fi
+            sleep 10
+          done
+          cat /tmp/live-release.json 2>/dev/null || true
+          exit 1
+
+      - name: Run final hardening once against deployed exact image
+        if: success()
+        env:
+          WEB_URL: https://ancline-web-live.onrender.com
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Upload final freeze evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-ui-final-freeze-${{ github.run_id }}
+          path: ui-hardening-artifacts/
+          retention-days: 90
