@@ -33,14 +33,17 @@ export default function Login(){
   useEffect(()=>{setScopeId(scopedOrgs[0]?.id||'');},[role,scopedOrgs.length]);
 
   async function login(){
-    if((role==='CUSTOMER'||role==='SHIPPER'||role==='CONSIGNEE'||role==='AGENT'||role==='BRANCH_OPS')&&!scopeId){setMsg(`Select a ${role==='CUSTOMER'?'customer':role==='SHIPPER'?'shipper':role==='CONSIGNEE'?'consignee':role==='AGENT'?'agent':'branch'} organization first.`);return;}
     setBusy(true);setMsg('');
     try{
+      // Managed accounts are resolved by email on the API. Scope selectors remain
+      // optional here so a pre-provisioned BRANCH_OPS / SHIPPER / CONSIGNEE
+      // account is not blocked before the API can load its stored scope.
+      // Unmanaged transitional logins still fail closed server-side if scope is missing.
       const payload:any={email,role};
-      if(role==='CUSTOMER')payload.customerId=scopeId;
-      if(role==='SHIPPER'||role==='CONSIGNEE')payload.partyId=scopeId;
-      if(role==='AGENT')payload.agentId=scopeId;
-      if(role==='BRANCH_OPS')payload.branchId=scopeId;
+      if(role==='CUSTOMER'&&scopeId)payload.customerId=scopeId;
+      if((role==='SHIPPER'||role==='CONSIGNEE')&&scopeId)payload.partyId=scopeId;
+      if(role==='AGENT'&&scopeId)payload.agentId=scopeId;
+      if(role==='BRANCH_OPS'&&scopeId)payload.branchId=scopeId;
       const j=await api('/auth/login',undefined,{method:'POST',body:JSON.stringify(payload)});
       if(!j?.accessToken)throw new Error('Login failed');
       localStorage.setItem('ancline_token',j.accessToken);
