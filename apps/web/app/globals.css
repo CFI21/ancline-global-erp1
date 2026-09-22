@@ -1977,3 +1977,14 @@ body{
   .commercial-flow-card:last-child{border-bottom:0}
   .commercial-flow-arrow{right:12px;top:auto;bottom:8px;transform:rotate(90deg)}
 }
+
+
+/* UI hardening: WCAG contrast for secondary/status text on light ERP surfaces. */
+.main:not(:has(.cw-screen)) .sub{color:#40586b}
+.main:not(:has(.cw-screen)) .status{color:#29485f;background:#e7f0f6;border-color:#aebdc8}
+.main:not(:has(.cw-screen)) a{ text-underline-offset:2px }
+@media(max-width:900px){
+  .main:not(:has(.cw-screen)) .table{min-width:760px}
+  .main:not(:has(.cw-screen)) .card:has(> .table),
+  .main:not(:has(.cw-screen)) .card:has(> div > .table){max-width:100%;overflow-x:auto}
+}
