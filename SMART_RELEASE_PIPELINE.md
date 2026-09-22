@@ -58,3 +58,16 @@ On a failed post-promotion remote gate:
 ## Boundary
 
 This is free-tier staging release control. It is not evidence of real production carrier/provider connectivity, managed production PITR/DR, human handover acceptance, or final production authorization.
+
+
+## Validated failure-recovery drill
+
+A controlled staging rollback drill intentionally failed the post-promotion remote gate on run `35701583300`.
+
+The recovery job:
+- restored the registry-approved Web digest `sha256:68c9b55ed326026f55f6144a2c1d65e65e0eaa4e5393eb537e40ef71d85d4d91` to `ghcr.io/cfi21/ancline-web:latest`;
+- restored the registry-approved API digest `sha256:0d49b0b661f343db2ba70ffc7697f6001e76072573dd7a6fd74ea4728e36c8c7` to `ghcr.io/cfi21/ancline-api:latest`;
+- verified the already-approved Web/API runtime identities and Web -> API proxy;
+- published `ANCLINE_FAILURE_RECOVERY_EVIDENCE_V1` with recovery status PASS.
+
+Because Render deploy-hook secrets are not configured, this drill proves automatic approved-digest pointer rollback and runtime recovery while the live runtime remained on the approved release. A future drill with deploy hooks configured is required to prove fully unattended Render runtime rollback after a bad candidate has actually been deployed.
