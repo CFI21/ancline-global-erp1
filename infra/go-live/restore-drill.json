@@ -1,11 +1,11 @@
 {
   "schema": "ANCLINE_RESTORE_DRILL_V2",
   "status": "PASS",
-  "testedAt": "2026-09-22T20:22:20Z",
-  "backupSha256": "8da9f0db79a9ad977a77aea926d1e9120f0a08efbb992a7da2046907a58d093c",
+  "testedAt": "2026-09-22T20:29:12Z",
+  "backupSha256": "6b901618b225680e0ad5e3c6a18c478b2993eb8c0855b767421de20156642fab",
   "target": "temporary isolated schema inside existing Render Postgres",
   "method": "authenticated in-runtime logical restore drill",
-  "restoredFingerprint": "ddc471883363d519b85300dcc2515d34f560d3f267efed507ca7e2f5db858594",
+  "restoredFingerprint": "c6ed85d9229d143b2c14c2e7b52586a4678cc03461cfcd9ce4a47f37ce8d4856",
   "restoredTableCount": 22,
   "productionRowsDestructivelyModified": false
 }

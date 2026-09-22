@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_SIMPLE_SECURE_MODE_V2",
   "status": "PASS",
-  "testedAt": "2026-09-22T20:22:20Z",
+  "testedAt": "2026-09-22T20:29:12Z",
   "architecture": "single Render stack",
   "webService": "ancline-web-live",
   "apiService": "ancline-api-staging",
@@ -14,7 +14,7 @@
   "backupEvidence": "PASS",
   "backupRestoreDrill": "PASS",
   "fullEcomUat": "PASS",
-  "uatRunId": "UAT-20260922202217-S4OPJ",
+  "uatRunId": "UAT-20260922202910-LO3N4",
   "runtimeSecurity": "PASS",
   "redisPolicy": "noeviction",
   "supersededDedicatedProdServicesUsed": false
