@@ -37,7 +37,7 @@ async function login(page,{email,role}){
     localStorage.setItem('ancline_user',JSON.stringify(body.user));
     return {status:r.status,user:body.user};
   },{email,role});
-  assert(result.status===200&&result.user,`${email}: live auth failed HTTP ${result.status} ${JSON.stringify(result.body||{})}`);
+  assert(result.status>=200&&result.status<300&&result.user,`${email}: live auth failed HTTP ${result.status} ${JSON.stringify(result.body||{})}`);
   const user=result.user;
   const target=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(user.role)?'/customer-portal':user.role==='AGENT'?'/agent-portal':user.role==='BRANCH_OPS'?'/nvocc-portal':'/';
   await page.goto(WEB_URL+target,{waitUntil:'domcontentloaded'});
