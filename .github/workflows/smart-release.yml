@@ -46,7 +46,7 @@ jobs:
                 packages/*|package.json|package-lock.json|tsconfig.json)
                   web=true; api=true; shared=true ;;
                 .github/workflows/smart-release.yml)
-                  shared=true ;;
+                  web=true; api=true; shared=true ;;
               esac
             done < <(git diff --name-only "$before" "$GITHUB_SHA")
           fi
@@ -418,10 +418,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
-            docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest ghcr.io/cfi21/ancline-web${{@ needs.baseline.outputs.web_digest }}
+            docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest ghcr.io/cfi21/ancline-web@${{ needs.baseline.outputs.web_digest }}
           fi
           if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-            docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api${{@ needs.baseline.outputs.api_digest }}
+            docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api@${{ needs.baseline.outputs.api_digest }}
           fi
       - name: Trigger rollback deploys
         env:
