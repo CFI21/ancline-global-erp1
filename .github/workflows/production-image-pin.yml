@@ -1,0 +1,44 @@
+name: ANCLINE Production Image Pin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-image-pin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Convert production services to exact approved images
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          OWNER_ID: tea-daiog6tg1s2s7385f4h0
+          API_SERVICE_ID: srv-dapdoq9srm7s73f4dif0
+          WEB_SERVICE_ID: srv-dapdotijnfac73840em0
+          API_IMAGE: ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d
+          WEB_IMAGE: ghcr.io/cfi21/ancline-web:sha-5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${RENDER_API_KEY:?RENDER_API_KEY is required}"
+
+          patch_image() {
+            local label="$1" service="$2" image="$3"
+            payload="$(jq -nc --arg owner "$OWNER_ID" --arg image "$image" '{autoDeploy:"no",image:{ownerId:$owner,imagePath:$image}}')"
+            code="$(curl -sS -o "/tmp/${label}.json" -w '%{http_code}' -X PATCH               -H "Accept: application/json"               -H "Content-Type: application/json"               -H "Authorization: Bearer $RENDER_API_KEY"               --data "$payload"               "https://api.render.com/v1/services/$service")"
+            echo "$label patch HTTP $code"
+            if [[ "$code" != "200" ]]; then cat "/tmp/${label}.json"; exit 1; fi
+
+            deploy_payload="$(jq -nc --arg image "$image" '{imageUrl:$image}')"
+            dcode="$(curl -sS -o "/tmp/${label}-deploy.json" -w '%{http_code}' -X POST               -H "Accept: application/json"               -H "Content-Type: application/json"               -H "Authorization: Bearer $RENDER_API_KEY"               --data "$deploy_payload"               "https://api.render.com/v1/services/$service/deploys")"
+            echo "$label deploy HTTP $dcode"
+            if [[ "$dcode" != "201" && "$dcode" != "202" ]]; then cat "/tmp/${label}-deploy.json"; exit 1; fi
+          }
+
+          patch_image api "$API_SERVICE_ID" "$API_IMAGE"
+          patch_image web "$WEB_SERVICE_ID" "$WEB_IMAGE"
