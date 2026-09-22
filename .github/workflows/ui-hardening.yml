@@ -1,0 +1,34 @@
+name: ANCLINE Simple Secure UI Hardening
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_ui_hardening.mjs'
+      - '.github/workflows/ui-hardening.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ui-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser + accessibility runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+      - name: Run responsive, failure-state and accessibility hardening
+        run: node tools/live_ui_hardening.mjs
+      - name: Upload hardening evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-ui-hardening-${{ github.run_id }}
+          path: ui-hardening-artifacts/
+          retention-days: 90
