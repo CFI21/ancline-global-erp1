@@ -80,8 +80,77 @@ jobs:
           echo "Affected: web=$web api=$api shared=$shared"
 
 
-  preflight_render_api:
+  post_acceptance_gate:
     needs: changes
+    runs-on: ubuntu-latest
+    outputs:
+      runtime_change: ${{ steps.gate.outputs.runtime_change }}
+      regression_scope: ${{ steps.gate.outputs.regression_scope }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: gate
+        name: Enforce approved post-acceptance change request
+        shell: bash
+        run: |
+          set -euo pipefail
+          web="${{ needs.changes.outputs.web }}"
+          api="${{ needs.changes.outputs.api }}"
+          shared="${{ needs.changes.outputs.shared }}"
+          runtime_change=false
+          [[ "$web" == "true" || "$api" == "true" ]] && runtime_change=true
+          echo "runtime_change=$runtime_change" >> "$GITHUB_OUTPUT"
+
+          if [[ "$runtime_change" != "true" ]]; then
+            echo "regression_scope=NONE" >> "$GITHUB_OUTPUT"
+            echo "No runtime component changed; approved change request is not required."
+            exit 0
+          fi
+
+          test -f infra/go-live/job-done-final-acceptance.json
+          test "$(jq -r '.status' infra/go-live/job-done-final-acceptance.json)" = "FINAL_ACCEPTED"
+          test -f infra/change-control/active-change-request.json
+
+          cr_status="$(jq -r '.status // empty' infra/change-control/active-change-request.json)"
+          test "$cr_status" = "APPROVED"
+
+          base_web="$(jq -r '.approvedRuntime.web.commit' infra/go-live/job-done-final-acceptance.json)"
+          base_api="$(jq -r '.approvedRuntime.api.commit' infra/go-live/job-done-final-acceptance.json)"
+          test "$(jq -r '.baselineWebCommit // empty' infra/change-control/active-change-request.json)" = "$base_web"
+          test "$(jq -r '.baselineApiCommit // empty' infra/change-control/active-change-request.json)" = "$base_api"
+
+          approved_at="$(jq -r '.approvedAt // empty' infra/change-control/active-change-request.json)"
+          approved_by="$(jq -r '.approvedBy // empty' infra/change-control/active-change-request.json)"
+          cr_id="$(jq -r '.id // empty' infra/change-control/active-change-request.json)"
+          test -n "$approved_at"; test -n "$approved_by"; test -n "$cr_id"
+
+          if [[ "$web" == "true" ]]; then jq -e '.components | index("web") or index("shared")' infra/change-control/active-change-request.json >/dev/null; fi
+          if [[ "$api" == "true" ]]; then jq -e '.components | index("api") or index("shared")' infra/change-control/active-change-request.json >/dev/null; fi
+
+          scopes="$(jq -r '.regressionScopes | join(",")' infra/change-control/active-change-request.json)"
+          if [[ "$shared" == "true" || ("$web" == "true" && "$api" == "true") ]]; then
+            for s in WEB_BUILD API_TEST_BUILD ROLE_BROWSER_UAT RESPONSIVE_FAILURE_ACCESSIBILITY TRANSACTION_LIFECYCLE CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY; do
+              jq -e --arg s "$s" '.regressionScopes | index($s)' infra/change-control/active-change-request.json >/dev/null
+            done
+            scope="SHARED"
+          elif [[ "$web" == "true" ]]; then
+            for s in WEB_BUILD ROLE_BROWSER_UAT RESPONSIVE_FAILURE_ACCESSIBILITY; do
+              jq -e --arg s "$s" '.regressionScopes | index($s)' infra/change-control/active-change-request.json >/dev/null
+            done
+            scope="WEB"
+          else
+            for s in API_TEST_BUILD TRANSACTION_LIFECYCLE CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY; do
+              jq -e --arg s "$s" '.regressionScopes | index($s)' infra/change-control/active-change-request.json >/dev/null
+            done
+            scope="API"
+          fi
+
+          echo "regression_scope=$scope" >> "$GITHUB_OUTPUT"
+          echo "Approved change request $cr_id accepted for scope $scope ($scopes)."
+
+  preflight_render_api:
+    needs: [changes, post_acceptance_gate]
     runs-on: ubuntu-latest
     steps:
       - name: Validate Render API authentication and target services
@@ -126,7 +195,7 @@ jobs:
           echo "Render API preflight PASS"
 
   baseline:
-    needs: [changes, preflight_render_api]
+    needs: [changes, post_acceptance_gate, preflight_render_api]
     runs-on: ubuntu-latest
     outputs:
       web_digest: ${{ steps.capture.outputs.web_digest }}
@@ -463,11 +532,60 @@ jobs:
           echo "backup_status=$(jq -r .backup.status /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
           echo "backup_sha256=$(jq -r '.backup.sha256 // ""' /tmp/release-evidence-final.json)" >> "$GITHUB_OUTPUT"
 
+  impact_regression:
+    needs: [changes, post_acceptance_gate, baseline, build-web, build-api, remote-gate]
+    if: always() && needs.remote-gate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+      EXPECTED_API_COMMIT: ${{ needs.remote-gate.outputs.api_commit }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - if: needs.changes.outputs.api == 'true'
+        name: API transaction lifecycle regression
+        run: node tools/live_transaction_mutation_uat.mjs
+
+      - if: needs.changes.outputs.api == 'true'
+        name: API resilience security regression
+        run: node tools/live_final_hardening_uat.mjs
+
+      - if: needs.changes.outputs.web == 'true'
+        name: Install browser accessibility runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+
+      - if: needs.changes.outputs.web == 'true'
+        name: Role browser regression
+        run: node tools/live_ui_final_acceptance.mjs
+
+      - if: needs.changes.outputs.web == 'true'
+        name: Responsive failure accessibility regression
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Write impact regression evidence
+        shell: bash
+        run: |
+          mkdir -p impact-regression-artifacts
+          jq -n             --arg scope "${{ needs.post_acceptance_gate.outputs.regression_scope }}"             --arg web "${{ needs.changes.outputs.web }}"             --arg api "${{ needs.changes.outputs.api }}"             --arg sha "$GITHUB_SHA"             '{schema:"ANCLINE_IMPACT_SCOPED_REGRESSION_V1",status:"PASS",scope:$scope,webChanged:($web=="true"),apiChanged:($api=="true"),candidateCommit:$sha}'             > impact-regression-artifacts/ANCLINE_IMPACT_SCOPED_REGRESSION.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ancline-impact-regression-${{ github.sha }}
+          path: impact-regression-artifacts/
+          retention-days: 90
+
   finalize:
-    needs: [changes, baseline, build-web, build-api, remote-gate]
+    needs: [changes, baseline, build-web, build-api, remote-gate, impact_regression]
     if: |
       always() &&
       needs.remote-gate.result == 'success' &&
+      needs.impact_regression.result == 'success' &&
       needs.remote-gate.outputs.drill_triggered != 'true'
     runs-on: ubuntu-latest
     outputs:
@@ -584,12 +702,13 @@ jobs:
           retention-days: 90
 
   recovery:
-    needs: [changes, baseline, promote, remote-gate]
+    needs: [changes, baseline, promote, remote-gate, impact_regression]
     if: |
       always() &&
       needs.promote.result == 'success' &&
       (
         needs.remote-gate.result == 'failure' ||
+        needs.impact_regression.result == 'failure' ||
         (needs.remote-gate.result == 'success' && needs.remote-gate.outputs.drill_triggered == 'true')
       ) &&
       (needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true')
