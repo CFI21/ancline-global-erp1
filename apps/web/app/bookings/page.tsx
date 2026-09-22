@@ -140,7 +140,7 @@ export default function BookingsPage(){
   const title:React.CSSProperties={fontSize:12,fontWeight:800,color:'#183a57',margin:'-1px -1px 8px',padding:'5px 8px',background:'#e3e8ec',borderBottom:'1px solid #aeb9c2'};
   const grid:React.CSSProperties={display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',columnGap:8,rowGap:6};
   const Input=({l,k,type='text',ph=''}:{l:string;k:keyof typeof initialForm;type?:string;ph?:string})=><label><span style={label}>{l}</span><input type={type} value={form[k]} placeholder={ph} onChange={e=>set(k,e.target.value)} style={field}/></label>;
-  const Select=({l,k,children}:{l:string;k:keyof typeof initialForm;children:React.ReactNode})=><label><span style={label}>{l}</span><select value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
+  const Select=({l,k,children}:{l:string;k:keyof typeof initialForm;children:React.ReactNode})=><label><span style={label}>{l}</span><select aria-label={l.replace(/\\s*\\*$/,'')} value={form[k]} onChange={e=>set(k,e.target.value)} style={field}>{children}</select></label>;
   const coreReadiness=[
     Boolean(form.customerId||form.customerName.trim()),
     Boolean(form.origin.trim()&&form.destination.trim()),
@@ -178,7 +178,7 @@ export default function BookingsPage(){
           <div className="booking-clean-fields">
             <label><span style={label}>Job Ref</span><input inputMode="numeric" maxLength={5} pattern="[0-9]{5}" value={form.bookingNo} onChange={e=>set('bookingNo',e.target.value.replace(/\D/g,'').slice(0,5))} style={field} placeholder="Auto 5-digit"/></label>
             <Input l="Booking Date" k="bookingDate" type="date"/>
-            <label><span style={label}>Customer *</span><select value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">Select / new customer</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+            <label><span style={label}>Customer *</span><select aria-label="Customer" value={form.customerId} onChange={e=>set('customerId',e.target.value)} style={field}><option value="">Select / new customer</option>{customers.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
             {!form.customerId&&<Input l="New Customer" k="customerName"/>}
             <Input l="Customer Ref." k="customerReference"/>
             <Input l="Shipper" k="shipper"/>
@@ -260,7 +260,7 @@ export default function BookingsPage(){
             <Input l="ATA" k="ata" type="date"/>
             <Input l="Documentation Cut-off" k="docCutoff" type="date"/>
             <Input l="Port Cut-off" k="portCutoff" type="date"/>
-            <label><span style={label}>Producing Agent</span><select value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">Optional</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
+            <label><span style={label}>Producing Agent</span><select aria-label="Producing Agent" value={form.producingAgentId} onChange={e=>set('producingAgentId',e.target.value)} style={field}><option value="">Optional</option>{agents.map(o=><option key={o.id} value={o.id}>{o.code} - {o.name}</option>)}</select></label>
             <Input l="Notify Party" k="notifyParty"/>
           </div>
         </details>
