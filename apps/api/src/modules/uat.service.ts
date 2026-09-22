@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { bookingScope } from './auth/scope';
 
@@ -355,4 +356,80 @@ export class UatService {
       };
     }
   }
+
+  async databaseRestoreDrill(user: any) {
+    this.assertAdmin(user);
+    this.assertEnabled();
+
+    const startedAt = new Date();
+    const suffix = startedAt.toISOString().replace(/\D/g, '').slice(0, 14);
+    const schema = `uat_restore_${suffix}`;
+    const quoteIdent = (value: string) => '"' + String(value).replace(/"/g, '""') + '"';
+    const qSchema = quoteIdent(schema);
+    const source: Array<{ table_name: string }> = await this.p.$queryRawUnsafe(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`
+    );
+
+    if (!source.length) throw new ServiceUnavailableException('No public tables available for restore drill');
+
+    const sourceCounts: Record<string, number> = {};
+    const restoredCounts: Record<string, number> = {};
+
+    try {
+      await this.p.$executeRawUnsafe(`CREATE SCHEMA ${qSchema}`);
+
+      for (const row of source) {
+        const table = row.table_name;
+        const qTable = quoteIdent(table);
+        const srcRows: Array<{ count: bigint }> = await this.p.$queryRawUnsafe(
+          `SELECT COUNT(*)::bigint AS count FROM public.${qTable}`
+        );
+        const srcCount = Number(srcRows[0]?.count ?? 0);
+        sourceCounts[table] = srcCount;
+
+        await this.p.$executeRawUnsafe(
+          `CREATE TABLE ${qSchema}.${qTable} AS TABLE public.${qTable} WITH DATA`
+        );
+
+        const dstRows: Array<{ count: bigint }> = await this.p.$queryRawUnsafe(
+          `SELECT COUNT(*)::bigint AS count FROM ${qSchema}.${qTable}`
+        );
+        const dstCount = Number(dstRows[0]?.count ?? 0);
+        restoredCounts[table] = dstCount;
+
+        if (srcCount !== dstCount) {
+          throw new Error(`Restore count mismatch for ${table}: source=${srcCount} restored=${dstCount}`);
+        }
+      }
+
+      const sourceFingerprint = createHash('sha256')
+        .update(JSON.stringify(sourceCounts))
+        .digest('hex');
+      const restoredFingerprint = createHash('sha256')
+        .update(JSON.stringify(restoredCounts))
+        .digest('hex');
+
+      if (sourceFingerprint !== restoredFingerprint) {
+        throw new Error('Restore fingerprint mismatch');
+      }
+
+      const finishedAt = new Date();
+      return {
+        status: 'PASS',
+        method: 'isolated-schema logical restore drill',
+        destructive: false,
+        sourceSchema: 'public',
+        restoreSchema: schema,
+        tableCount: source.length,
+        sourceFingerprint,
+        restoredFingerprint,
+        startedAt,
+        finishedAt,
+        durationMs: finishedAt.getTime() - startedAt.getTime(),
+      };
+    } finally {
+      await this.p.$executeRawUnsafe(`DROP SCHEMA IF EXISTS ${qSchema} CASCADE`);
+    }
+  }
+
 }
