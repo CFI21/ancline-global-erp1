@@ -22,7 +22,7 @@ const pass=(name,data={})=>report.checks[name]={status:'PASS',...data};
 const fail=(name,data={})=>report.checks[name]={status:'FAIL',...data};
 async function getJson(url,opt={}){
   try{
-    const r=await fetch(url,{...opt,signal:opt.signal||AbortSignal.timeout(30000)});
+    const r=await fetch(url,{...opt,signal:opt.signal||AbortSignal.timeout(8000)});
     const raw=await r.text();
     let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}
     return {ok:r.ok,status:r.status,body,headers:r.headers};
