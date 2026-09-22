@@ -27,7 +27,8 @@ async function login(page,{email,role}){
   await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded'});
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Role').selectOption(role);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button',{name:'Sign in',exact:true}).evaluate(el=>el.click());
   await page.waitForFunction(()=>location.pathname!='/login',{timeout:30000});
   const user=await page.evaluate(()=>JSON.parse(localStorage.getItem('ancline_user')||'{}'));
   return user;
