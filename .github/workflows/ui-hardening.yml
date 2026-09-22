@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'tools/live_ui_hardening.mjs'
+      - 'apps/web/**'
       - '.github/workflows/ui-hardening.yml'
   workflow_dispatch:
 permissions:
