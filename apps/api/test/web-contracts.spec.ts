@@ -80,4 +80,12 @@ describe('Web navigation and API contract wiring',()=>{
     expect(middleware).toContain("frame-ancestors 'none'");
   });
 
+  it('allows the Next.js bootstrap scripts while keeping the staging CSP restrictive',()=>{
+    const middleware=read('../../web/middleware.ts');
+    expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
+    expect(middleware).toContain("object-src 'none'");
+    expect(middleware).toContain("frame-ancestors 'none'");
+    expect(middleware).not.toContain("script-src *");
+  });
+
 });
