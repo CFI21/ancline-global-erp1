@@ -1,0 +1,54 @@
+{
+  "schema": "ANCLINE_POST_ACCEPTANCE_MODE_V1",
+  "activatedAt": "2026-09-22T22:17:05Z",
+  "status": "LOCKED_ACTIVE",
+  "baseline": {
+    "record": "infra/go-live/job-done-final-acceptance.json",
+    "decision": "JOB_DONE",
+    "acceptedRunId": 35787804062,
+    "approvedWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+    "approvedApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a"
+  },
+  "enforcement": {
+    "primaryReleaseWorkflow": ".github/workflows/smart-release.yml",
+    "legacyDirectWebPromotion": "DISABLED",
+    "runtimeChangeRequiresApprovedCR": true,
+    "crPath": "infra/change-control/active-change-request.json",
+    "approvedStatusRequired": "APPROVED",
+    "baselineMatchRequired": true,
+    "impactScopedRegressionRequired": true,
+    "finalRegistryPromotionRequiresRegressionPass": true,
+    "candidateFailureRollsBackToApprovedRuntime": true
+  },
+  "impactScopes": {
+    "web": [
+      "WEB_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY"
+    ],
+    "api": [
+      "API_TEST_BUILD",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ],
+    "shared": [
+      "WEB_BUILD",
+      "API_TEST_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ]
+  },
+  "lockProof": {
+    "smartReleaseRunId": 35791524491,
+    "result": "EXPECTED_BLOCK",
+    "changeGate": "FAIL_WITHOUT_APPROVED_CR",
+    "build": "SKIPPED",
+    "deploy": "SKIPPED",
+    "promotion": "SKIPPED",
+    "finalize": "SKIPPED"
+  },
+  "policyFile": "infra/change-control/post-acceptance-policy.json",
+  "templateFile": "infra/change-control/change-request.template.json"
+}
