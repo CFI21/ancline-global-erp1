@@ -39,18 +39,40 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             web=true; api=true; shared=true
           else
-            before="${{ github.event.before }}"
-            if [[ -z "$before" || "$before" =~ ^0+$ ]]; then before="$(git rev-parse HEAD^)"; fi
+            fallback="${{ github.event.before }}"
+            if [[ -z "$fallback" || "$fallback" =~ ^0+$ ]]; then fallback="$(git rev-parse HEAD^)"; fi
+            web_before="$fallback"
+            api_before="$fallback"
+
+            # Compare each runtime component with its last approved commit rather than
+            # only the immediate parent. This preserves pending changes when a run is
+            # cancelled/superseded by a later push.
+            if git fetch origin release-registry:refs/remotes/origin/release-registry >/dev/null 2>&1 &&
+               git show origin/release-registry:approved-digests.json > /tmp/approved-detect.json 2>/dev/null; then
+              candidate_web="$(jq -r '.current.web.commit // empty' /tmp/approved-detect.json)"
+              candidate_api="$(jq -r '.current.api.commit // empty' /tmp/approved-detect.json)"
+              if [[ -n "$candidate_web" ]] && git cat-file -e "$candidate_web^{commit}" 2>/dev/null; then web_before="$candidate_web"; fi
+              if [[ -n "$candidate_api" ]] && git cat-file -e "$candidate_api^{commit}" 2>/dev/null; then api_before="$candidate_api"; fi
+            fi
+
             while IFS= read -r file; do
               case "$file" in
                 apps/web/*) web=true ;;
-                apps/api/*|packages/db/*) api=true ;;
-                packages/*|package.json|package-lock.json|tsconfig.json)
-                  web=true; api=true; shared=true ;;
-                .github/workflows/smart-release.yml)
+                packages/db/*) ;;
+                packages/*|package.json|package-lock.json|tsconfig.json|.github/workflows/smart-release.yml)
                   web=true; api=true; shared=true ;;
               esac
-            done < <(git diff --name-only "$before" "$GITHUB_SHA")
+            done < <(git diff --name-only "$web_before" "$GITHUB_SHA")
+
+            while IFS= read -r file; do
+              case "$file" in
+                apps/api/*|packages/db/*) api=true ;;
+                packages/*|package.json|package-lock.json|tsconfig.json|.github/workflows/smart-release.yml)
+                  web=true; api=true; shared=true ;;
+              esac
+            done < <(git diff --name-only "$api_before" "$GITHUB_SHA")
+
+            echo "Detection baselines: web=$web_before api=$api_before fallback=$fallback"
           fi
           echo "web=$web" >> "$GITHUB_OUTPUT"
           echo "api=$api" >> "$GITHUB_OUTPUT"
