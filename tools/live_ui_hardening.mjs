@@ -108,8 +108,9 @@ try{
     const ctx=await browser.newContext({viewport:{width:820,height:1180}});const page=await ctx.newPage();await establish(page);
     await page.route('**/api-proxy/bookings',async route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Synthetic UAT outage'})}));
     await goto(page,'/bookings');
+    const notice=await page.waitForFunction(()=>/temporarily reconnecting|unable to reach|service error|try again/i.test(document.body?.innerText||''),{timeout:7000}).then(()=>true).catch(()=>false);
     const text=await page.locator('body').innerText();
-    assert(/unable|error|503|outage/i.test(text),'API failure did not render a visible recoverable notice');
+    assert(notice,'API failure did not render a visible recoverable notice: '+text.slice(0,600));
     assert(await page.locator('body').count()===1,'API failure crashed page');
     report.failureStates.push({case:'bookings-api-503',status:'PASS'});await snap(page,'tablet-api-failure');await ctx.close();
   }
@@ -118,7 +119,10 @@ try{
   {
     const ctx=await browser.newContext({viewport:{width:390,height:844}});const page=await ctx.newPage();await establish(page);
     await page.route('**/api-proxy/bookings',async route=>{await new Promise(r=>setTimeout(r,1800));await route.continue()});
-    const t=Date.now();await goto(page,'/bookings');const elapsed=Date.now()-t;
+    const t=Date.now();await goto(page,'/bookings');
+    const settled=await page.waitForFunction(()=>document.body?.innerText?.includes('50001'),{timeout:7000}).then(()=>true).catch(()=>false);
+    const elapsed=Date.now()-t;
+    assert(settled,'slow API did not eventually settle with booking data');
     assert(elapsed>=1600,'slow API delay was not exercised');
     assert(await page.locator('input[placeholder="Search bookings..."]').isVisible(),'slow API left booking UI unusable');
     report.failureStates.push({case:'slow-bookings-api',elapsedMs:elapsed,status:'PASS'});await ctx.close();
