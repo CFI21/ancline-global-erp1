@@ -28,10 +28,21 @@ async function layout(page,label){
     innerWidth:window.innerWidth,
     scrollWidth:document.documentElement.scrollWidth,
     bodyScrollWidth:document.body.scrollWidth,
-    clipped:Array.from(document.querySelectorAll('input,select,button,a')).filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&(r.right>window.innerWidth+2||r.left<-2)}).slice(0,20).map(el=>({tag:el.tagName,text:(el.textContent||'').trim().slice(0,40),left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))
+    clipped:Array.from(document.querySelectorAll('input,select,button,a')).filter(el=>{
+      const r=el.getBoundingClientRect();
+      if(!(r.width>0&&(r.right>window.innerWidth+2||r.left<-2)))return false;
+      let p=el.parentElement;
+      while(p){
+        const s=getComputedStyle(p);
+        const canScrollX=(['auto','scroll'].includes(s.overflowX)||['auto','scroll'].includes(s.overflow))&&p.scrollWidth>p.clientWidth+2;
+        if(canScrollX)return false;
+        p=p.parentElement;
+      }
+      return true;
+    }).slice(0,20).map(el=>({tag:el.tagName,text:(el.textContent||'').trim().slice(0,40),left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))
   }));
   assert(Math.max(m.scrollWidth,m.bodyScrollWidth)<=m.innerWidth+4,label+' horizontal page overflow '+JSON.stringify(m));
-  assert(m.clipped.length===0,label+' clipped interactive controls '+JSON.stringify(m.clipped));
+  assert(m.clipped.length===0,label+' unscrollable clipped interactive controls '+JSON.stringify(m.clipped));
   return m;
 }
 async function a11y(page,label){
