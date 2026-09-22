@@ -81,17 +81,17 @@ try{
 
   // 3) Provider failure -> exponential retry metadata -> dead letter at the configured limit.
   const failureId='HARD-FAIL-'+stamp();
-  let failed=await call('/integrations/ingest',{token:admin.token,method:'POST',body:{sourceSystem:'HARDENING_PROVIDER',eventType:'UNSUPPORTED_HARDENING',externalId:failureId,payload:{bookingNo:'50001',synthetic:true}}});
-  denied(failed,'provider failure ingest');
-  let rows=ok(await call('/integrations',{token:admin.token}),'provider failure inventory');
-  let event=(rows||[]).find(x=>x.sourceSystem==='HARDENING_PROVIDER'&&x.externalId===failureId);
+  const failed=await call('/integrations/ingest',{token:admin.token,method:'POST',body:{sourceSystem:'HARDENING_PROVIDER',eventType:'UNSUPPORTED_HARDENING',externalId:failureId,payload:{bookingNo:'50001',synthetic:true}}});
+  assert(failed.ok,'Provider failure event was not accepted into the retry queue: HTTP '+failed.status);
+  let event=failed.body;
   assert(event&&event.status==='FAILED'&&event.attemptCount===1,'Provider failure did not persist FAILED attempt 1');
   assert(event.payload?._processing?.nextRetryAt,'Provider failure did not record nextRetryAt');
   for(let attempt=2;attempt<=5;attempt++){
     const rr=await call('/integrations/'+event.id+'/retry',{token:admin.token,method:'POST',body:{}});
-    denied(rr,'provider retry '+attempt);
-    event=ok(await call('/integrations/'+event.id,{token:admin.token}),'provider event '+attempt);
+    assert(rr.ok,'Provider retry '+attempt+' was not accepted: HTTP '+rr.status);
+    event=rr.body;
     assert(event.attemptCount===attempt,'Provider retry count expected '+attempt+', got '+event.attemptCount);
+    if(attempt<5)assert(event.status==='FAILED','Provider retry '+attempt+' should remain FAILED, got '+event.status);
   }
   assert(event.status==='DEAD_LETTER','Provider event did not enter DEAD_LETTER after max attempts');
   assert(event.payload?._processing?.deadLetteredAt,'Dead-letter timestamp missing');
