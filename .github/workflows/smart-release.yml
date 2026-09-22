@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 concurrency:
@@ -63,7 +63,12 @@ jobs:
       api_digest: ${{ steps.capture.outputs.api_digest }}
       web_commit: ${{ steps.capture.outputs.web_commit }}
       api_commit: ${{ steps.capture.outputs.api_commit }}
+      registry_present: ${{ steps.capture.outputs.registry_present }}
+      registry_sha256: ${{ steps.capture.outputs.registry_sha256 }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -71,19 +76,67 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: capture
-        name: Capture currently approved runtime baseline
+        name: Load trusted approved registry and prove runtime baseline
         shell: bash
         run: |
           set -euo pipefail
-          web_digest="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-web:latest | awk '/^Digest:/ {print $2; exit}')"
-          api_digest="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-api:latest | awk '/^Digest:/ {print $2; exit}')"
-          web_commit="$(curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" 2>/dev/null | jq -r '.buildCommit // "unknown"' || echo unknown)"
-          api_commit="$(curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" 2>/dev/null | jq -r '.buildCommit // "unknown"' || echo unknown)"
+          registry_present=false
+          registry_sha256=""
+          reg_web_digest=""
+          reg_api_digest=""
+          reg_web_commit=""
+          reg_api_commit=""
+
+          if git fetch origin release-registry:refs/remotes/origin/release-registry >/dev/null 2>&1 &&
+             git show origin/release-registry:approved-digests.json > /tmp/approved-digests.json 2>/dev/null; then
+            registry_present=true
+            registry_sha256="$(sha256sum /tmp/approved-digests.json | awk '{print $1}')"
+            reg_web_digest="$(jq -r '.current.web.digest // empty' /tmp/approved-digests.json)"
+            reg_api_digest="$(jq -r '.current.api.digest // empty' /tmp/approved-digests.json)"
+            reg_web_commit="$(jq -r '.current.web.commit // empty' /tmp/approved-digests.json)"
+            reg_api_commit="$(jq -r '.current.api.commit // empty' /tmp/approved-digests.json)"
+          fi
+
+          latest_web_digest="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-web:latest | awk '/^Digest:/ {print $2; exit}')"
+          latest_api_digest="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-api:latest | awk '/^Digest:/ {print $2; exit}')"
+          live_web_commit="$(curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" 2>/dev/null | jq -r '.buildCommit // "unknown"' || echo unknown)"
+          live_api_commit="$(curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" 2>/dev/null | jq -r '.buildCommit // "unknown"' || echo unknown)"
+
+          if [[ "$registry_present" == "true" ]]; then
+            [[ -n "$reg_web_digest" && -n "$reg_api_digest" && -n "$reg_web_commit" && -n "$reg_api_commit" ]] || {
+              echo "Approved registry is incomplete"; exit 1;
+            }
+            [[ "$latest_web_digest" == "$reg_web_digest" ]] || {
+              echo "Web latest pointer drift: latest=$latest_web_digest registry=$reg_web_digest"; exit 1;
+            }
+            [[ "$latest_api_digest" == "$reg_api_digest" ]] || {
+              echo "API latest pointer drift: latest=$latest_api_digest registry=$reg_api_digest"; exit 1;
+            }
+            [[ "$live_web_commit" == "$reg_web_commit" ]] || {
+              echo "Web runtime drift: live=$live_web_commit registry=$reg_web_commit"; exit 1;
+            }
+            [[ "$live_api_commit" == "$reg_api_commit" ]] || {
+              echo "API runtime drift: live=$live_api_commit registry=$reg_api_commit"; exit 1;
+            }
+            web_digest="$reg_web_digest"
+            api_digest="$reg_api_digest"
+            web_commit="$reg_web_commit"
+            api_commit="$reg_api_commit"
+          else
+            echo "Approved registry missing; falling back to current runtime for bootstrap only."
+            web_digest="$latest_web_digest"
+            api_digest="$latest_api_digest"
+            web_commit="$live_web_commit"
+            api_commit="$live_api_commit"
+          fi
+
           echo "web_digest=$web_digest" >> "$GITHUB_OUTPUT"
           echo "api_digest=$api_digest" >> "$GITHUB_OUTPUT"
           echo "web_commit=$web_commit" >> "$GITHUB_OUTPUT"
           echo "api_commit=$api_commit" >> "$GITHUB_OUTPUT"
-          printf 'Baseline web=%s (%s) api=%s (%s)\n' "$web_digest" "$web_commit" "$api_digest" "$api_commit"
+          echo "registry_present=$registry_present" >> "$GITHUB_OUTPUT"
+          echo "registry_sha256=$registry_sha256" >> "$GITHUB_OUTPUT"
+          printf 'Trusted baseline web=%s (%s) api=%s (%s) registry=%s\n' "$web_digest" "$web_commit" "$api_digest" "$api_commit" "$registry_present"
 
   quality:
     needs: changes
@@ -325,7 +378,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       registry_sha256: ${{ steps.registry.outputs.registry_sha256 }}
+      registry_commit: ${{ steps.registry.outputs.registry_commit }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -347,42 +404,85 @@ jobs:
           [[ "$actual" == "${{ needs.build-api.outputs.digest }}" ]] || { echo "API digest mismatch"; exit 1; }
           docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:staging-approved-current --tag ghcr.io/cfi21/ancline-api:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
       - id: registry
-        name: Write approved digest registry
+        name: Persist approved digest registry branch
         env:
           WEB_CHANGED: ${{ needs.changes.outputs.web }}
           API_CHANGED: ${{ needs.changes.outputs.api }}
-          BASE_WEB_DIGEST: ${{ needs.baseline.outputs.web_digest }}
-          BASE_API_DIGEST: ${{ needs.baseline.outputs.api_digest }}
           NEW_WEB_DIGEST: ${{ needs.build-web.outputs.digest }}
           NEW_API_DIGEST: ${{ needs.build-api.outputs.digest }}
           WEB_COMMIT: ${{ needs.remote-gate.outputs.web_commit }}
           API_COMMIT: ${{ needs.remote-gate.outputs.api_commit }}
+          UAT_RUN_ID: ${{ needs.remote-gate.outputs.uat_run_id }}
           BACKUP_SHA: ${{ needs.remote-gate.outputs.backup_sha256 }}
+          BACKUP_ARTIFACT_SHA: ${{ needs.remote-gate.outputs.backup_artifact_sha256 }}
+        shell: bash
         run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved-before.json
+
           python - <<'PY'
-          import json, os, hashlib
-          reg={
-            "schema":"ANCLINE_APPROVED_DIGEST_REGISTRY_V1",
-            "releaseCommit":os.environ["GITHUB_SHA"],
-            "web":{
-              "digest": os.getenv("NEW_WEB_DIGEST") if os.getenv("WEB_CHANGED")=="true" else os.getenv("BASE_WEB_DIGEST"),
-              "runtimeCommit":os.getenv("WEB_COMMIT"),
-              "changed":os.getenv("WEB_CHANGED")=="true"
-            },
-            "api":{
-              "digest": os.getenv("NEW_API_DIGEST") if os.getenv("API_CHANGED")=="true" else os.getenv("BASE_API_DIGEST"),
-              "runtimeCommit":os.getenv("API_COMMIT"),
-              "changed":os.getenv("API_CHANGED")=="true"
-            },
-            "backupCiphertextSha256":os.getenv("BACKUP_SHA"),
-            "status":"APPROVED"
+          import json, os
+          from datetime import datetime, timezone
+
+          with open('/tmp/approved-before.json') as f:
+              reg=json.load(f)
+
+          reg['schema']='ANCLINE_APPROVED_DIGEST_REGISTRY_V2'
+          reg['updatedAt']=datetime.now(timezone.utc).isoformat()
+          reg['source']='smart-release-hardened'
+          current=reg.setdefault('current',{})
+
+          if os.getenv('WEB_CHANGED')=='true':
+              current['web']={
+                  'commit':os.environ['GITHUB_SHA'],
+                  'immutableTag':f"ghcr.io/cfi21/ancline-web:sha-{os.environ['GITHUB_SHA']}",
+                  'approvedTag':f"ghcr.io/cfi21/ancline-web:staging-approved-{os.environ['GITHUB_SHA'][:12]}",
+                  'digest':os.getenv('NEW_WEB_DIGEST')
+              }
+
+          if os.getenv('API_CHANGED')=='true':
+              current['api']={
+                  'commit':os.environ['GITHUB_SHA'],
+                  'immutableTag':f"ghcr.io/cfi21/ancline-api:sha-{os.environ['GITHUB_SHA']}",
+                  'approvedTag':f"ghcr.io/cfi21/ancline-api:staging-approved-{os.environ['GITHUB_SHA'][:12]}",
+                  'digest':os.getenv('NEW_API_DIGEST')
+              }
+
+          item={
+              'runId':os.environ['GITHUB_RUN_ID'],
+              'approvedAt':reg['updatedAt'],
+              'commit':os.environ['GITHUB_SHA'],
+              'components':[x for x,flag in [('web',os.getenv('WEB_CHANGED')),('api',os.getenv('API_CHANGED'))] if flag=='true'],
+              'uatRunId':os.getenv('UAT_RUN_ID') or None,
+              'backupSha256':os.getenv('BACKUP_SHA') or None,
+              'offPlatformArtifactSha256':os.getenv('BACKUP_ARTIFACT_SHA') or None
           }
-          raw=(json.dumps(reg,indent=2)+"\n").encode()
-          open("ANCLINE_APPROVED_DIGEST_REGISTRY.json","wb").write(raw)
-          print(json.dumps(reg,indent=2))
-          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
-            f.write("registry_sha256="+hashlib.sha256(raw).hexdigest()+"\n")
+          history=[item]+list(reg.get('history') or [])
+          reg['history']=history[:50]
+
+          with open('/tmp/approved-digests.json','w') as f:
+              json.dump(reg,f,indent=2)
+              f.write('\n')
           PY
+
+          registry_sha="$(sha256sum /tmp/approved-digests.json | awk '{print $1}')"
+
+          git config user.name "ANCLINE Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git switch -C release-registry origin/release-registry
+          cp /tmp/approved-digests.json approved-digests.json
+          git add approved-digests.json
+          if git diff --cached --quiet; then
+            echo "Registry unchanged"
+          else
+            git commit -m "Approve ANCLINE release $GITHUB_SHA"
+            git push origin HEAD:release-registry
+          fi
+          registry_commit="$(git rev-parse HEAD)"
+          echo "registry_sha256=$registry_sha" >> "$GITHUB_OUTPUT"
+          echo "registry_commit=$registry_commit" >> "$GITHUB_OUTPUT"
+          cp approved-digests.json "$GITHUB_WORKSPACE/ANCLINE_APPROVED_DIGEST_REGISTRY.json"
       - uses: actions/upload-artifact@v4
         with:
           name: ancline-approved-digest-registry-${{ github.sha }}
@@ -406,7 +506,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Restore previous approved image pointers
+      - name: Restore trusted approved image pointers
         run: |
           set -euo pipefail
           if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
@@ -415,15 +515,28 @@ jobs:
           if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
             docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api@${{ needs.baseline.outputs.api_digest }}
           fi
-      - name: Trigger optional rollback hooks or rely on image auto-deploy
+      - name: Trigger rollback deployment hooks when configured
         env:
           WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
           API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
         run: |
           set -euo pipefail
-          if [[ "${{ needs.changes.outputs.web }}" == "true" && -n "$WEB_HOOK" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; fi
-          if [[ "${{ needs.changes.outputs.api }}" == "true" && -n "$API_HOOK" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; fi
-          echo "Rollback pointer restored; runtime recovery gate will prove convergence even without hooks."
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+            if [[ -n "$WEB_HOOK" ]]; then
+              curl -fsS -X POST "$WEB_HOOK" >/dev/null
+              echo "Web rollback hook triggered"
+            else
+              echo "Web rollback image pointer restored; Render deploy hook is not configured."
+            fi
+          fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+            if [[ -n "$API_HOOK" ]]; then
+              curl -fsS -X POST "$API_HOOK" >/dev/null
+              echo "API rollback hook triggered"
+            else
+              echo "API rollback image pointer restored; Render deploy hook is not configured."
+            fi
+          fi
       - id: verify
         name: Verify recovered runtime
         env:
@@ -435,24 +548,57 @@ jobs:
             api_ok=false; web_ok=false
             if curl -L -fsS "$API_URL/api/health" -o /tmp/recovery-api.json; then
               current="$(jq -r '.buildCommit // "unknown"' /tmp/recovery-api.json)"
-              if [[ "${{ needs.changes.outputs.api }}" != "true" || "$BASE_API_COMMIT" == "unknown" || "$current" == "$BASE_API_COMMIT" ]]; then api_ok=true; fi
+              if [[ "${{ needs.changes.outputs.api }}" != "true" || "$current" == "$BASE_API_COMMIT" ]]; then api_ok=true; fi
             fi
-            if curl -L -fsS "$WEB_URL/" -o /dev/null; then
-              if [[ "${{ needs.changes.outputs.web }}" != "true" || "$BASE_WEB_COMMIT" == "unknown" ]]; then
-                web_ok=true
-              elif curl -L -fsS "$WEB_URL/release-info" -o /tmp/recovery-web.json && [[ "$(jq -r '.buildCommit // "unknown"' /tmp/recovery-web.json)" == "$BASE_WEB_COMMIT" ]]; then
-                web_ok=true
-              fi
+            if curl -L -fsS "$WEB_URL/release-info" -o /tmp/recovery-web.json; then
+              current="$(jq -r '.buildCommit // "unknown"' /tmp/recovery-web.json)"
+              if [[ "${{ needs.changes.outputs.web }}" != "true" || "$current" == "$BASE_WEB_COMMIT" ]]; then web_ok=true; fi
             fi
-            if [[ "$api_ok" == "true" && "$web_ok" == "true" ]] && curl -L -fsS "$WEB_URL/api-proxy/health" -o /tmp/recovery-proxy.json; then
+            if [[ "$api_ok" == "true" && "$web_ok" == "true" ]] &&
+               curl -L -fsS "$WEB_URL/api-proxy/health" -o /tmp/recovery-proxy.json; then
               jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/recovery-proxy.json >/dev/null
               echo "status=PASS" >> "$GITHUB_OUTPUT"
-              echo "Automatic rollback and recovery PASS"
+              echo "Automatic pointer rollback + runtime recovery PASS"
               exit 0
             fi
-            [[ "$i" == "60" ]] && { echo "Automatic rollback recovery timeout"; exit 1; }
+            [[ "$i" == "60" ]] && {
+              echo "Rollback pointer restored but runtime did not converge. Configure Render deploy-hook secrets for unattended recovery.";
+              exit 1;
+            }
             sleep 10
           done
+      - name: Write failure recovery evidence
+        if: always()
+        env:
+          RECOVERY_STATUS: ${{ steps.verify.outputs.status }}
+          BASE_WEB_DIGEST: ${{ needs.baseline.outputs.web_digest }}
+          BASE_API_DIGEST: ${{ needs.baseline.outputs.api_digest }}
+          BASE_WEB_COMMIT: ${{ needs.baseline.outputs.web_commit }}
+          BASE_API_COMMIT: ${{ needs.baseline.outputs.api_commit }}
+        run: |
+          python - <<'PY'
+          import json, os
+          evidence={
+            "schema":"ANCLINE_FAILURE_RECOVERY_EVIDENCE_V1",
+            "failedReleaseCommit":os.environ["GITHUB_SHA"],
+            "runId":os.environ["GITHUB_RUN_ID"],
+            "baseline":{
+              "webDigest":os.getenv("BASE_WEB_DIGEST"),
+              "apiDigest":os.getenv("BASE_API_DIGEST"),
+              "webCommit":os.getenv("BASE_WEB_COMMIT"),
+              "apiCommit":os.getenv("BASE_API_COMMIT")
+            },
+            "recoveryStatus":os.getenv("RECOVERY_STATUS") or "FAIL",
+            "note":"Image pointers are rolled back automatically. Unattended Render runtime convergence requires deploy-hook secrets because image-backed Render services do not redeploy merely when a tag changes."
+          }
+          open("ANCLINE_FAILURE_RECOVERY_EVIDENCE.json","w").write(json.dumps(evidence,indent=2)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ancline-failure-recovery-evidence-${{ github.sha }}
+          path: ANCLINE_FAILURE_RECOVERY_EVIDENCE.json
+          retention-days: 90
 
   evidence:
     needs: [changes, baseline, quality, build-web, build-api, promote, remote-gate, finalize, recovery]
