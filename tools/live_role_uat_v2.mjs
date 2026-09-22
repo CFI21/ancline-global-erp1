@@ -30,8 +30,12 @@ async function establish(page,email,requestedRole){
 }
 async function goRolePage(page,user){
   const target=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(user.role)?'/customer-portal':user.role==='AGENT'?'/agent-portal':user.role==='BRANCH_OPS'?'/nvocc-portal':'/';
-  await page.goto(WEB_URL+target,{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForTimeout(1000);
+  const runtimeErrors=[];
+  page.on('pageerror',e=>runtimeErrors.push('pageerror:'+String(e?.stack||e)));
+  page.on('console',m=>{ if(['error','warning'].includes(m.type())) runtimeErrors.push('console:'+m.type()+':'+m.text()); });
+  const response=await page.goto(WEB_URL+target,{waitUntil:'domcontentloaded',timeout:60000});
+  await page.waitForTimeout(1200);
+  page.__anclineDiag={target,httpStatus:response?.status?.()??null,runtimeErrors};
   return target;
 }
 async function api(page,path){
@@ -43,12 +47,17 @@ async function api(page,path){
   },path);
 }
 async function diagnose(page){
+  const text=await page.locator('body').innerText().catch(()=>'');
+  const html=await page.locator('body').innerHTML().catch(()=>'');
   return {
     url:page.url(),
     title:await page.title().catch(()=>null),
-    text:(await page.locator('body').innerText().catch(()=>'' )).slice(0,1200),
+    text:text.slice(0,1200),
+    htmlLength:html.length,
+    html:html.slice(0,1600),
     token:await page.evaluate(()=>!!localStorage.getItem('ancline_token')).catch(()=>false),
-    user:await page.evaluate(()=>JSON.parse(localStorage.getItem('ancline_user')||'null')).catch(()=>null)
+    user:await page.evaluate(()=>JSON.parse(localStorage.getItem('ancline_user')||'null')).catch(()=>null),
+    navigation:page.__anclineDiag||null
   };
 }
 
