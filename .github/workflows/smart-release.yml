@@ -178,18 +178,6 @@ jobs:
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - name: Require deterministic deployment hooks before changing runtime pointers
-        env:
-          WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
-          API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
-        run: |
-          set -euo pipefail
-          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
-            [[ -n "$WEB_HOOK" ]] || { echo "Missing RENDER_WEB_DEPLOY_HOOK"; exit 1; }
-          fi
-          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-            [[ -n "$API_HOOK" ]] || { echo "Missing RENDER_API_DEPLOY_HOOK"; exit 1; }
-          fi
       - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
         uses: docker/setup-buildx-action@v3
       - if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
@@ -202,14 +190,18 @@ jobs:
         run: docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA
       - if: needs.changes.outputs.api == 'true'
         run: docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
-      - name: Trigger Render deployment
+      - name: Trigger optional Render deployment hooks or rely on image auto-deploy
         env:
           WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
           API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
         run: |
           set -euo pipefail
-          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; fi
-          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; fi
+          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
+            if [[ -n "$WEB_HOOK" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; echo "Web hook triggered"; else echo "Web hook absent; relying on Render image auto-deploy + runtime identity gate"; fi
+          fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
+            if [[ -n "$API_HOOK" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; echo "API hook triggered"; else echo "API hook absent; relying on Render image auto-deploy + runtime identity gate"; fi
+          fi
 
   remote-gate:
     needs: [changes, baseline, build-web, build-api, promote]
@@ -423,14 +415,15 @@ jobs:
           if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
             docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest ghcr.io/cfi21/ancline-api@${{ needs.baseline.outputs.api_digest }}
           fi
-      - name: Trigger rollback deploys
+      - name: Trigger optional rollback hooks or rely on image auto-deploy
         env:
           WEB_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
           API_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
         run: |
           set -euo pipefail
-          if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; fi
-          if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; fi
+          if [[ "${{ needs.changes.outputs.web }}" == "true" && -n "$WEB_HOOK" ]]; then curl -fsS -X POST "$WEB_HOOK" >/dev/null; fi
+          if [[ "${{ needs.changes.outputs.api }}" == "true" && -n "$API_HOOK" ]]; then curl -fsS -X POST "$API_HOOK" >/dev/null; fi
+          echo "Rollback pointer restored; runtime recovery gate will prove convergence even without hooks."
       - id: verify
         name: Verify recovered runtime
         env:
