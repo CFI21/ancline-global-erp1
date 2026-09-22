@@ -18,7 +18,7 @@ async function establish(page,email,requestedRole){
   await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
   const auth=await page.evaluate(async ({email,requestedRole})=>{
     const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role:requestedRole})});
-    let body; try{body=await r.json()}catch{body=await r.text()}
+    const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
     if(r.ok&&body?.accessToken){
       localStorage.setItem('ancline_token',body.accessToken);
       localStorage.setItem('ancline_user',JSON.stringify(body.user));
@@ -72,7 +72,7 @@ try{
     const seedResult=await page.evaluate(async ()=>{
       const token=localStorage.getItem('ancline_token');
       const r=await fetch('/api-proxy/test-data/seed',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}});
-      let body; try{body=await r.json()}catch{body=await r.text()}
+      const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
       return {status:r.status,body};
     });
     assert(seedResult.status===200,`Synthetic reseed failed HTTP ${seedResult.status}: ${JSON.stringify(seedResult.body)}`);

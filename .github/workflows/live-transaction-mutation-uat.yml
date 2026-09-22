@@ -1,0 +1,29 @@
+name: ANCLINE ECOM Transaction Mutation UAT
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/modules/test-data/test-data.service.ts'
+      - 'tools/live_transaction_mutation_uat.mjs'
+      - '.github/workflows/live-transaction-mutation-uat.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transaction-mutation-uat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+      EXPECTED_API_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove source identity
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          sha256sum tools/live_transaction_mutation_uat.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run full 50001-50005 mutation / role / privacy / exception acceptance
+        run: node tools/live_transaction_mutation_uat.mjs

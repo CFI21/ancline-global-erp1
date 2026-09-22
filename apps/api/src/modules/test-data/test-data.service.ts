@@ -43,6 +43,12 @@ export class TestDataService implements OnModuleInit {
       create:{code:'TEST-NL-BR',name:'TEST ANC Netherlands Branch',countryCode:'NL',active:true}
     });
 
+    // Deterministic live-mutation cleanup: every reseed restores the five
+    // persistent synthetic jobs after destructive acceptance mutations.
+    await this.db.booking.updateMany({where:{bookingNo:{in:[...TEST_JOB_REFS]}},data:{consolId:null}});
+    await this.db.consol.deleteMany({where:{consolNo:{startsWith:'ANC-TEST-UAT-'}}});
+    await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',objectType:'CarrierBooking',objectId:{startsWith:'TEST-CBR-'}}});
+
     const customers=[
       {
         code:'TEST-CUST-NL',name:'TEST NorthSea Trading B.V.',countryCode:'NL',customerRef:'ANC-TEST-CUS-NL-001',registrationRef:'ANC-TEST-REG-NL-001',costCenterCode:'TEST-FWD-NL',
@@ -322,6 +328,24 @@ export class TestDataService implements OnModuleInit {
       {bookingId:nv.id,itemCode:'REVENUE_COMPLETE',itemLabel:'NVOCC agent/customer revenue ready',mandatory:true,completed:false},
       {bookingId:nv.id,itemCode:'POD_COMPLETE',itemLabel:'NVOCC delivery / POD evidence complete',mandatory:true,completed:false}
     ]});
+
+    const nvSchedule=await this.db.vesselVoyageSchedule.upsert({
+      where:{scheduleNo:'TEST-SCH-NVOCC-001'},
+      update:{carrier:carrierRows[0].name,serviceName:'TEST NVOCC SERVICE',vessel:'TEST NVOCC VESSEL',imoNo:'TESTIMO900001',voyage:'N001',direction:'WESTBOUND',portOfLoading:'SGSIN',portOfDischarge:'NLRTM',terminal:'TEST PSA TERMINAL',etd:this.d(6,20),eta:this.d(31,8),cyClosing:this.d(4,12),siCutoff:this.d(4,8),vgmCutoff:this.d(5,8),docCutoff:this.d(4,10),capacityTeu:8500,status:'PLANNED',source:'TEST_DATA',remarks:'Synthetic NVOCC schedule for Job 50005',createdBy:'SYSTEM_TEST_DATA'},
+      create:{scheduleNo:'TEST-SCH-NVOCC-001',carrier:carrierRows[0].name,serviceName:'TEST NVOCC SERVICE',vessel:'TEST NVOCC VESSEL',imoNo:'TESTIMO900001',voyage:'N001',direction:'WESTBOUND',portOfLoading:'SGSIN',portOfDischarge:'NLRTM',terminal:'TEST PSA TERMINAL',etd:this.d(6,20),eta:this.d(31,8),cyClosing:this.d(4,12),siCutoff:this.d(4,8),vgmCutoff:this.d(5,8),docCutoff:this.d(4,10),capacityTeu:8500,status:'PLANNED',source:'TEST_DATA',remarks:'Synthetic NVOCC schedule for Job 50005',createdBy:'SYSTEM_TEST_DATA'}
+    });
+    await this.event('CarrierBooking','TEST-CBR-NVOCC','CARRIER_BOOKING_REQUESTED',{
+      carrierOperationNo:'TEST-CBR-NVOCC',bookingId:nv.id,bookingNo:nvBookingNo,shipmentNo:'ANC-TEST-NVOCC-SHP-001',
+      businessModel:'NVOCC',bookingChannel:'AGENT_PORTAL',jobType:'NVOCC_FCL',forwardingTradeType:null,costCenterCode:'TEST-NVOCC-NL',
+      customerRef:nvCustomer.customerRef,rateQuoteNo:null,carrierQuoteRef:null,carrierId:carrierRows[0].id,carrierCode:carrierRows[0].providerCode,
+      carrierName:carrierRows[0].name,scheduleId:nvSchedule.id,scheduleNo:nvSchedule.scheduleNo,scheduleCarrier:nvSchedule.carrier,
+      serviceName:nvSchedule.serviceName,vessel:nvSchedule.vessel,voyage:nvSchedule.voyage,portOfLoading:'SGSIN',portOfDischarge:'NLRTM',
+      terminal:'TEST PSA TERMINAL',etd:nvSchedule.etd,eta:nvSchedule.eta,cyClosing:nvSchedule.cyClosing,siCutoff:nvSchedule.siCutoff,
+      vgmCutoff:nvSchedule.vgmCutoff,docCutoff:nvSchedule.docCutoff,equipmentType:'40HC',quantity:1,spaceTeu:2,
+      carrierBookingNo:null,confirmationStatus:'REQUESTED',allocationStatus:'UNALLOCATED',allocationRef:null,
+      equipmentReleaseStatus:'PENDING',releaseOrderNo:null,emptyDepot:null,releaseValidUntil:null,
+      notes:'Synthetic NVOCC carrier booking control — testing only',requestedBy:'SYSTEM_TEST_DATA'
+    },'COMPLETED','ANCLINE_CARRIER_OPERATIONS',nv.id);
 
     await this.event('TestSeed','ANCLINE_TEST_SEED','TEST_DATA_SEEDED',{seededAt:this.now().toISOString(),customers:customerRows.map(x=>x.customerRef),carriers:carrierRows.map(x=>x.providerCode),bookings:[...bookingRows.map(x=>x.bookingNo),nvBookingNo],jobRefRule:'EXACTLY_5_DIGITS',warning:'SYNTHETIC TEST DATA ONLY'});
     return this.summary(user);
