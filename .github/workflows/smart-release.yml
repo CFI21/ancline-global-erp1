@@ -201,6 +201,10 @@ jobs:
         run: npm run test:ci -w apps/api
       - if: needs.changes.outputs.api == 'true'
         run: npm run build -w apps/api
+      - name: Validate release package and Phase 10 staging-gate coherence
+        run: |
+          python tools/release_check.py
+          python tools/phase6_gate.py
       - if: needs.changes.outputs.web == 'true'
         name: Reject legacy page sidebars
         run: |

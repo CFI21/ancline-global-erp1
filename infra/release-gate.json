@@ -1,51 +1,88 @@
 {
-  "phase": 6,
-  "status": "STAGING_READY_NOT_DEPLOYED",
+  "phase": 10,
+  "name": "Integrated Global Forwarding + NVOCC Staging",
+  "status": "STAGING_APPROVED",
+  "scope": "FREE_TIER_STAGING",
+  "approved_commit": "c27d32332a5010d539d821bdf526ed5386558ebe",
+  "approved_run": "35729660433",
   "mandatory": [
     {
-      "id": "OIDC",
-      "description": "Managed OIDC configured",
+      "id": "RENDER_API",
+      "description": "Authenticated Render API key and exact Web/API service preflight",
+      "pass": true
+    },
+    {
+      "id": "RUNTIME_BASELINE",
+      "description": "Live Web/API build identities match the approved digest registry",
+      "pass": true
+    },
+    {
+      "id": "BUILD_TEST",
+      "description": "Clean dependency install, Prisma generation, API tests and Web/API production builds",
+      "pass": true
+    },
+    {
+      "id": "TRANSACTIONAL_UAT",
+      "description": "20-step staging transactional UAT with cleanup",
+      "pass": true
+    },
+    {
+      "id": "PORTAL_PRIVACY",
+      "description": "NVOCC/Forwarding scope and carrier-outbound privacy controls are release-tested",
+      "pass": true
+    },
+    {
+      "id": "BACKUP_EVIDENCE",
+      "description": "Encrypted off-platform staging backup envelope is validated and retained",
+      "pass": true
+    },
+    {
+      "id": "AUTOMATIC_ROLLBACK",
+      "description": "Fully unattended exact-image Render API rollback drill has passed",
+      "pass": true
+    },
+    {
+      "id": "APPROVED_REGISTRY",
+      "description": "Durable release-registry baseline and hardened evidence are active",
+      "pass": true
+    }
+  ],
+  "production_only": [
+    {
+      "id": "CARRIER_PROVIDER_PROD",
+      "description": "Real carrier/provider production credentials and contractual acceptance",
       "pass": false
     },
     {
-      "id": "DB",
-      "description": "Managed PostgreSQL provisioned",
+      "id": "OIDC_PROD",
+      "description": "Production OIDC/SSO configuration and identity-provider acceptance",
       "pass": false
     },
     {
-      "id": "REDIS",
-      "description": "Managed Redis provisioned",
+      "id": "STORAGE_PROD",
+      "description": "Production document/object-storage acceptance where required",
       "pass": false
     },
     {
-      "id": "STORAGE",
-      "description": "Object storage provisioned",
+      "id": "PAYMENT_PROD",
+      "description": "Production payment/banking integration acceptance where required",
       "pass": false
     },
     {
-      "id": "DNS_TLS",
-      "description": "Staging DNS/TLS configured",
+      "id": "SECURITY_REVIEW",
+      "description": "Independent security/vulnerability review",
       "pass": false
     },
     {
-      "id": "MIGRATION",
-      "description": "Staging migrations applied",
+      "id": "DR_RESTORE",
+      "description": "Production disaster-recovery and restore exercise",
       "pass": false
     },
     {
-      "id": "UAT",
-      "description": "UAT matrix passed",
-      "pass": false
-    },
-    {
-      "id": "BACKUP_RESTORE",
-      "description": "Backup/restore drill passed",
-      "pass": false
-    },
-    {
-      "id": "SECURITY",
-      "description": "Security scan passed",
+      "id": "HANDOVER",
+      "description": "Operational owner handover and formal production go-live authorization",
       "pass": false
     }
-  ]
+  ],
+  "boundary": "This gate certifies free-tier staging release control and ERP transaction validation only; it does not authorize production go-live."
 }
