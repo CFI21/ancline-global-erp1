@@ -1,0 +1,107 @@
+{
+  "schema": "ANCLINE_JOB_DONE_FINAL_ACCEPTANCE_V1",
+  "acceptedAt": "2026-09-22T21:43:25.668Z",
+  "status": "FINAL_ACCEPTED",
+  "decision": "JOB_DONE",
+  "infrastructureMode": "SIMPLE_SECURE_SINGLE_RENDER_STACK",
+  "frozenUiPreserved": true,
+  "acceptanceRun": {
+    "id": 35787804062,
+    "headSha": "9b77d24e8236784497e5107e9132130b76a3911a",
+    "result": "PASS",
+    "artifact": {
+      "id": 10721066711,
+      "name": "ancline-job-done-final-35787804062",
+      "digest": "sha256:f212c3650a0e9399a3f2e5ff77f93ffeef8ffc5de08ecf37cc41a23eaae43cdd",
+      "expiresAt": "2026-12-21T21:38:02Z"
+    }
+  },
+  "approvedRuntime": {
+    "web": {
+      "commit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "image": "ghcr.io/cfi21/ancline-web:sha-86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+      "digest": "sha256:72717994ce43258af3b4fa81526d79d12c9338c852352c86124e2780082c8e85"
+    },
+    "api": {
+      "commit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "image": "ghcr.io/cfi21/ancline-api:sha-07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+      "digest": "sha256:b1164b482ffdfabbaa0b5a6d73d1320c4c268559b9e94ed999c605e1da33c996"
+    }
+  },
+  "businessDay": {
+    "jobs": [
+      {
+        "bookingNo": "50001",
+        "businessModel": "FORWARDING",
+        "quoteLinked": true,
+        "total": 1725,
+        "paid": 1725,
+        "balance": 0,
+        "releaseMode": "CREDIT",
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50002",
+        "businessModel": "FORWARDING",
+        "quoteLinked": true,
+        "total": 2650,
+        "paid": 2650,
+        "balance": 0,
+        "releaseMode": "CREDIT",
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50003",
+        "businessModel": "FORWARDING",
+        "quoteLinked": true,
+        "total": 6125,
+        "paid": 6125,
+        "balance": 0,
+        "releaseMode": "CREDIT",
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50004",
+        "businessModel": "FORWARDING",
+        "quoteLinked": true,
+        "total": 7975,
+        "paid": 7975,
+        "balance": 0,
+        "releaseMode": "PREPAID",
+        "preReleaseBlocked": true,
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50005",
+        "businessModel": "NVOCC",
+        "quoteLinked": false,
+        "total": 1625,
+        "paid": 1625,
+        "balance": 0,
+        "releaseMode": "NVOCC_SEPARATE_CONTROL",
+        "hblReleased": true,
+        "status": "PASS"
+      }
+    ],
+    "reconciliation": {
+      "jobs": 5,
+      "totalInvoiced": 20100,
+      "totalPaid": 20100,
+      "totalBalance": 0,
+      "status": "PASS"
+    },
+    "roleScopeBoundaries": "PASS"
+  },
+  "regression": {
+    "realisticBusinessDay": "PASS",
+    "transactionLifecycle50001to50005": "PASS",
+    "concurrencyIdempotencyProviderPaymentSecurity": "PASS",
+    "roleByRoleBrowser": "PASS",
+    "responsiveFailureAccessibility": "PASS"
+  },
+  "acceptancePolicy": "Future changes must preserve this accepted baseline and rerun the relevant regression suites before replacing this record."
+}
