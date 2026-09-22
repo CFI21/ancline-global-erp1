@@ -21,10 +21,14 @@ const block=(code,detail)=>{if(!blockers.some(x=>x.code===code&&x.detail===detai
 const pass=(name,data={})=>report.checks[name]={status:'PASS',...data};
 const fail=(name,data={})=>report.checks[name]={status:'FAIL',...data};
 async function getJson(url,opt={}){
-  const r=await fetch(url,opt);
-  const raw=await r.text();
-  let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}
-  return {ok:r.ok,status:r.status,body,headers:r.headers};
+  try{
+    const r=await fetch(url,{...opt,signal:opt.signal||AbortSignal.timeout(30000)});
+    const raw=await r.text();
+    let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}
+    return {ok:r.ok,status:r.status,body,headers:r.headers};
+  }catch(error){
+    return {ok:false,status:0,body:null,headers:null,error:String(error?.message||error)};
+  }
 }
 async function api(path,opt={}){
   const headers={Accept:'application/json',...(opt.headers||{})};
