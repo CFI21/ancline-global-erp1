@@ -49,6 +49,7 @@ async function layout(page,label){
 async function a11y(page,label){
   const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();
   const serious=result.violations.filter(v=>['serious','critical'].includes(v.impact||''));
+  if(serious.length){console.error('A11Y_DETAIL '+label+' '+JSON.stringify(serious.map(v=>({id:v.id,impact:v.impact,help:v.help,nodes:v.nodes.slice(0,25).map(n=>({target:n.target,html:n.html,failureSummary:n.failureSummary}))}))));}
   assert(serious.length===0,label+' accessibility serious/critical '+JSON.stringify(serious.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.length,help:v.help}))));
   return {violations:result.violations.length,serious:0};
 }
