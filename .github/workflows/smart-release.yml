@@ -355,7 +355,7 @@ jobs:
             code="$(curl -L -sS -o /tmp/release-evidence.json -w '%{http_code}' --connect-timeout 10 --max-time 25 "$API_URL/api/release/evidence" || true)"
             if [[ "$code" == "200" ]]; then
               if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-                predicate='.releaseCommit == $sha and .ready == true and .uat.status == "PASS" and .uat.summary.passed == 20 and .uat.summary.failed == 0 and .backup.status == "PASS" and .backup.offPlatformArtifactReady == true'
+                predicate='.releaseCommit == $sha and .ready == true and .uat.status == "PASS" and .uat.summary.failed == 0 and .uat.summary.total >= 20 and .uat.summary.passed == .uat.summary.total and .backup.status == "PASS" and .backup.offPlatformArtifactReady == true'
               else
                 predicate='.ready == true and .uat.status == "PASS" and .backup.status == "PASS"'
               fi
