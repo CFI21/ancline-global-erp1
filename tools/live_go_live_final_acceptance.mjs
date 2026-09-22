@@ -113,9 +113,17 @@ try{
   const migrationsDir=resolve('packages/db/prisma/migrations');
   const migrationDirs=existsSync(migrationsDir)?readdirSync(migrationsDir,{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name):[];
   const migrationSql=migrationDirs.filter(d=>existsSync(resolve(migrationsDir,d,'migration.sql')));
-  const migrationReady=migrationSql.length>0;
-  report.checks.migrationControl={status:migrationReady?'PASS':'FAIL',migrationDirectories:migrationDirs,migrationsWithSql:migrationSql};
-  if(!migrationReady)block('DB_MIGRATION_BASELINE_MISSING','No versioned Prisma migration SQL is present for production migrate-deploy control.');
+  const deployRunner=existsSync(resolve('infra/scripts/production_migrate.sh'));
+  const migrationVersioned=migrationSql.length>0&&deployRunner;
+  report.checks.migrationControl={status:migrationVersioned?'PASS':'FAIL',migrationDirectories:migrationDirs,migrationsWithSql:migrationSql,productionDeployRunner:deployRunner};
+  if(!migrationVersioned)block('DB_MIGRATION_BASELINE_MISSING','Versioned Prisma migration SQL and production migrate-deploy control are required.');
+
+  const migrationDrillPath=resolve('infra/go-live/migration-drill.json');
+  let migrationDrill=null;
+  if(existsSync(migrationDrillPath)){try{migrationDrill=JSON.parse(readFileSync(migrationDrillPath,'utf8'));}catch{}}
+  const migrationDrillReady=migrationDrill?.status==='PASS'&&Boolean(migrationDrill?.testedAt)&&Boolean(migrationDrill?.databaseTarget);
+  report.checks.migrationDeployDrill={status:migrationDrillReady?'PASS':'FAIL',evidence:migrationDrillReady?migrationDrill:null};
+  if(!migrationDrillReady)block('DB_MIGRATION_DEPLOY_NOT_PROVEN','Committed migrations have not yet been proven with migrate deploy on a controlled disposable/production-like database.');
 
   const restoreEvidencePath=resolve('infra/go-live/restore-drill.json');
   let restore=null;
