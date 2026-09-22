@@ -62,8 +62,23 @@ async function diagnose(page){
 }
 
 const browser=await chromium.launch({headless:true});
-const report={schema:'ANCLINE_LIVE_ROLE_UAT_V2',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],exceptions:[],status:'RUNNING'};
+const report={schema:'ANCLINE_LIVE_ROLE_UAT_V2',startedAt:new Date().toISOString(),webUrl:WEB_URL,seed:null,roles:[],jobs:[],exceptions:[],status:'RUNNING'};
 try{
+  // Re-seed through the live API before acceptance so UAT always validates the latest deterministic pack.
+  {
+    const ctx=await browser.newContext(); const page=await ctx.newPage();
+    await establish(page,'test.admin@ancline.invalid','GLOBAL_ADMIN');
+    await goRolePage(page,{role:'GLOBAL_ADMIN'});
+    const seedResult=await page.evaluate(async ()=>{
+      const token=localStorage.getItem('ancline_token');
+      const r=await fetch('/api-proxy/test-data/seed',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}});
+      let body; try{body=await r.json()}catch{body=await r.text()}
+      return {status:r.status,body};
+    });
+    assert(seedResult.status===200,`Synthetic reseed failed HTTP ${seedResult.status}: ${JSON.stringify(seedResult.body)}`);
+    report.seed={status:'PASS',bookings:seedResult.body?.summary?.bookings??null,rolesCovered:seedResult.body?.summary?.rolesCovered??null};
+    await ctx.close();
+  }
   for(const spec of specs){
     const context=await browser.newContext();
     const page=await context.newPage();

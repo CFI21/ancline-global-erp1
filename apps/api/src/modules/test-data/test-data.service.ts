@@ -256,6 +256,73 @@ export class TestDataService implements OnModuleInit {
       create:{owningBranchId:branch.id,bookingNo:nvBookingNo,businessModel:'NVOCC',bookingChannel:'AGENT_PORTAL',shipmentNo:'ANC-TEST-NVOCC-SHP-001',shipmentStatus:'OPERATIONAL',customerId:nvCustomer.id,customerRef:nvCustomer.customerRef,costCenterCode:'TEST-NVOCC-NL',jobType:'NVOCC_FCL',producingAgentId:agent.id,salesOwner:'TEST NVOCC SALES',operator:'TEST NVOCC OPS',bookingType:'FCL',transportMode:'SEA',serviceType:'PORT_TO_PORT',bookingDate:this.d(-3),customerReference:'TEST-NVOCC-CUST-REF',shipperReference:'TEST-NVOCC-SHIPPER-REF',carrierBookingNo:'TEST-NVOCC-CARRIER-BKG-001',houseBL:'ANC-TEST-NVOCC-HBL-001',masterBL:'TEST-NVOCC-MBL-001',shipper:'TEST NVOCC HOUSE SHIPPER',consignee:'TEST NVOCC HOUSE CONSIGNEE',notifyParty:'TEST NVOCC NOTIFY',origin:'SGSIN',destination:'NLRTM',placeOfReceipt:'SGSIN',portOfLoading:'SGSIN',portOfDischarge:'NLRTM',placeOfDelivery:'NLRTM',terminal:'TEST PSA TERMINAL',polAgent:'TEST Liner Agent Singapore',podAgent:'TEST ANC Netherlands',etd:this.d(6,20),eta:this.d(31,8),cyClosing:this.d(4,12),siCutoff:this.d(4,8),vgmCutoff:this.d(5,8),docCutoff:this.d(4,10),portCutoff:this.d(5,14),carrier:carrierRows[0].name,vesselVoyage:'TEST NVOCC VESSEL / N001',equipment:'40HC',quantity:1,containerOwner:'CARRIER',throughBL:'NO',commodity:'Consumer goods',packageCount:920,packageType:'CARTONS',grossWeight:22400,netWeight:21600,volumeCbm:64.5,marksNumbers:'TEST NVOCC MARKS',hsCode:'851762',cargoDescription:'SYNTHETIC TEST NVOCC CARGO',incoterm:'FOB',freightTerms:'PREPAID',currency:'USD',status:'OPERATIONAL',creditStatus:'Passed',slotStatus:'ALLOCATED',equipmentStatus:'RELEASED',notes:'SYNTHETIC TEST NVOCC BOOKING — NVOCC PORTAL ONLY'}
     });
 
+    // NVOCC job 50005 must be a complete transactional test job, not only a header.
+    await this.db.bookingLeg.deleteMany({where:{bookingId:nv.id}});
+    await this.db.bookingLeg.create({data:{
+      bookingId:nv.id,sequence:1,legType:'MAIN',mode:'SEA',origin:'SGSIN',destination:'NLRTM',
+      carrier:carrierRows[0].name,vessel:'TEST NVOCC VESSEL',voyage:'N001',terminal:'TEST PSA TERMINAL',
+      etd:this.d(6,20),eta:this.d(31,8),status:'CONFIRMED',remarks:'SYNTHETIC TEST NVOCC ROUTING'
+    }});
+
+    await this.db.shipmentMilestone.deleteMany({where:{bookingId:nv.id}});
+    await this.db.shipmentMilestone.createMany({data:[
+      {bookingId:nv.id,code:'BOOKED',label:'NVOCC Booking Created',location:'SGSIN',actualAt:this.d(-3),status:'ACTUAL',source:'TEST_DATA',remarks:'Synthetic NVOCC'},
+      {bookingId:nv.id,code:'CY_CLOSING',label:'CY Closing',location:'SGSIN',plannedAt:this.d(4,12),status:'PLANNED',source:'TEST_DATA'},
+      {bookingId:nv.id,code:'VGM_CUTOFF',label:'VGM Cutoff',location:'SGSIN',plannedAt:this.d(5,8),status:'PLANNED',source:'TEST_DATA'},
+      {bookingId:nv.id,code:'DEPARTURE',label:'Planned Departure',location:'SGSIN',plannedAt:this.d(6,20),status:'PLANNED',source:'TEST_DATA'},
+      {bookingId:nv.id,code:'ARRIVAL',label:'Planned Arrival',location:'NLRTM',plannedAt:this.d(31,8),status:'PLANNED',source:'TEST_DATA'}
+    ]});
+
+    await this.db.document.deleteMany({where:{bookingId:nv.id,documentNo:{startsWith:'ANC-TEST-NVOCC-'}}});
+    await this.db.document.createMany({data:[
+      {documentNo:'ANC-TEST-NVOCC-BC-001',bookingId:nv.id,type:'BOOKING_CONFIRMATION',version:1,status:'DRAFT',releaseControl:'HOLD'},
+      {documentNo:'ANC-TEST-NVOCC-SI-001',bookingId:nv.id,type:'SHIPPING_INSTRUCTION',version:1,status:'DRAFT',releaseControl:'HOLD'},
+      {documentNo:'ANC-TEST-NVOCC-HBL-001',bookingId:nv.id,type:'HOUSE_BL',version:1,status:'DRAFT',releaseControl:'HOLD'},
+      {documentNo:'ANC-TEST-NVOCC-MBL-001',bookingId:nv.id,type:'MASTER_BL',version:1,status:'PENDING_REVIEW',releaseControl:'HOLD'}
+    ]});
+
+    await this.db.container.deleteMany({where:{bookingId:nv.id,containerNo:{startsWith:'NVTU'}}});
+    await this.db.container.create({data:{
+      containerNo:'NVTU0000001',bookingId:nv.id,type:'40HC',ownership:'CARRIER',status:'RELEASED',location:'SGSIN',
+      sealNo:'TESTSEAL-NVOCC-1',vgm:22400,grossWeight:22400,pickupDate:this.d(2),
+      emptyDepot:'TEST SINGAPORE DEPOT',fullReturnTerminal:'TEST PSA TERMINAL',equipmentProvider:carrierRows[0].name,
+      allocationRef:'TEST-NVOCC-ALLOC-1',allocationStatus:'ALLOCATED',emptyReleaseOrderNo:'TEST-NVOCC-ERO-1',emptyReleaseValidUntil:this.d(5)
+    }});
+
+    await this.db.financeLine.deleteMany({where:{bookingId:nv.id,source:'TEST_DATA'}});
+    await this.db.financeLine.createMany({data:[
+      {bookingId:nv.id,type:'COST',chargeCode:'OCEAN_FREIGHT',description:'Synthetic NVOCC slot buy',serviceProviderId:carrierRows[0].id,quantity:1,unitRate:1250,amount:1250,currency:'USD',status:'WIP',source:'TEST_DATA',reference:'TEST-NVOCC-BUY',invoiceReady:false},
+      {bookingId:nv.id,type:'REVENUE',chargeCode:'OCEAN_FREIGHT',description:'Synthetic NVOCC agent sell',billingPartyId:nvCustomer.id,quantity:1,unitRate:1540,amount:1540,currency:'USD',status:'WIP',source:'TEST_DATA',reference:'TEST-NVOCC-SELL',invoiceReady:true},
+      {bookingId:nv.id,type:'REVENUE',chargeCode:'DOC_FEE',description:'Synthetic NVOCC documentation fee',billingPartyId:nvCustomer.id,quantity:1,unitRate:85,amount:85,currency:'USD',status:'WIP',source:'TEST_DATA',reference:'TEST-NVOCC-DOC',invoiceReady:true}
+    ]});
+
+    await this.db.task.deleteMany({where:{bookingId:nv.id,title:{startsWith:'TEST '}}});
+    await this.db.task.createMany({data:[
+      {bookingId:nv.id,title:'TEST Confirm NVOCC slot allocation',ownerId:'test.ops@ancline.invalid',dueAt:this.d(1),status:'OPEN',slaState:'ON_TRACK'},
+      {bookingId:nv.id,title:'TEST Validate NVOCC HBL / MBL chain',ownerId:'test.docs@ancline.invalid',dueAt:this.d(3),status:'OPEN',slaState:'ON_TRACK'},
+      {bookingId:nv.id,title:'TEST NVOCC pre-departure readiness',ownerId:'test.agent.sg@ancline.invalid',dueAt:this.d(5),status:'OPEN',slaState:'ON_TRACK'}
+    ]});
+
+    await this.db.approval.deleteMany({where:{bookingId:nv.id,requesterId:'SYSTEM_TEST_DATA'}});
+    await this.db.approval.createMany({data:[
+      {bookingId:nv.id,type:'RATE_APPROVAL',requesterId:'SYSTEM_TEST_DATA',approverId:'TEST NVOCC COMMERCIAL MANAGER',status:'Approved',reason:'Synthetic NVOCC rate approval'},
+      {bookingId:nv.id,type:'DOCUMENT_RELEASE',requesterId:'SYSTEM_TEST_DATA',approverId:'TEST NVOCC DOCUMENT MANAGER',status:'Pending',reason:'Synthetic NVOCC HBL/MBL release test'}
+    ]});
+
+    await this.db.auditEvent.deleteMany({where:{bookingId:nv.id,actorId:'SYSTEM_TEST_DATA'}});
+    await this.db.auditEvent.createMany({data:[
+      {bookingId:nv.id,actorId:'SYSTEM_TEST_DATA',action:'TEST_NVOCC_JOB_SEEDED',objectType:'Booking',objectId:nv.id,detail:{bookingNo:nvBookingNo,testData:true}},
+      {bookingId:nv.id,actorId:'SYSTEM_TEST_DATA',action:'TEST_NVOCC_SLOT_ALLOCATED',objectType:'Booking',objectId:nv.id,detail:{carrier:carrierRows[0].name,voyage:'N001',testData:true}}
+    ]});
+
+    await this.db.jobCloseoutChecklist.deleteMany({where:{bookingId:nv.id}});
+    await this.db.jobCloseoutChecklist.createMany({data:[
+      {bookingId:nv.id,itemCode:'DOCS_COMPLETE',itemLabel:'NVOCC HBL / MBL documents complete',mandatory:true,completed:false},
+      {bookingId:nv.id,itemCode:'COSTS_COMPLETE',itemLabel:'NVOCC carrier / slot costs entered',mandatory:true,completed:false},
+      {bookingId:nv.id,itemCode:'REVENUE_COMPLETE',itemLabel:'NVOCC agent/customer revenue ready',mandatory:true,completed:false},
+      {bookingId:nv.id,itemCode:'POD_COMPLETE',itemLabel:'NVOCC delivery / POD evidence complete',mandatory:true,completed:false}
+    ]});
+
     await this.event('TestSeed','ANCLINE_TEST_SEED','TEST_DATA_SEEDED',{seededAt:this.now().toISOString(),customers:customerRows.map(x=>x.customerRef),carriers:carrierRows.map(x=>x.providerCode),bookings:[...bookingRows.map(x=>x.bookingNo),nvBookingNo],jobRefRule:'EXACTLY_5_DIGITS',warning:'SYNTHETIC TEST DATA ONLY'});
     return this.summary(user);
   }

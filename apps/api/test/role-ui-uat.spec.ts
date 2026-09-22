@@ -59,4 +59,21 @@ describe('Role-by-role UI and managed-session contracts',()=>{
     expect(uat).toContain("expected:2");
   });
 
+  it('seeds the NVOCC 50005 scenario with the same complete artifact chain as forwarding jobs',()=>{
+    const seed=read('../src/modules/test-data/test-data.service.ts');
+    for(const marker of [
+      "bookingId:nv.id,sequence:1,legType:'MAIN'",
+      "shipmentMilestone.createMany",
+      "documentNo:'ANC-TEST-NVOCC-HBL-001'",
+      "containerNo:'NVTU0000001'",
+      "reference:'TEST-NVOCC-BUY'",
+      "title:'TEST Confirm NVOCC slot allocation'",
+      "reason:'Synthetic NVOCC rate approval'",
+      "itemLabel:'NVOCC HBL / MBL documents complete'"
+    ]) expect(seed).toContain(marker);
+    const live=read('../../../tools/live_role_uat_v2.mjs');
+    expect(live).toContain("fetch('/api-proxy/test-data/seed'");
+    expect(live).toContain("report.seed={status:'PASS'");
+  });
+
 });
