@@ -1,0 +1,34 @@
+{
+  "schema": "ANCLINE_GO_LIVE_CANDIDATE_REGISTRY_V1",
+  "frozenAt": "2026-09-22T19:46:27.096Z",
+  "status": "GO_LIVE_BLOCKED",
+  "source": "ANCLINE ECOM Go-Live Final Acceptance",
+  "finalGate": {
+    "runId": "35775915986",
+    "artifactId": "10716680566",
+    "artifactSha256": "89c12dafcab4a02db4fc8209aa1618f300d273e72060bc449a2e9e90dcea3da5",
+    "blockerCount": 26
+  },
+  "candidate": {
+    "web": {
+      "commit": "5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31",
+      "digest": "sha256:ea3ae4c6ea4e3e93a108cd94ab88d6494d139b054308731916c0d2a24313dbed",
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31"
+    },
+    "api": {
+      "commit": "f57462950fe1f8c6420806a25436a4685dc7f54d",
+      "digest": "sha256:c7a55b4cb1347703313899566782b7a745f91843d6396eee2f9ed2a6ba31bc3b",
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d"
+    }
+  },
+  "latestApprovedRelease": {
+    "runId": "35775407059",
+    "uatRunId": "UAT-20260922194456-UKYRJ",
+    "backupSha256": "8da9f0db79a9ad977a77aea926d1e9120f0a08efbb992a7da2046907a58d093c",
+    "offPlatformArtifactSha256": "171e71f21dde7337d834bde8a97cef7efc813310acad7267a091e0827c6ae631"
+  },
+  "authorization": {
+    "productionApproved": false,
+    "note": "Candidate digests are frozen. Production authorization remains blocked until the fail-closed go-live gate returns PASS with zero blockers."
+  }
+}
