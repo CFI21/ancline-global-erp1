@@ -80,8 +80,10 @@ try{
     const row={bookingNo:n,businessModel:booking.businessModel,mutations:[],negatives:[],status:'RUNNING'};
 
     let cbs=ok(await call('/carrier-operations/carrier-bookings',{token:admin.token}),'carrier booking list');
-    const old=(Array.isArray(cbs)?cbs:[]).find(x=>String(x.bookingId)===String(base.id)&&x.status!=='CANCELLED');
-    if(old)ok(await call('/carrier-operations/carrier-bookings/'+old.carrierOperationNo+'/cancel',{token:admin.token,method:'POST',body:{reason:'ECOM mutation UAT baseline reset'}}),n+' cancel baseline carrier control');
+    const activeCarrierControls=(Array.isArray(cbs)?cbs:[]).filter(x=>String(x.bookingId)===String(base.id)&&String(x.status).toUpperCase()!=='CANCELLED');
+    for(const old of activeCarrierControls){
+      ok(await call('/carrier-operations/carrier-bookings/'+old.carrierOperationNo+'/cancel',{token:admin.token,method:'POST',body:{reason:'ECOM mutation UAT baseline reset'}}),n+' cancel baseline carrier control '+old.carrierOperationNo);
+    }
     booking=ok(await call('/bookings/'+base.id,{token:admin.token}),n+' post-reset booking');
     const sched=(Array.isArray(schedules)?schedules:[]).find(x=>String(x.portOfLoading)===String(booking.portOfLoading)&&String(x.portOfDischarge)===String(booking.portOfDischarge)&&String(x.carrier)===String(booking.carrier))
       ||(Array.isArray(schedules)?schedules:[]).find(x=>String(x.portOfLoading)===String(booking.portOfLoading)&&String(x.portOfDischarge)===String(booking.portOfDischarge));
