@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-22T21:13:34.127602+00:00",
+  "updatedAt": "2026-09-22T21:15:18.608418+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
@@ -17,6 +17,15 @@
     }
   },
   "history": [
+    {
+      "runId": "35785392608",
+      "approvedAt": "2026-09-22T21:15:18.608418+00:00",
+      "commit": "354d7176a733095b2354a42b036430d50052ca2b",
+      "components": [],
+      "uatRunId": "UAT-20260922202158-P5M9D",
+      "backupSha256": "6b901618b225680e0ad5e3c6a18c478b2993eb8c0855b767421de20156642fab",
+      "offPlatformArtifactSha256": "a552fb052b869af6674adaba5aa3ced618167c8c388f45ce34905501b187ebbc"
+    },
     {
       "runId": "35785174423",
       "approvedAt": "2026-09-22T21:13:34.127602+00:00",
@@ -487,18 +496,6 @@
       "uatRunId": "UAT-20260922140418-DRCDN",
       "backupSha256": "ed55205eef0819ab7bdaf3e7eaedb0ac95a9d213667bcd2a9082cedf7c9897e6",
       "offPlatformArtifactSha256": "82394a1523a850221b362a2cca2b804c0d0a6587760449f43562fdf711742852"
-    },
-    {
-      "runId": "35736544632",
-      "approvedAt": "2026-09-22T13:58:34.535277+00:00",
-      "commit": "85cdfcf75aaf8729722474174a5b5a9ed8f57fbf",
-      "components": [
-        "web",
-        "api"
-      ],
-      "uatRunId": "UAT-20260922135752-84D84",
-      "backupSha256": "6861ef3738d4ecd5beaf065abd7e635fee43caf7a1e2b8f7ca84c27e15bc6a62",
-      "offPlatformArtifactSha256": "3c67e386c946024f0a148c79c9558e61604d73919ceb785cc2790991ab0e3bd9"
     }
   ]
 }
