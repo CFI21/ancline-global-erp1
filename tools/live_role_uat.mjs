@@ -25,12 +25,22 @@ async function api(page,path,init={}){
 }
 async function login(page,{email,role}){
   await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded'});
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Role').selectOption(role);
-  await page.waitForTimeout(500);
-  await page.getByRole('button',{name:'Sign in',exact:true}).evaluate(el=>el.click());
-  await page.waitForFunction(()=>location.pathname!='/login',{timeout:30000});
-  const user=await page.evaluate(()=>JSON.parse(localStorage.getItem('ancline_user')||'{}'));
+  const result=await page.evaluate(async ({email,role})=>{
+    const r=await fetch('/api-proxy/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,role})
+    });
+    let body; try{body=await r.json();}catch{body=await r.text();}
+    if(!r.ok||!body?.accessToken)return {status:r.status,body};
+    localStorage.setItem('ancline_token',body.accessToken);
+    localStorage.setItem('ancline_user',JSON.stringify(body.user));
+    return {status:r.status,user:body.user};
+  },{email,role});
+  assert(result.status===200&&result.user,`${email}: live auth failed HTTP ${result.status} ${JSON.stringify(result.body||{})}`);
+  const user=result.user;
+  const target=['CUSTOMER','SHIPPER','CONSIGNEE'].includes(user.role)?'/customer-portal':user.role==='AGENT'?'/agent-portal':user.role==='BRANCH_OPS'?'/nvocc-portal':'/';
+  await page.goto(WEB_URL+target,{waitUntil:'domcontentloaded'});
   return user;
 }
 const browser=await chromium.launch({headless:true});
