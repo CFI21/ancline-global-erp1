@@ -48,21 +48,15 @@ jobs:
           [[ "$code" == "200" ]] || { echo "::error::Render env read failed HTTP $code"; exit 1; }
 
           db="$(jq -r '.[] | select(.envVar.key=="DATABASE_URL") | .envVar.value // empty' /tmp/env.json)"
-          redis="$(jq -r '.[] | select(.envVar.key=="REDIS_URL") | .envVar.value // empty' /tmp/env.json)"
           [[ -n "$db" ]] || { echo "::error::DATABASE_URL missing"; exit 1; }
-          [[ -n "$redis" ]] || { echo "::error::REDIS_URL missing"; exit 1; }
 
           echo "::add-mask::$db"
-          echo "::add-mask::$redis"
           {
             echo "DATABASE_URL<<EOF"
             echo "$db"
             echo "EOF"
-            echo "REDIS_URL<<EOF"
-            echo "$redis"
-            echo "EOF"
           } >> "$GITHUB_ENV"
-          echo "Existing single-stack DB/Redis credentials resolved and masked."
+          echo "Existing single-stack database credential resolved and masked; Redis remains resource-managed by Render."
 
       - name: Validate Render resource hardening
         env:
