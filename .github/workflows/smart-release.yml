@@ -93,11 +93,16 @@ jobs:
             echo "${label} structure PASS"
           }
 
+          failures=0
           if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
-            validate_hook "RENDER_WEB_DEPLOY_HOOK" "$WEB_HOOK" "srv-dajbrh3m8hqs73fmdk30"
+            validate_hook "WEB deploy hook" "$WEB_HOOK" "srv-dajbrh3m8hqs73fmdk30" || failures=$((failures+1))
           fi
           if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-            validate_hook "RENDER_API_DEPLOY_HOOK" "$API_HOOK" "srv-daisqstg1s2s738kklb0"
+            validate_hook "API deploy hook" "$API_HOOK" "srv-daisqstg1s2s738kklb0" || failures=$((failures+1))
+          fi
+          if (( failures > 0 )); then
+            echo "::error::Render deploy-hook preflight failed for ${failures} hook(s). No image promotion was attempted."
+            exit 1
           fi
           echo "Render deploy-hook preflight PASS"
 
