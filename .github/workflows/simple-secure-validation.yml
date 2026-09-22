@@ -36,7 +36,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
 
-      - name: Resolve existing Render runtime secrets safely
+      - name: Resolve existing Render database connection safely
         id: env
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -44,19 +44,18 @@ jobs:
         run: |
           set -euo pipefail
           : "${RENDER_API_KEY:?RENDER_API_KEY required}"
-          code="$(curl -sS -o /tmp/env.json -w '%{http_code}'             -H "Accept: application/json"             -H "Authorization: Bearer $RENDER_API_KEY"             "https://api.render.com/v1/services/$API_SERVICE_ID/env-vars")"
-          [[ "$code" == "200" ]] || { echo "::error::Render env read failed HTTP $code"; exit 1; }
+          code="$(curl -sS -o /tmp/pg-conn.json -w '%{http_code}'             -H "Accept: application/json"             -H "Authorization: Bearer $RENDER_API_KEY"             "https://api.render.com/v1/postgres/$POSTGRES_ID/connection-info")"
+          [[ "$code" == "200" ]] || { echo "::error::Render Postgres connection-info failed HTTP $code"; exit 1; }
 
-          db="$(jq -r '.[] | select(.envVar.key=="DATABASE_URL") | .envVar.value // empty' /tmp/env.json)"
-          [[ -n "$db" ]] || { echo "::error::DATABASE_URL missing"; exit 1; }
-
+          db="$(jq -r '.externalConnectionString // .connectionInfo.externalConnectionString // empty' /tmp/pg-conn.json)"
+          [[ -n "$db" ]] || { echo "::error::External Postgres connection string missing"; exit 1; }
           echo "::add-mask::$db"
           {
             echo "DATABASE_URL<<EOF"
             echo "$db"
             echo "EOF"
           } >> "$GITHUB_ENV"
-          echo "Existing single-stack database credential resolved and masked; Redis remains resource-managed by Render."
+          echo "Existing Render Postgres external drill connection resolved and masked; application private connection unchanged."
 
       - name: Validate Render resource hardening
         env:
