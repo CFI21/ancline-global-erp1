@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_PRODUCTION_ENABLEMENT_STATUS_V1",
-  "updatedAt": "2026-09-22T19:57:00Z",
+  "updatedAt": "2026-09-22T20:00:00Z",
   "productionResources": {
     "web": {
       "serviceId": "srv-dapdotijnfac73840em0",
@@ -15,12 +15,19 @@
       "status": "PROVISIONED_BLOCKED_NO_PROD_DATABASE"
     },
     "postgres": {
-      "status": "BLOCKED_FREE_TIER_LIMIT",
-      "required": "Dedicated production Postgres; do not reuse staging database."
+      "status": "BLOCKED_RENDER_BILLING",
+      "requestedPlan": "basic_256mb",
+      "region": "frankfurt",
+      "version": 16,
+      "diskSizeGb": 1,
+      "reason": "Render returned HTTP 402: payment information is required before creating a paid Postgres instance.",
+      "actionRequired": "Add valid payment information in the Render workspace billing settings, then rerun production infrastructure enablement."
     },
     "redis": {
-      "status": "BLOCKED_FREE_TIER_LIMIT",
-      "required": "Dedicated production Redis/Key Value; do not reuse staging Redis."
+      "status": "PENDING_AFTER_BILLING",
+      "requestedPlan": "256mb",
+      "region": "frankfurt",
+      "reason": "Creation intentionally not attempted after paid Postgres was blocked by missing Render billing information."
     }
   },
   "configuredNonSecretControls": {
@@ -74,5 +81,11 @@
     "Never create synthetic legal office/master data as if real.",
     "Never mark security/change approval PASS without actual evidence.",
     "Final go-live gate must return PASS with zero blockers."
-  ]
+  ],
+  "lastProductionInfraAuthorization": {
+    "authorized": true,
+    "result": "BLOCKED_BEFORE_CHARGE",
+    "charged": false,
+    "blocker": "RENDER_PAYMENT_INFORMATION_REQUIRED"
+  }
 }
