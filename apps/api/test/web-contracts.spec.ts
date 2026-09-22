@@ -72,4 +72,12 @@ describe('Web navigation and API contract wiring',()=>{
     }
   });
 
+  it('keeps the Web CSP compatible with Next.js production hydration without enabling eval',()=>{
+    const middleware=read('../../web/middleware.ts');
+    expect(middleware).toContain("script-src 'self' 'unsafe-inline'");
+    expect(middleware).not.toContain("'unsafe-eval'");
+    expect(middleware).toContain("object-src 'none'");
+    expect(middleware).toContain("frame-ancestors 'none'");
+  });
+
 });
