@@ -44,3 +44,5 @@ jobs:
         run: node tools/live_transaction_mutation_uat.mjs
 
 # simple-secure-final-hardening-trigger: 2026-09-22T20:25Z
+
+# final-business-acceptance-trigger: 2026-09-22T20:34Z
