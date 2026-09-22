@@ -20,7 +20,7 @@
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .card{background:#fff;border:1px solid #dce4eb;border-radius:10px;padding:14px}
 .kpi{font-size:26px;font-weight:800}
-.sub{color:#6d7e8d;font-size:12px}
+.sub{color:#536778;font-size:12px}
 .table{width:100%;border-collapse:collapse;background:#fff}
 .table th,.table td{padding:9px;border-bottom:1px solid #e5ebf0;text-align:left;font-size:13px}
 .status{font-size:11px;padding:4px 7px;border-radius:10px;background:#eaf4fb}
