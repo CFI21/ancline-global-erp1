@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle} from '../../components/WorkspaceShell';
 import {api,fmtDate,requireToken} from '../../lib/api';
+import ExternalCommunicationAdmin from '../../components/ExternalCommunicationAdmin';
 
 type Item={
   id:string;source:string;kind:string;severity:string;category:string;title:string;message:string;
@@ -130,5 +131,6 @@ export default function NotificationsPage(){
         {!visible.length&&<div>No communication items match the selected filter.</div>}
       </div>
     </div>
+    <ExternalCommunicationAdmin />
   </WorkspaceShell>;
 }
