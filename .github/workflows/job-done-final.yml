@@ -1,13 +1,10 @@
 name: ANCLINE Job Done Final Acceptance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/job_done_final_business_day.mjs'
-      - 'tools/live_ui_final_acceptance.mjs'
-      - '.github/workflows/job-done-final.yml'
   workflow_dispatch:
+
+# Single-System Live Review Mode: manual-only.
+# smart-release.yml is the only automatic staging build/deploy/regression owner.
 
 permissions:
   contents: read
