@@ -9,8 +9,10 @@ const assert=(x,m)=>{if(!x)throw new Error(m)};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function establish(page,email,requestedRole){
-  await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
-  const auth=await page.evaluate(async ({email,requestedRole})=>{
+  let auth=null;
+  for(let attempt=1;attempt<=4;attempt++){
+    await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
+    auth=await page.evaluate(async ({email,requestedRole})=>{
     const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role:requestedRole})});
     const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
     if(r.ok&&body?.accessToken){
@@ -18,9 +20,11 @@ async function establish(page,email,requestedRole){
       localStorage.setItem('ancline_user',JSON.stringify(body.user));
     }
     return {ok:r.ok,status:r.status,user:body?.user||null,body:body?.accessToken?{...body,accessToken:'[redacted]'}:body};
-  },{email,requestedRole});
-  assert(auth.ok&&auth.user, email+': auth failed '+auth.status+' '+JSON.stringify(auth.body));
-  return auth.user;
+    },{email,requestedRole}).catch(error=>({ok:false,status:0,user:null,body:{networkError:String(error)}}));
+    if(auth.ok&&auth.user) return auth.user;
+    if(attempt<4) await sleep(1500*attempt);
+  }
+  assert(auth&&auth.ok&&auth.user, email+': auth failed '+(auth?.status??0)+' '+JSON.stringify(auth?.body));
 }
 async function api(page,path,init={}){
   return page.evaluate(async ({path,init})=>{
