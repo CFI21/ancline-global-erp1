@@ -1,12 +1,10 @@
 name: ANCLINE ECOM Transaction Mutation UAT
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/api/src/modules/test-data/test-data.service.ts'
-      - 'tools/live_transaction_mutation_uat.mjs'
-      - '.github/workflows/live-transaction-mutation-uat.yml'
   workflow_dispatch:
+
+# Single-System Live Review Mode: manual-only.
+# smart-release.yml is the only automatic staging build/deploy/regression owner.
+
 permissions:
   contents: read
 jobs:
