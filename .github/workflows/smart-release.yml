@@ -266,11 +266,13 @@ jobs:
               freeze_commit="$(jq -r '.web.commit // empty' infra/go-live/ui-final-freeze.json)"
               freeze_digest="$(jq -r '.web.imageDigest // empty' infra/go-live/ui-final-freeze.json)"
               freeze_image="$(jq -r '.web.image // empty' infra/go-live/ui-final-freeze.json)"
-              if [[ -n "$freeze_commit" && -n "$freeze_digest" && -n "$freeze_image" ]]; then
+              if [[ -n "$freeze_commit" && -n "$freeze_digest" && -n "$freeze_image" && "$reg_web_commit" == "$freeze_commit" ]]; then
                 expected_web_commit="$freeze_commit"
                 web_digest="$freeze_digest"
                 web_image="$freeze_image"
                 echo "Using FROZEN_PASS Web baseline $expected_web_commit"
+              elif [[ -n "$freeze_commit" && "$reg_web_commit" != "$freeze_commit" ]]; then
+                echo "Approved registry supersedes legacy FROZEN_PASS Web baseline: registry=$reg_web_commit freeze=$freeze_commit"
               fi
             fi
 
@@ -915,7 +917,7 @@ jobs:
               "triggered":drill,
               "passed":drill_passed
             },
-            "approved":(not drill) and remote=="success" and finalize=="success",
+            "approved":((os.getenv("WEB_CHANGED")!="true" and os.getenv("API_CHANGED")!="true" and os.getenv("QUALITY_RESULT")=="success") or ((not drill) and remote=="success" and finalize=="success")),
             "rollbackRequired":(remote=="failure" or drill) and (os.getenv("WEB_CHANGED")=="true" or os.getenv("API_CHANGED")=="true"),
             "boundary":"Free staging release evidence; not final production authorization."
           }
@@ -929,6 +931,8 @@ jobs:
           retention-days: 90
       - name: Enforce release or rollback-drill outcome
         env:
+          WEB_CHANGED: ${{ needs.changes.outputs.web }}
+          API_CHANGED: ${{ needs.changes.outputs.api }}
           DRILL_TRIGGERED: ${{ needs.remote-gate.outputs.drill_triggered }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           PROMOTION_RESULT: ${{ needs.promote.result }}
@@ -938,6 +942,16 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$QUALITY_RESULT" == "success" ]] || exit 1
+
+          if [[ "$WEB_CHANGED" != "true" && "$API_CHANGED" != "true" ]]; then
+            [[ "$PROMOTION_RESULT" == "skipped" ]] || exit 1
+            [[ "$REMOTE_GATE_RESULT" == "skipped" ]] || exit 1
+            [[ "$FINALIZE_RESULT" == "skipped" ]] || exit 1
+            echo "No runtime component changed; deployment/finalize gates correctly skipped."
+            echo "No-runtime Smart Release control PASS"
+            exit 0
+          fi
+
           [[ "$PROMOTION_RESULT" == "success" ]] || exit 1
 
           if [[ "$DRILL_TRIGGERED" == "true" ]]; then

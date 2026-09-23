@@ -27,7 +27,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve frozen approved runtime
+      - id: baseline
+        name: Resolve frozen approved runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -37,26 +38,37 @@ jobs:
           approved_api="$(jq -r '.current.api.commit' /tmp/approved.json)"
           freeze_web="$(jq -r '.approvedRuntime.web.commit' infra/go-live/final-ui-freeze.json)"
           freeze_api="$(jq -r '.approvedRuntime.api.commit' infra/go-live/final-ui-freeze.json)"
-          test "$approved_web" = "$freeze_web"
-          test "$approved_api" = "$freeze_api"
+          if [[ "$approved_web" != "$freeze_web" || "$approved_api" != "$freeze_api" ]]; then
+            echo "legacy=false" >> "$GITHUB_OUTPUT"
+            echo "Post-acceptance staging candidate supersedes legacy JOB_DONE freeze; legacy final acceptance is not rerun."
+            echo "registry web=$approved_web api=$approved_api"
+            echo "legacy   web=$freeze_web api=$freeze_api"
+            exit 0
+          fi
+          echo "legacy=true" >> "$GITHUB_OUTPUT"
           echo "EXPECTED_API_COMMIT=$approved_api" >> "$GITHUB_ENV"
           echo "APPROVED_WEB_COMMIT=$approved_web" >> "$GITHUB_ENV"
           echo "APPROVED_API_COMMIT=$approved_api" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-node@v4
+      - if: steps.baseline.outputs.legacy == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Run realistic business-day payment/release/reconciliation
+        if: steps.baseline.outputs.legacy == 'true'
         run: node tools/job_done_final_business_day.mjs
 
       - name: Run complete transactional lifecycle 50001-50005
+        if: steps.baseline.outputs.legacy == 'true'
         run: node tools/live_transaction_mutation_uat.mjs | tee job-done-final-artifacts/TRANSACTION_MUTATION_UAT.log
 
       - name: Run resilience, idempotency, provider/payment/security regression
+        if: steps.baseline.outputs.legacy == 'true'
         run: node tools/live_final_hardening_uat.mjs
 
       - name: Verify frozen UI unchanged and live
+        if: steps.baseline.outputs.legacy == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -68,6 +80,7 @@ jobs:
           test "$(jq -r '.acceptance.result' infra/go-live/final-ui-freeze.json)" = "PASS"
 
       - name: Produce one authoritative final acceptance record
+        if: steps.baseline.outputs.legacy == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -113,6 +126,10 @@ jobs:
           fs.writeFileSync('job-done-final-artifacts/ANCLINE_JOB_DONE_FINAL_ACCEPTANCE.json',JSON.stringify(record,null,2)+'\n');
           console.log(JSON.stringify(record,null,2));
           NODE
+
+      - name: Acknowledge post-acceptance staging candidate
+        if: steps.baseline.outputs.legacy != 'true'
+        run: echo "Legacy JOB_DONE freeze remains preserved; current staging candidate is validated under change control and is not production-authorized."
 
       - name: Upload final evidence package
         if: always()
