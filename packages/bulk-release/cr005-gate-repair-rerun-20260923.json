@@ -1,12 +1,15 @@
 {
   "schema": "ANCLINE_CR005_GATE_REPAIR_RERUN_TRIGGER_V1",
   "changeRequest": "CR-20260923-005",
-  "requestedAt": "2026-09-23T22:12:00+02:00",
+  "requestedAt": "2026-09-23T22:31:00+02:00",
   "mode": "SHARED_STAGING_REVALIDATION",
   "purpose": "Force Web+API hardened staging rebuild and full regression after release-control metadata repair only.",
   "frozenBaseline": "CR-20260923-006",
   "approvedRegistryRuntime": "bc37709e9b888410136213bee477630c3956b78d",
   "businessLogicChanged": false,
   "uiChanged": false,
-  "productionPromotionAuthorized": false
+  "productionPromotionAuthorized": false,
+  "attempt": 2,
+  "repairedMetadataCommit": "ac1d1d256ea3fc95200cd6abb5a2f10ae89a67f0",
+  "note": "Retry after aligning CR-005 baselineWebCommit/baselineApiCommit with the current approved CR-006 release registry. No business/UI change."
 }
