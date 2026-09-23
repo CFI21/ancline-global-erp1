@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-004",
-  "status": "BUILD_APPROVED",
+  "status": "APPROVED",
   "title": "Operations SLA Automation + Escalation Notifications",
   "businessRequirement": "Connect the staging-accepted Operations Action Queue/SLA controls to ANCLINE's existing workflow-automation and notification engine so operational tasks can generate deterministic at-risk/overdue escalation events, in-app notifications and controlled escalation tasks without changing booking, finance, payment, document or release lifecycle rules.",
   "objective": "Move from manually visible SLA state to governed proactive operational follow-up using the existing WorkflowAutomationService, NotificationRule, EscalationTimer, Task, AuditEvent and IntegrationEvent structures.",
@@ -115,10 +115,12 @@
     "Full SHARED regression plus targeted SLA automation/notification E2E must pass before staging deployment can be approved."
   ],
   "buildAllowed": true,
-  "deploymentAllowed": false,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
-  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
-  "notes": "BUILD ONLY APPROVED. Implement Operations SLA Automation + Escalation Notifications using existing workflow-automation, Task, Audit and IntegrationEvent structures. Preserve CR-001/CR-002/CR-003, frozen UI/workflows, role/privacy/finance/release controls. No database migration. No staging deployment. No production promotion.",
+  "approvalRequired": "Production promotion remains prohibited; a separate explicit user approval is required after staging acceptance.",
+  "notes": "STAGING-ONLY APPROVED. Merge PR #8, deploy staging candidate, run full SHARED regression plus dedicated SLA automation/escalation E2E, and auto-rollback on failure. Preserve CR-001/CR-002/CR-003, frozen UI/workflows, role/privacy/finance/release controls. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T15:35:00+02:00",
-  "approvedBy": "User command: CR-20260923-004 approve business requirement + build only"
+  "approvedBy": "User command: CR-20260923-004 approve business requirement + build only",
+  "stagingApprovedAt": "2026-09-23T15:55:00+02:00",
+  "stagingApprovedBy": "User command: CR-20260923-004 approve merge PR #8 + staging-only deployment + full SHARED and SLA automation UAT"
 }
