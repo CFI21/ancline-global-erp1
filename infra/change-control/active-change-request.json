@@ -1,80 +1,91 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260923-005",
-  "status": "STAGING_ACCEPTED_LOCKED",
-  "title": "Unified Operations Notification + Communication Center",
-  "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
-  "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
+  "id": "CR-20260924-007",
+  "status": "BUILD_APPROVED",
+  "title": "External Customer / Agent Communication & Notification Delivery",
+  "businessRequirement": "Deliver approved operational communications to CUSTOMER, SHIPPER, CONSIGNEE and authorized AGENT portal users without exposing internal operations, SLA, control-tower, finance, carrier-confidential or KYC data.",
+  "objective": "Create one governed external communication layer over the frozen CR-005 internal Notification Center and existing portal booking scopes, supporting in-app delivery, provider-ready email delivery state, retry/resend, templates, preferences, acknowledgements and audit history.",
   "baselineDependency": {
-    "changeRequest": "CR-20260923-006",
+    "changeRequest": "CR-20260923-005",
     "requiredState": "STAGING_ACCEPTED_LOCKED",
-    "currentState": "PRESERVED_ROOT_BASELINE",
-    "acceptedRuntimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
-    "repositoryBaselineCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+    "currentState": "STAGING_ACCEPTED_LOCKED",
+    "acceptedRuntimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
     "gate": "SATISFIED",
-    "latestApprovedDerivedRuntimeCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a"
+    "preservedRootBaseline": {
+      "changeRequest": "CR-20260923-006",
+      "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d"
+    }
   },
-  "repositoryPlanningBaseCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+  "repositoryPlanningBaseCommit": "7171d852ab17fa7c45af6bc1c4a7dc62447c1a1b",
   "preservedChangeRequests": [
-    "CR-20260923-001 — Operations Control + Exception Dashboard — preserved by CR-006",
-    "CR-20260923-002 — ECOM resilience hardening — preserved by CR-006",
-    "CR-20260923-003 — Operations Action Queue + SLA Escalation — preserved by CR-006",
-    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — preserved by CR-006",
-    "CR-20260923-006 — Latest State Reconciliation + Final Staging Freeze — STAGING_ACCEPTED_LOCKED"
-  ],
-  "impactedModules": [
-    "apps/web/app/notifications",
-    "apps/web/app/exceptions",
-    "apps/api/src/modules/operations notification APIs",
-    "apps/api/src/modules/workflow-automation",
-    "existing Notification records",
-    "existing AutomationNotification / EscalationTimer IntegrationEvent records",
-    "existing Task / AuditEvent / failed IntegrationEvent data",
-    "existing user/role governance event data for notification preferences",
-    "tools/live_ui_final_acceptance.mjs",
-    "tools/live_role_uat_v2.mjs",
-    "tools/live_transaction_mutation_uat.mjs"
+    "CR-20260923-001",
+    "CR-20260923-002",
+    "CR-20260923-003",
+    "CR-20260923-004",
+    "CR-20260923-005",
+    "CR-20260923-006"
   ],
   "components": [
     "shared"
   ],
   "scope": {
-    "web": "REQUIRED — evolve the existing Operational Risk Center into a unified internal notification/communication workspace while preserving WorkspaceShell, compact table/card conventions and existing navigation.",
-    "api": "REQUIRED — provide a scoped aggregated notification feed and governed acknowledge/read/resolve/preference endpoints over existing Notification, Task, Audit and automation event data.",
-    "shared": "REQUIRED — feed semantics, source links, acknowledgement state, role visibility and preferences must remain consistent between API and UI.",
-    "databaseMigration": "NOT_PLANNED — preference state should use existing governance/IntegrationEvent-backed data unless implementation proves an existing durable field is already available.",
-    "lifecycleImpact": "NONE — no automatic booking/document/payment/release state changes."
-  },
-  "proposedBehavior": {
-    "sources": [
-      "Operational Risk Center notifications",
-      "CR-003 Action Queue claim/assign/reassign/acknowledge/complete events",
-      "CR-004 SLA LEVEL_1 / LEVEL_2 / LEVEL_3 automation notifications",
-      "failed/retry-pending integration events",
-      "document gaps and release blocks",
-      "payment/release security blocks",
-      "late milestone and reconciliation exceptions"
+    "web": [
+      "Customer/shipper/consignee portal Communication Center embedded into existing customer portal",
+      "Agent Portal external communications panel",
+      "Internal external-message composer/history entry point without redesigning frozen navigation"
     ],
-    "communicationCenter": [
-      "Single prioritized feed with source, severity, booking/job, owner, branch, timestamp and direct action link",
-      "UNREAD / READ / ACKNOWLEDGED / RESOLVED presentation without mutating the underlying transactional source",
-      "Bulk mark-read and scoped acknowledgement actions",
-      "Resolution reflected automatically when the underlying source clears where existing source supports auto-resolution",
-      "Direct links to Job, Documents, Payment, Tracking, Integration or Action Queue remediation surface",
-      "Conversation-style history derived from AuditEvent and automation/assignment events; no free-form external messaging in this CR"
+    "api": [
+      "Portal communication feed/read/acknowledge/preferences endpoints",
+      "Internal publish/resend/history endpoints",
+      "Template rendering and external visibility policy",
+      "In-app delivery plus provider-ready email delivery state/retry",
+      "Audit and deterministic idempotency"
     ],
-    "preferences": [
-      "Per-user severity/category/channel preferences for internal in-app notifications",
-      "Role-default notification preferences for GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE",
-      "Preferences may suppress presentation/delivery of optional internal notifications but must never suppress mandatory CRITICAL/LEVEL_3 control-tower safety alerts",
-      "Preferences must not broaden booking/branch/customer data visibility"
-    ],
-    "privacy": [
-      "GLOBAL_ADMIN and CONTROL_TOWER may view global internal alerts consistent with existing scopes",
-      "BRANCH_OPS remains branch scoped",
-      "FINANCE receives only finance/release-relevant operational notifications unless existing role scope grants more",
-      "CUSTOMER, SHIPPER, CONSIGNEE and AGENT remain denied from internal operational communication-center data unless a separate external-notification CR is approved"
+    "shared": [
+      "Strict booking/party/role visibility boundaries",
+      "No internal CR-005 payload pass-through",
+      "No database migration"
     ]
+  },
+  "privacyMatrix": {
+    "CUSTOMER": "Only communications for bookings inside customerId scope.",
+    "SHIPPER": "Only communications for bookings inside partyId shipper scope.",
+    "CONSIGNEE": "Only communications for bookings inside partyId consignee scope.",
+    "AGENT": "Only communications for agent-scoped bookings; forwarding messages require existing FORWARDING_DIRECT_COLOAD_CROSS_TRADE permission where applicable.",
+    "GLOBAL_ADMIN": "May compose approved external communications for any scoped booking.",
+    "CONTROL_TOWER": "May compose approved operational external communications; no finance-confidential payload.",
+    "BRANCH_OPS": "May compose only for branch-scoped bookings.",
+    "FINANCE": "May compose only approved PAYMENT_REQUEST / RELEASE_REQUEST / INVOICE_NOTICE categories; external message contains sanitized customer-safe fields only."
+  },
+  "allowedExternalCategories": [
+    "BOOKING_CONFIRMATION",
+    "DOCUMENT_REQUEST",
+    "SCHEDULE_CHANGE",
+    "CUT_OFF_CHANGE",
+    "MILESTONE_UPDATE",
+    "APPROVED_DELAY_NOTICE",
+    "APPROVED_EXCEPTION_NOTICE",
+    "PAYMENT_REQUEST",
+    "DOCUMENT_RELEASE_REQUEST",
+    "RELEASE_NOTICE"
+  ],
+  "prohibitedExternalContent": [
+    "Internal notes",
+    "SLA escalation metadata",
+    "CONTROL_TOWER routing",
+    "internal finance/cost/margin data",
+    "carrier buy rates/credentials",
+    "provider failure stack traces",
+    "KYC/beneficial-owner data",
+    "internal user assignment/audit details"
+  ],
+  "delivery": {
+    "channels": [
+      "IN_APP",
+      "EMAIL"
+    ],
+    "emailPolicy": "If no approved provider endpoint is configured, record PENDING_CONFIGURATION and never mark SENT.",
+    "resendRetry": "Explicit internal retry/resend creates deterministic delivery-attempt evidence; duplicate idempotency keys do not duplicate logical messages."
   },
   "regressionScopes": [
     "WEB_BUILD",
@@ -83,170 +94,28 @@
     "RESPONSIVE_FAILURE_ACCESSIBILITY",
     "TRANSACTION_LIFECYCLE",
     "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-    "OPERATIONS_ACTION_QUEUE_E2E",
-    "SLA_AUTOMATION_NOTIFICATION_E2E",
     "UNIFIED_NOTIFICATION_CENTER_E2E",
-    "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+    "EXTERNAL_COMMUNICATION_API_E2E",
+    "EXTERNAL_COMMUNICATION_BROWSER_E2E",
+    "EXTERNAL_PRIVACY_NEGATIVE_E2E"
   ],
-  "regressionPlan": {
-    "rule": "Planning only. After CR-004 staging acceptance and explicit CR-005 build approval, classify as SHARED and require full Web/API regression plus Action Queue, SLA Automation, unified notification-center, preference-scope and direct-remediation-link E2E before staging approval.",
-    "web": [
-      "WEB_BUILD",
-      "ROLE_BROWSER_UAT",
-      "RESPONSIVE_FAILURE_ACCESSIBILITY",
-      "UNIFIED_NOTIFICATION_CENTER_E2E",
-      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
-    ],
-    "api": [
-      "API_TEST_BUILD",
-      "TRANSACTION_LIFECYCLE",
-      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-      "OPERATIONS_ACTION_QUEUE_E2E",
-      "SLA_AUTOMATION_NOTIFICATION_E2E",
-      "UNIFIED_NOTIFICATION_CENTER_E2E",
-      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
-    ],
-    "shared": [
-      "WEB_BUILD",
-      "API_TEST_BUILD",
-      "ROLE_BROWSER_UAT",
-      "RESPONSIVE_FAILURE_ACCESSIBILITY",
-      "TRANSACTION_LIFECYCLE",
-      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-      "OPERATIONS_ACTION_QUEUE_E2E",
-      "SLA_AUTOMATION_NOTIFICATION_E2E",
-      "UNIFIED_NOTIFICATION_CENTER_E2E",
-      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
-    ]
-  },
   "acceptanceCriteria": [
-    "CR-001 Operations Control and CR-003 Action Queue behavior remain unchanged.",
-    "CR-004 SLA Level-1/2/3 escalation semantics and idempotency remain unchanged.",
-    "One internal feed consolidates operational risk, action-queue, SLA automation, failed integration, document/payment/release, milestone and reconciliation notifications without duplicate logical items.",
-    "Read, acknowledge and resolved presentation state is scoped to the authorized user/role and does not alter underlying transactional lifecycle state.",
-    "Direct job/remediation links resolve to the existing approved action surfaces.",
-    "User/role preferences cannot broaden data access and cannot suppress mandatory critical/LEVEL_3 alerts.",
-    "GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE permissions follow current internal scope rules.",
-    "CUSTOMER, SHIPPER, CONSIGNEE and AGENT cannot access internal notification-center content.",
-    "Every acknowledgement/preference change is auditable.",
-    "No database migration unless a later approved implementation review documents why existing governance/event storage is insufficient.",
-    "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
+    "CR-005 internal Notification Center remains internal-only and unchanged in semantics.",
+    "External users see only customer-safe communications for bookings inside existing bookingScope.",
+    "Internal notes, SLA/control-tower metadata, internal finance detail, carrier-confidential data and KYC are never returned by external communication endpoints.",
+    "Messages support read and required acknowledgement without mutating booking/document/payment/release lifecycle state.",
+    "In-app delivery is durable and auditable.",
+    "Email delivery is provider-ready; absent provider configuration remains PENDING_CONFIGURATION rather than false SENT.",
+    "Retry/resend and idempotency do not create duplicate logical messages.",
+    "GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE publish rights follow category and booking scope policy.",
+    "CUSTOMER, SHIPPER, CONSIGNEE and AGENT cannot use internal publish/history administration endpoints.",
+    "Full Web/API/shared regression passes with no database migration."
   ],
-  "buildAllowed": false,
+  "buildAllowed": true,
   "deploymentAllowed": false,
   "promotionAllowed": false,
-  "activationBlocked": true,
-  "approvalRequired": "Any further Web/API/shared runtime change requires a NEW explicitly approved change request. CR-005 is closed and locked. Production promotion remains prohibited.",
-  "notes": "FINAL FREEZE: CR-005 runtime e427e9fed6b219c097852cea98ad55fd411e8769 is the locked current approved staging baseline. CR-006 remains the frozen root baseline and CR-001/002/003/004 remain preserved. Smart Release 35917097673, UAT UAT-20260923204108-FQOY8 and Unified Notification Center E2E 35918495453 are recorded PASS. No further CR-005 runtime change is authorized; a new approved CR is mandatory. NO PRODUCTION PROMOTION.",
-  "approvedAt": "2026-09-23T19:57:00+02:00",
-  "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
-  "reconciledFromPr": 14,
-  "reconciledBranch": "cr-20260923-005-reconciled-on-cr006",
-  "reconciledAt": "2026-09-23T21:50:00+02:00",
-  "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
-  "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline",
-  "baselineWebCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-  "baselineApiCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-  "baselineDecision": "CR-20260923-005_FINAL_FROZEN_STAGING_BASELINE",
-  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
-  "stagingCandidateBaseCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-  "gateRepair": {
-    "reason": "Current Smart Release gate validates against the latest approved staging release registry. Registry advanced after successful CR-005 full acceptance run 35914797225, so follow-up CR-005 revalidation must use 12ad25dc... as the immediate baseline while preserving CR-006 as the frozen root baseline.",
-    "repairedAt": "2026-09-23T22:35:00+02:00",
-    "approvedRegistryWebCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-    "approvedRegistryApiCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-    "scope": "RELEASE_CONTROL_METADATA_ONLY",
-    "businessLogicChanged": false,
-    "uiChanged": false,
-    "productionPromotionAuthorized": false,
-    "jobDoneCompatibilityWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
-    "jobDoneCompatibilityApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
-    "actualStagingDependency": "CR-20260923-006",
-    "preservedRootBaseline": "CR-20260923-006 / bc37709e9b888410136213bee477630c3956b78d"
-  },
   "productionPromotionAuthorized": false,
-  "stagingAcceptance": {
-    "status": "PASS",
-    "acceptedAt": "2026-09-24T00:13:00+02:00",
-    "runtimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-    "smartReleaseRunId": 35917097673,
-    "smartReleaseRunNumber": 239,
-    "uatRunId": "UAT-20260923204108-FQOY8",
-    "targetedE2ERunId": 35918495453,
-    "targetedE2EStatus": "PASS",
-    "webDigest": "sha256:27a9b0c615ca9b527a67894aca99bb2efe45ed1209fe9ce65362e769f4976bda",
-    "apiDigest": "sha256:2056a7d5f567076370dd283fa2824b3d255adf152ef5b20feb9484e67709e86f",
-    "backupSha256": "9238c4bc7c807ff579104d03905dd03347bcf282c2dfa0821d44409869dfcbe2",
-    "offPlatformArtifactSha256": "2cc3e416daa22831dbe575bb53c27f0a65d7cf50f7e000a046b97dec2db92e40",
-    "sharedRegression": "PASS",
-    "transactionLifecycle50001To50005": "PASS",
-    "resilienceSecurity": "PASS",
-    "rolePrivacyBrowserUat": "PASS",
-    "responsiveFailureAccessibility": "PASS",
-    "unifiedCommunicationCenterApiE2E": "PASS",
-    "unifiedCommunicationCenterBrowserE2E": "PASS",
-    "mandatoryCriticalLevel3Protection": "PASS",
-    "acknowledgementIdempotencyAndAudit": "PASS",
-    "directRemediationLinks": "PASS",
-    "externalRoleDenial": "PASS",
-    "autoRollbackTriggered": false,
-    "productionPromotionAuthorized": false
-  },
-  "acceptedRuntimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-  "lockedAt": "2026-09-24T00:13:00+02:00",
-  "revalidationAuthorization": {
-    "command": "ANCLINE CR-20260923-005 GATE REPAIR",
-    "authorizedAt": "2026-09-23T22:36:00+02:00",
-    "scope": "STAGING_FULL_SHARED_REVALIDATION_ONLY",
-    "productionPromotionAuthorized": false,
-    "reopenReason": "Prior staging acceptance locked CR-005; explicit user command authorizes one additional staging revalidation after gate metadata repair.",
-    "consumed": true,
-    "consumedByRuntimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-    "closedAt": "2026-09-24T00:13:00+02:00",
-    "furtherReuseAllowed": false
-  },
-  "lockedBy": "User command: ANCLINE CR-20260923-005 FINAL FREEZE",
-  "finalFreeze": {
-    "status": "FINAL_ACCEPTED_LOCKED",
-    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
-    "frozenAt": "2026-09-24T00:13:00+02:00",
-    "runtimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-    "preservedRootBaseline": {
-      "changeRequest": "CR-20260923-006",
-      "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
-      "repositoryLockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
-      "state": "STAGING_ACCEPTED_LOCKED"
-    },
-    "preservedChangeRequests": [
-      "CR-20260923-001 — Operations Control + Exception Dashboard",
-      "CR-20260923-002 — ECOM resilience hardening",
-      "CR-20260923-003 — Operations Action Queue + SLA Escalation",
-      "CR-20260923-004 — Operations SLA Automation + Escalation Notifications",
-      "CR-20260923-006 — Latest State Reconciliation + Final Staging Freeze — frozen root baseline"
-    ],
-    "evidence": {
-      "smartReleaseRunId": 35917097673,
-      "uatRunId": "UAT-20260923204108-FQOY8",
-      "unifiedNotificationCenterE2ERunId": 35918495453
-    },
-    "web": {
-      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-e427e9fed6b219c097852cea98ad55fd411e8769",
-      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-e427e9fed6b2",
-      "digest": "sha256:27a9b0c615ca9b527a67894aca99bb2efe45ed1209fe9ce65362e769f4976bda"
-    },
-    "api": {
-      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-e427e9fed6b219c097852cea98ad55fd411e8769",
-      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-e427e9fed6b2",
-      "digest": "sha256:2056a7d5f567076370dd283fa2824b3d255adf152ef5b20feb9484e67709e86f"
-    },
-    "backupEvidence": {
-      "backupSha256": "9238c4bc7c807ff579104d03905dd03347bcf282c2dfa0821d44409869dfcbe2",
-      "offPlatformArtifactSha256": "2cc3e416daa22831dbe575bb53c27f0a65d7cf50f7e000a046b97dec2db92e40"
-    },
-    "controls": {
-      "furtherRuntimeChangeWithoutNewApprovedCR": false,
-      "productionPromotionAuthorized": false,
-      "rollbackRequired": false
-    }
-  }
+  "approvedAt": "2026-09-24T00:15:00+02:00",
+  "approvedBy": "User command: ANCLINE BULK DEVELOPMENT MODE — START CR-20260924-007 ... DEFINE + APPROVE + BULK BUILD",
+  "notes": "BULK DEVELOPMENT MODE. Build/test/fix on isolated branch. Preserve CR-005 frozen staging baseline and CR-006 root governance. No production promotion."
 }
