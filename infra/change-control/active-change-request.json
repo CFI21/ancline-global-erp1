@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-003",
-  "status": "DRAFT",
+  "status": "BUILD_APPROVED",
   "title": "Operations Action Queue + SLA Escalation",
   "businessRequirement": "Extend the staging-accepted Operations Control + Exception Dashboard into a governed internal action queue that lets authorized operations users take ownership of existing exceptions, acknowledge work, assign or reassign an owner, set/adjust due dates, complete linked operational tasks, and surface SLA/escalation state using existing approved Task, Approval, Booking, AuditEvent and exception data. Preserve all existing booking, document, finance, payment, release, NVOCC and Forwarding workflow rules.",
   "objective": "Move from exception visibility to controlled operational follow-through without creating a second workflow engine or changing the frozen transactional baseline.",
@@ -101,9 +101,11 @@
     "No database schema migration.",
     "Full SHARED regression and targeted action-queue E2E must pass before any staging deployment can be approved."
   ],
-  "buildAllowed": false,
+  "buildAllowed": true,
   "deploymentAllowed": false,
   "promotionAllowed": false,
-  "approvalRequired": "Explicit user approval of CR-20260923-003 business requirement and scope before any implementation.",
-  "notes": "DRAFT ONLY. Current staging-accepted runtime baseline remains frozen at candidate commit 5c9247b6a7352411a36a1b846f21b3e6957bd2a7. CR-001 Operations Control and CR-002 hardening behavior must be preserved. No build, deployment or production promotion is authorized by this change request."
+  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
+  "notes": "BUILD ONLY APPROVED. Implement Operations Action Queue + SLA Escalation using existing Task/Audit data. Preserve CR-001 Operations Control, CR-002 hardening, frozen UI/workflows and role/privacy boundaries. No database migration. No staging deployment. No production promotion.",
+  "approvedAt": "2026-09-23T13:00:00+02:00",
+  "approvedBy": "User command: CR-20260923-003 approve business requirement + build only"
 }
