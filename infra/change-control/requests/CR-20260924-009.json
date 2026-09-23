@@ -1,13 +1,13 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260924-009",
-  "status": "PROPOSED",
+  "status": "APPROVED",
   "title": "Job Workspace + Cross-Module Navigation Consistency",
   "createdAt": "2026-09-24T01:46:00+02:00",
-  "approvalStatus": "PENDING_USER_APPROVAL",
-  "buildAllowed": false,
-  "mergeAllowed": false,
-  "deploymentAllowed": false,
+  "approvalStatus": "APPROVED_FOR_STAGING_BUILD",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
   "frozenBaseline": {
@@ -189,5 +189,18 @@
   "estimatedChangeClass": "WEB_DOMINANT / NO_DB / NO_BUSINESS_LOGIC_CHANGE_PLANNED",
   "recommendedExecutionMode": "IMPACT_SCOPED_GOVERNED_BUILD_AFTER_APPROVAL_ONLY",
   "approvalRequiredBeforeBuild": true,
-  "note": "Definition and impact/regression plan only. No implementation, merge, build, test, staging deploy or production action is authorized by this proposal."
+  "note": "Approved for governed Web-only build, impact-scoped regression, jobs 50001-50005 UI/UAT, staging-only deployment and freeze on PASS. No production promotion.",
+  "approvedAt": "2026-09-24T01:46:00+02:00",
+  "approvedBy": "User command: ANCLINE CR-20260924-009 — APPROVE + GOVERNED BULK BUILD",
+  "deploymentTarget": "STAGING_ONLY",
+  "frozen": false,
+  "activationBlocked": false,
+  "baselineWebCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
+  "components": [
+    "web"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true
 }
