@@ -19,10 +19,12 @@ describe('Operations Control dashboard aggregation',()=>{
     const prisma:any={
       booking:{findMany:jest.fn().mockResolvedValue([booking])},
       branch:{findMany:jest.fn().mockResolvedValue([{id:'br1',code:'RTM'}])},
-      integrationEvent:{findMany:jest.fn().mockResolvedValue([{id:'e1',sourceSystem:'CARRIER_API',eventType:'BOOKING_SUBMIT',objectType:'Booking',objectId:'b1',externalId:null,status:'FAILED',payload:{bookingId:'b1',error:'provider timeout'},createdAt:new Date(now-1000),updatedAt:new Date(now-1000)}])}
+      integrationEvent:{findMany:jest.fn().mockResolvedValue([{id:'e1',sourceSystem:'CARRIER_API',eventType:'BOOKING_SUBMIT',objectType:'Booking',objectId:'b1',externalId:null,status:'FAILED',payload:{bookingId:'b1',error:'provider timeout'},createdAt:new Date(now-1000),updatedAt:new Date(now-1000)}])},
+      task:{findUnique:jest.fn(),findFirst:jest.fn(),create:jest.fn(),update:jest.fn()}
     };
-    const scope:any={assertInternal:jest.fn()};
-    return {service:new OperationsControlService(prisma,scope),prisma,scope};
+    const scope:any={assertInternal:jest.fn(),assertBookingAccess:jest.fn()};
+    const audit:any={log:jest.fn()};
+    return {service:new OperationsControlService(prisma,scope,audit),prisma,scope,audit};
   }
 
   it('consolidates every approved exception family without duplicate IDs',async()=>{
@@ -38,6 +40,20 @@ describe('Operations Control dashboard aggregation',()=>{
     expect(result.rows.find((x:any)=>x.category==='DOCUMENT_GAP').actionHref).toBe('/documents?bookingId=b1');
     expect(result.rows.find((x:any)=>x.category==='LATE_MILESTONE').actionHref).toBe('/tracking?bookingId=b1');
     expect(result.rows.find((x:any)=>x.category==='FAILED_EVENT').actionHref).toBe('/connectivity');
+    const taskRow=result.rows.find((x:any)=>x.id==='action-task-t1');
+    expect(taskRow.taskId).toBe('t1');
+    expect(taskRow.queueMutable).toBe(true);
+  });
+
+  it('claims a booking-bound exception into the existing Task model and audits the action',async()=>{
+    const {service,prisma,scope,audit}=make();
+    prisma.task.findFirst.mockResolvedValue(null);
+    prisma.task.create.mockImplementation(({data}:any)=>Promise.resolve({id:'q1',...data}));
+    const row:any=await service.claim('action-credit-b1',admin);
+    expect(scope.assertBookingAccess).toHaveBeenCalledWith(admin,'b1');
+    expect(prisma.task.create).toHaveBeenCalledWith({data:expect.objectContaining({bookingId:'b1',ownerId:'admin@ancline.test',status:'Acknowledged'})});
+    expect(row.id).toBe('q1');
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({action:'OPERATIONS_CONTROL_CLAIM',bookingId:'b1'}));
   });
 
   it('uses existing booking scope and hides unbound platform failures from branch users',async()=>{
