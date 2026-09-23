@@ -1,14 +1,12 @@
 name: ANCLINE Simple Secure UI Hardening
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/live_ui_hardening.mjs'
-      - 'apps/web/**'
-      - '.github/workflows/ui-hardening.yml'
   workflow_dispatch:
 permissions:
   contents: read
+
+concurrency:
+  group: ancline-staging-browser-uat
+  cancel-in-progress: false
 jobs:
   ui-hardening:
     runs-on: ubuntu-latest
