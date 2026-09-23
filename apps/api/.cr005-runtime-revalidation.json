@@ -1,0 +1,8 @@
+{
+  "schema": "ANCLINE_CR005_RUNTIME_REVALIDATION_MARKER_V1",
+  "changeRequest": "CR-20260923-005",
+  "purpose": "Force full Web+API staging rebuild/regression after gate metadata repair without changing business logic or UI.",
+  "approvedBaseline": "CR-20260923-006",
+  "approvedBaselineRuntime": "bc37709e9b888410136213bee477630c3956b78d",
+  "productionPromotionAuthorized": false
+}
