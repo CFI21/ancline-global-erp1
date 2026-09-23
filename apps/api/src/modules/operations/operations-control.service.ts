@@ -27,10 +27,8 @@ type ControlRow={
 
 const TERMINAL=new Set(['CANCELLED','FINANCIALLY_CLOSED']);
 const DOC_GATE=new Set(['CONFIRMED','OPERATIONAL','COMPLETED']);
-const GOOD_DOC=new Set(['FINAL','APPROVED','ISSUED','RELEASED','COMPLETED','CLEAR']);
 const DOC_ACTION=new Set(['DRAFT','PENDING','REVIEW','REJECTED','HOLD','BLOCKED','MISSING']);
 const CRITICAL_DOC=new Set(['REJECTED','HOLD','BLOCKED','MISSING']);
-const FAILED_EVENT=new Set(['FAILED','RETRY_PENDING']);
 
 @Injectable()
 export class OperationsControlService {
