@@ -1,0 +1,46 @@
+name: ANCLINE CR-005 Notification Center Acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/live_cr005_notification_acceptance.mjs'
+      - '.github/workflows/cr005-notification-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cr005-notification-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve approved CR-005 API runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved-cr005.json
+          echo "EXPECTED_API_COMMIT=$(jq -r '.current.api.commit' /tmp/approved-cr005.json)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run CR-005 live notification center acceptance
+        run: node tools/live_cr005_notification_acceptance.mjs
+      - name: Upload CR-005 acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-cr005-notification-center-acceptance-${{ github.run_id }}
+          path: cr005-notification-acceptance-artifacts/
+          retention-days: 90
