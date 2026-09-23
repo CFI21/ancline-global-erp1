@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { PortalService } from './portal.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @Controller('portal')
@@ -6,6 +6,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PortalController {
   constructor(private s:PortalService){}
   @Get('bookings') bookings(@Req() req:any){return this.s.bookings(req.user);}
+  @Get('communications') communications(@Req() req:any){return this.s.externalCommunications(req.user);}
+  @Post('communications/:id/read') communicationRead(@Param('id') id:string,@Req() req:any){return this.s.markExternalCommunicationRead(id,req.user);}
+  @Post('communications/:id/acknowledge') communicationAcknowledge(@Param('id') id:string,@Req() req:any){return this.s.acknowledgeExternalCommunication(id,req.user);}
+  @Get('communication-preferences') communicationPreferences(@Req() req:any){return this.s.externalCommunicationPreferences(req.user);}
+  @Patch('communication-preferences') updateCommunicationPreferences(@Body() body:any,@Req() req:any){return this.s.updateExternalCommunicationPreferences(body,req.user);}
+  @Get('external-communications/history') externalCommunicationHistory(@Req() req:any){return this.s.externalCommunicationHistory(req.user);}
+  @Post('external-communications') publishExternalCommunication(@Body() body:any,@Req() req:any){return this.s.publishExternalCommunication(body,req.user);}
+  @Post('external-communications/:id/resend') resendExternalCommunication(@Param('id') id:string,@Body() body:any,@Req() req:any){return this.s.resendExternalCommunication(id,body,req.user);}
   @Get('forwarding/quotes') forwardingQuotes(@Req() req:any){return this.s.forwardingQuotes(req.user);}
   @Get('nvocc/bookings') nvoccBookings(@Req() req:any){return this.s.nvoccBookings(req.user);}
   @Get('nvocc/parties') nvoccParties(@Req() req:any){return this.s.nvoccParties(req.user);}
