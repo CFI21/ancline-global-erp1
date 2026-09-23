@@ -13,14 +13,19 @@ const profiles=[
   {name:'mobile',viewport:{width:390,height:844}}
 ];
 async function establish(page,email='test.admin@ancline.invalid',role='GLOBAL_ADMIN'){
-  await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
-  const r=await page.evaluate(async ({email,role})=>{
+  let r=null;
+  for(let attempt=1;attempt<=4;attempt++){
+    await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
+    r=await page.evaluate(async ({email,role})=>{
     const x=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role})});
     const b=await x.json().catch(()=>null);
     if(x.ok&&b?.accessToken){localStorage.setItem('ancline_token',b.accessToken);localStorage.setItem('ancline_user',JSON.stringify(b.user));}
     return {status:x.status,user:b?.user||null};
-  },{email,role});
-  assert(r.status>=200&&r.status<300&&r.user,'auth failed '+r.status); return r.user;
+    },{email,role}).catch(error=>({status:0,user:null,error:String(error)}));
+    if(r.status>=200&&r.status<300&&r.user) return r.user;
+    if(attempt<4) await new Promise(resolve=>setTimeout(resolve,1500*attempt));
+  }
+  assert(r&&r.status>=200&&r.status<300&&r.user,'auth failed '+(r?.status??0)+' '+(r?.error||''));
 }
 async function api(page,path){return page.evaluate(async path=>{const t=localStorage.getItem('ancline_token');const r=await fetch('/api-proxy'+path,{headers:{Authorization:'Bearer '+t}});return {status:r.status,body:await r.json().catch(()=>null)}},path)}
 async function goto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(900);assert(r&&r.status()<500,path+' HTTP '+r?.status());}
