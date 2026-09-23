@@ -70,6 +70,25 @@ describe('CR-20260923-004 SLA automation',()=>{
     expect(events).toHaveLength(0);
   });
 
+  it('skips a due timer when another worker already holds the processing claim',async()=>{
+    const {service,prisma,events}=make();
+    const timerId='timer-race';
+    events.push({
+      id:timerId,sourceSystem:'ANCLINE_ORCHESTRATION',objectType:'EscalationTimer',objectId:timerId,
+      eventType:'ESCALATION_TIMER_CREATED',status:'COMPLETED',createdAt:new Date(),
+      payload:{timerId,process:'OPERATIONS_ACTION_QUEUE',trigger:'TASK_SLA_ESCALATION',bookingId:'b1',objectType:'Task',objectId:'t-race',ownerRole:'CONTROL_TOWER',dueAt:new Date(Date.now()-1000).toISOString(),status:'PENDING'}
+    });
+    const executionId=(service as any).deterministicId('timerexec',timerId);
+    events.push({
+      id:executionId,sourceSystem:'ANCLINE_ORCHESTRATION',objectType:'EscalationExecution',objectId:timerId,
+      eventType:'ESCALATION_EXECUTION_CLAIMED',status:'PROCESSING',createdAt:new Date(),payload:{timerId,startedAt:new Date().toISOString()}
+    });
+    const result:any=await service.runDue(admin);
+    expect(result.executed).toBe(0);
+    expect(result.duplicates).toBe(1);
+    expect(prisma.task.create).not.toHaveBeenCalled();
+  });
+
   it('claims due timer execution idempotently before creating escalation task',async()=>{
     const {service,prisma,events}=make();
     events.push({

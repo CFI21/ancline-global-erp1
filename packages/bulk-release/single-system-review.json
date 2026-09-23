@@ -2,7 +2,7 @@
   "schema": "ANCLINE_SINGLE_SYSTEM_BULK_RELEASE_V1",
   "mode": "SINGLE_SYSTEM_LIVE_REVIEW",
   "requestedAt": "2026-09-23",
-  "sourceMain": "02c247a87f27d0fe0d2c7ec26af92493d79ee4a6",
+  "sourceMain": "single-system-bulk-race-fix",
   "purpose": "Force one consolidated Web/API staging candidate from latest approved main after CR-004 blocker fixes and single-system workflow serialization.",
   "preserved": [
     "CR-20260923-001",
@@ -21,6 +21,6 @@
   ],
   "deployment": "STAGING_ONLY",
   "productionPromotionAllowed": false,
-  "attempt": 2,
-  "reason": "Retry consolidated single-system candidate after hardening browser wait for persisted LEVEL_2/LEVEL_3 queue rendering."
+  "attempt": 3,
+  "reason": "Retry after fixing run-due PROCESSING-claim race that allowed duplicate escalation tasks."
 }
