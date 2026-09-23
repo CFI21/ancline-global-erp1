@@ -14,8 +14,9 @@ describe('CR-20260923-004 SLA automation',()=>{
         return true;
       })),
       create:jest.fn(async ({data}:any)=>{
-        if(events.some(x=>x.id===data.id)){const e:any=new Error('duplicate');e.code='P2002';throw e;}
-        const row={createdAt:new Date(),...data};events.push(row);return row;
+        const id=data.id||'evt-'+(events.length+1);
+        if(events.some(x=>x.id===id)){const e:any=new Error('duplicate');e.code='P2002';throw e;}
+        const row={createdAt:new Date(),...data,id};events.push(row);return row;
       }),
       update:jest.fn(async ({where,data}:any)=>{
         const row=events.find(x=>x.id===where.id);if(!row)throw new Error('missing '+where.id);
