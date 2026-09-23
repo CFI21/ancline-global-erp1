@@ -1,25 +1,28 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260923-003",
-  "status": "APPROVED",
-  "title": "Operations Action Queue + SLA Escalation",
-  "businessRequirement": "Extend the staging-accepted Operations Control + Exception Dashboard into a governed internal action queue that lets authorized operations users take ownership of existing exceptions, acknowledge work, assign or reassign an owner, set/adjust due dates, complete linked operational tasks, and surface SLA/escalation state using existing approved Task, Approval, Booking, AuditEvent and exception data. Preserve all existing booking, document, finance, payment, release, NVOCC and Forwarding workflow rules.",
-  "objective": "Move from exception visibility to controlled operational follow-through without creating a second workflow engine or changing the frozen transactional baseline.",
-  "repositoryPlanningBaseCommit": "cf872c42ed098901ed957a89dd69aeb6b344370f",
+  "id": "CR-20260923-004",
+  "status": "DRAFT",
+  "title": "Operations SLA Automation + Escalation Notifications",
+  "businessRequirement": "Connect the staging-accepted Operations Action Queue/SLA controls to ANCLINE's existing workflow-automation and notification engine so operational tasks can generate deterministic at-risk/overdue escalation events, in-app notifications and controlled escalation tasks without changing booking, finance, payment, document or release lifecycle rules.",
+  "objective": "Move from manually visible SLA state to governed proactive operational follow-up using the existing WorkflowAutomationService, NotificationRule, EscalationTimer, Task, AuditEvent and IntegrationEvent structures.",
+  "repositoryPlanningBaseCommit": "37d5a1b1f194243644a23ce70384e39e95851514",
   "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
   "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
   "baselineDecision": "JOB_DONE",
   "baselineStatus": "FINAL_ACCEPTED",
+  "stagingAcceptedRuntimeCommit": "82994ab813ed40e0aac799ff2fd119a7035f4b9a",
+  "stagingAcceptedChangeRequest": "CR-20260923-003",
   "preservedChangeRequests": [
     "CR-20260923-001 — Operations Control + Exception Dashboard — staging acceptance PASS",
-    "CR-20260923-002 — ECOM final resilience hardening — preserve approved API hardening behavior"
+    "CR-20260923-002 — ECOM resilience hardening — preserve approved API hardening behavior",
+    "CR-20260923-003 — Operations Action Queue + SLA Escalation — staging acceptance PASS"
   ],
   "impactedModules": [
-    "apps/web/app/exceptions",
-    "apps/web/app/bookings/[id] task surface",
+    "apps/api/src/modules/workflow-automation",
+    "apps/api/src/modules/tasks",
     "apps/api/src/modules/operations",
-    "apps/api task endpoints/service",
-    "existing Task, Approval, Booking and AuditEvent data",
+    "apps/web/app/exceptions",
+    "existing WorkflowRule, NotificationRule, EscalationTimer, AutomationNotification, Task, AuditEvent and IntegrationEvent data",
     "tools/live_ui_final_acceptance.mjs",
     "tools/live_role_uat_v2.mjs",
     "tools/live_transaction_mutation_uat.mjs"
@@ -34,50 +37,59 @@
     "RESPONSIVE_FAILURE_ACCESSIBILITY",
     "TRANSACTION_LIFECYCLE",
     "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-    "OPERATIONS_ACTION_QUEUE_E2E"
+    "OPERATIONS_ACTION_QUEUE_E2E",
+    "SLA_AUTOMATION_NOTIFICATION_E2E"
   ],
   "impactAssessment": {
-    "web": "REQUIRED — add an Action Queue view/controls inside the accepted Operations Control surface and keep the frozen WorkspaceShell/navigation conventions.",
-    "api": "REQUIRED — add narrowly scoped internal mutations for task ownership/acknowledgement/due-date/completion where existing APIs are insufficient; retain bookingScope and internal-role enforcement.",
-    "shared": "REQUIRED — UI controls and API authorization/audit behavior must evolve together.",
-    "dataMigration": "NOT_REQUIRED — reuse existing Task fields (ownerId, dueAt, status, slaState) and existing AuditEvent/booking relations; no new schema planned.",
-    "securityPrivacy": "REQUIRED — mutations remain internal-only, branch scoped, fail closed, and must never expose customer/shipper/agent private data beyond existing permissions.",
-    "financeReleaseControls": "NO_RULE_CHANGE — queue may link to payment/release blockers but must not override or mutate finance/release-security decisions.",
-    "workflowCompatibility": "REQUIRED — task actions are additive operational coordination only; they must not introduce or change booking lifecycle states."
+    "web": "REQUIRED — surface escalation/notification state inside the accepted Operations Control + Action Queue without replacing the frozen layout or navigation model.",
+    "api": "REQUIRED — add narrow integration between task SLA transitions and the existing workflow-automation trigger/timer/notification engine, preserving idempotency and scope enforcement.",
+    "shared": "REQUIRED — API escalation state, queue presentation and role visibility must stay consistent.",
+    "dataMigration": "NOT_REQUIRED — reuse existing IntegrationEvent-backed WorkflowRule, NotificationRule, EscalationTimer and AutomationNotification records plus Task/Audit data.",
+    "securityPrivacy": "REQUIRED — internal-only automation dashboard and notifications remain booking scoped; external roles must not receive or query internal operational escalation details.",
+    "financeReleaseControls": "NO_RULE_CHANGE — escalation may notify about payment/release blockers but cannot override, clear or mutate finance/release security decisions.",
+    "workflowCompatibility": "REQUIRED — automation creates coordination signals/tasks only; no automatic booking lifecycle transitions."
   },
   "proposedBehavior": {
-    "queueFunctions": [
-      "Claim/assign an exception-backed task to an authorized internal owner",
-      "Reassign task owner within permitted scope",
-      "Acknowledge work using approved Task.status values",
-      "Set or adjust operational due date",
-      "Complete the linked operational task",
-      "Derive ON_TRACK / AT_RISK / OVERDUE escalation presentation from dueAt and slaState",
-      "Open the existing job/document/payment/tracking/integration remediation surface"
+    "triggers": [
+      "Task enters AT_RISK within the configured SLA warning window",
+      "Task becomes OVERDUE",
+      "Critical Operations Control exception remains unacknowledged beyond configured threshold",
+      "Assigned task remains unresolved at escalation due time"
     ],
-    "escalation": [
-      "Highlight overdue or critical items in the Operations Control queue",
-      "Expose CONTROL_TOWER visibility for unresolved cross-branch critical items without broadening mutation rights",
-      "Do not auto-change booking, payment, document or release state"
+    "automation": [
+      "Use deterministic idempotency keys per task + escalation stage to prevent duplicate escalation",
+      "Create in-app AutomationNotification records using existing NotificationRule behavior",
+      "Use existing EscalationTimer records for delayed escalation",
+      "Use existing runDue processing for due timers, with booking scope enforcement",
+      "Optionally create escalation Task records through existing automation behavior without duplicating the original queue task",
+      "Record every trigger, notification, timer execution and escalation action in existing audit/integration evidence"
     ],
-    "audit": [
-      "Record actor, action, linked booking/task, previous value and new value using existing audit facilities where available",
-      "Keep action history visible from the job/control context"
+    "escalationLevels": [
+      "LEVEL_1 — assigned owner reminder / at-risk notification",
+      "LEVEL_2 — overdue notification to owner plus configured Operations Manager or CONTROL_TOWER audience",
+      "LEVEL_3 — persistent critical exception escalated to CONTROL_TOWER visibility, without granting broader mutation rights"
+    ],
+    "userExperience": [
+      "Show escalation level/status and latest notification state in the existing Operations Action Queue",
+      "Provide direct link to existing job/action surface",
+      "Do not introduce a separate competing operational workflow screen"
     ]
   },
   "regressionPlan": {
-    "rule": "Planning only. If later BUILD_APPROVED, classify as SHARED and require all Web/API build gates plus role/privacy browser UAT, responsive/failure/accessibility, full transaction lifecycle, resilience/security regression, and targeted action-queue E2E before any staging deployment approval.",
+    "rule": "Planning only. If later BUILD_APPROVED, classify as SHARED and require Web/API build gates, full role/privacy browser UAT, responsive/failure/accessibility, transaction lifecycle, resilience/security regression, CR-003 Action Queue E2E and targeted SLA automation/notification E2E before staging deployment approval.",
     "web": [
       "WEB_BUILD",
       "ROLE_BROWSER_UAT",
       "RESPONSIVE_FAILURE_ACCESSIBILITY",
-      "OPERATIONS_ACTION_QUEUE_E2E"
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E"
     ],
     "api": [
       "API_TEST_BUILD",
       "TRANSACTION_LIFECYCLE",
       "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-      "OPERATIONS_ACTION_QUEUE_E2E"
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E"
     ],
     "shared": [
       "WEB_BUILD",
@@ -86,61 +98,25 @@
       "RESPONSIVE_FAILURE_ACCESSIBILITY",
       "TRANSACTION_LIFECYCLE",
       "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-      "OPERATIONS_ACTION_QUEUE_E2E"
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E"
     ]
   },
   "acceptanceCriteria": [
-    "Accepted CR-001 dashboard categories, counts, filters and direct links remain intact.",
-    "Authorized internal users can claim/assign, acknowledge, reassign, adjust due date and complete an existing linked task from the control workflow.",
-    "Task action changes are reflected consistently on the job Task surface and Operations Control queue.",
-    "External CUSTOMER, SHIPPER and AGENT roles cannot read or mutate internal action-queue controls.",
-    "BRANCH_OPS mutations remain limited to bookings in the permitted branch; global visibility does not imply global mutation permission.",
-    "SLA/escalation status is deterministic from approved task/due-date data and does not create duplicate tasks or exception rows.",
-    "Every mutation is auditable with actor and before/after context using existing audit facilities.",
-    "No booking lifecycle, finance, payment, document release, NVOCC/Forwarding or carrier privacy rule changes.",
+    "CR-001 Operations Control categories/counts/filters/direct links remain intact.",
+    "CR-003 claim/assign/reassign/acknowledge/in-progress/due-date/SLA/complete/audit behavior remains intact.",
+    "At-risk and overdue queue tasks trigger only the configured automation stage and do not create duplicate notifications or escalation tasks on retry.",
+    "Escalation timers execute through the existing idempotent workflow-automation engine.",
+    "GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE see only escalation data permitted by existing booking scope and role rules.",
+    "CUSTOMER, SHIPPER, CONSIGNEE and AGENT cannot access internal SLA escalation notifications or automation controls.",
+    "Escalation does not modify booking lifecycle, document release, finance, payment, carrier release or NVOCC/Forwarding privacy rules.",
+    "Every automated escalation action is auditable and traceable to the original task/booking/control exception.",
     "No database schema migration.",
-    "Full SHARED regression and targeted action-queue E2E must pass before any staging deployment can be approved."
+    "Full SHARED regression plus targeted SLA automation/notification E2E must pass before staging deployment can be approved."
   ],
-  "buildAllowed": true,
+  "buildAllowed": false,
   "deploymentAllowed": false,
   "promotionAllowed": false,
-  "approvalRequired": "Further deployment or any production promotion requires a new explicit user approval.",
-  "notes": "STAGING ACCEPTANCE PASS. PR #7 merged; Web/API candidate 82994ab813ed40e0aac799ff2fd119a7035f4b9a is live on staging. Smart Release 35858153145 passed full SHARED regression and dedicated Action Queue browser acceptance 35859233974 passed claim/assignment/status/SLA/completion/audit/persistence/duplicate-claim and role-boundary checks. Production promotion remains prohibited. Further deployment requires explicit approval.",
-  "approvedAt": "2026-09-23T13:00:00+02:00",
-  "approvedBy": "User command: CR-20260923-003 approve business requirement + build only",
-  "stagingApprovedAt": "2026-09-23T13:45:00+02:00",
-  "stagingApprovedBy": "User command: CR-20260923-003 approve merge PR #7 + staging-only deployment + full SHARED UAT",
-  "stagingCandidateBaseCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7",
-  "stagingAcceptance": {
-    "status": "PASS",
-    "acceptedAt": "2026-09-23T12:16:03Z",
-    "mergeCommit": "597abffdfaf2698d5a1e98ed675c531b0b0ffb25",
-    "candidateRuntimeCommit": "82994ab813ed40e0aac799ff2fd119a7035f4b9a",
-    "smartReleaseRunId": 35858153145,
-    "actionQueueE2ERunId": 35859233974,
-    "sharedRegression": "PASS",
-    "operationsActionQueueE2E": "PASS",
-    "roles": [
-      "GLOBAL_ADMIN",
-      "CONTROL_TOWER",
-      "BRANCH_OPS",
-      "FINANCE",
-      "CUSTOMER_DENIED",
-      "AGENT_DENIED",
-      "SHIPPER_DENIED"
-    ],
-    "controls": [
-      "CLAIM",
-      "ASSIGN_REASSIGN",
-      "ACKNOWLEDGE",
-      "IN_PROGRESS",
-      "DUE_DATE_SLA",
-      "COMPLETE",
-      "AUDIT_HISTORY",
-      "REFRESH_PERSISTENCE",
-      "DUPLICATE_CLAIM_PROTECTION"
-    ],
-    "autoRollbackTriggered": false,
-    "productionPromotionAuthorized": false
-  }
+  "approvalRequired": "Explicit user approval of CR-20260923-004 business requirement and scope before any implementation.",
+  "notes": "DRAFT ONLY. Preserve CR-003 staging-accepted runtime 82994ab813ed40e0aac799ff2fd119a7035f4b9a and the canonical JOB_DONE baseline. No build, staging deployment or production promotion is authorized."
 }
