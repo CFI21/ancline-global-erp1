@@ -2,19 +2,12 @@ name: ANCLINE ECOM Final Hardening UAT
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/api/src/modules/workflow-automation/workflow-automation.service.ts'
-      - 'apps/api/src/modules/integrations/integrations.service.ts'
-      - 'apps/api/src/modules/accounting/accounting.service.ts'
-      - 'apps/api/test/resilience-hardening.spec.ts'
-      - 'tools/live_final_hardening_uat.mjs'
-      - '.github/workflows/final-hardening-uat.yml'
 
+# Manual-only: automatic staging mutation/regression is owned by smart-release.yml.
+# This prevents concurrent reseed/mutation suites from corrupting each other's test fixtures.
 concurrency:
   group: ancline-final-hardening-staging
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   final-hardening:
