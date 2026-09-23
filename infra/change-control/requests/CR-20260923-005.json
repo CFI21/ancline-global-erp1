@@ -8,10 +8,11 @@
   "baselineDependency": {
     "changeRequest": "CR-20260923-006",
     "requiredState": "STAGING_ACCEPTED_LOCKED",
-    "currentState": "STAGING_ACCEPTED_LOCKED",
+    "currentState": "PRESERVED_ROOT_BASELINE",
     "acceptedRuntimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
     "repositoryBaselineCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
-    "gate": "SATISFIED"
+    "gate": "SATISFIED",
+    "latestApprovedDerivedRuntimeCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a"
   },
   "repositoryPlanningBaseCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
   "preservedChangeRequests": [
@@ -136,7 +137,7 @@
   "promotionAllowed": false,
   "activationBlocked": false,
   "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
-  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Verified Smart Release now validates post-acceptance CR baselines against the approved release registry; baselineWebCommit/baselineApiCommit therefore point to CR-006 runtime bc37709e9b888410136213bee477630c3956b78d. CR-005 business logic/UI unchanged. Full SHARED regression + unified notification center E2E + role/privacy + 50001-50005 UAT required. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
+  "notes": "STAGING-ONLY CR-005 revalidation. CR-006 remains the frozen root baseline. Latest approved staging registry is CR-005 runtime 12ad25dcbb3533594c34c28e37a490d9d85aaf1a from successful Smart Release run 35914797225; baselineWebCommit/baselineApiCommit are aligned to that immediate approved runtime for the next revalidation. No CR-005 business logic/UI change. Full SHARED + notification center E2E + role/privacy + 50001-50005 UAT required. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
   "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
   "reconciledFromPr": 14,
@@ -144,23 +145,24 @@
   "reconciledAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline",
-  "baselineWebCommit": "bc37709e9b888410136213bee477630c3956b78d",
-  "baselineApiCommit": "bc37709e9b888410136213bee477630c3956b78d",
-  "baselineDecision": "CR-20260923-006",
-  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
-  "stagingCandidateBaseCommit": "bc37709e9b888410136213bee477630c3956b78d",
+  "baselineWebCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+  "baselineApiCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+  "baselineDecision": "LATEST_APPROVED_STAGING_REGISTRY",
+  "baselineStatus": "STAGING_ACCEPTED",
+  "stagingCandidateBaseCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
   "gateRepair": {
-    "reason": "Verified current Smart Release gate reads the latest approved release-registry Web/API commits. Required baselineWebCommit/baselineApiCommit are therefore the locked CR-006 approved staging runtime.",
-    "repairedAt": "2026-09-23T22:31:00+02:00",
-    "approvedRegistryWebCommit": "bc37709e9b888410136213bee477630c3956b78d",
-    "approvedRegistryApiCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "reason": "Current Smart Release gate validates against the latest approved staging release registry. Registry advanced after successful CR-005 full acceptance run 35914797225, so follow-up CR-005 revalidation must use 12ad25dc... as the immediate baseline while preserving CR-006 as the frozen root baseline.",
+    "repairedAt": "2026-09-23T22:35:00+02:00",
+    "approvedRegistryWebCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+    "approvedRegistryApiCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
     "scope": "RELEASE_CONTROL_METADATA_ONLY",
     "businessLogicChanged": false,
     "uiChanged": false,
     "productionPromotionAuthorized": false,
     "jobDoneCompatibilityWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
     "jobDoneCompatibilityApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
-    "actualStagingDependency": "CR-20260923-006"
+    "actualStagingDependency": "CR-20260923-006",
+    "preservedRootBaseline": "CR-20260923-006 / bc37709e9b888410136213bee477630c3956b78d"
   },
   "productionPromotionAuthorized": false,
   "stagingAcceptance": {
