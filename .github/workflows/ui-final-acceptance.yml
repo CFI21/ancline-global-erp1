@@ -1,11 +1,10 @@
 name: ANCLINE Simple Secure UI Final Acceptance
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/live_ui_final_acceptance.mjs'
-      - '.github/workflows/ui-final-acceptance.yml'
   workflow_dispatch:
+
+# Single-System Live Review Mode: manual-only.
+# smart-release.yml is the only automatic staging build/deploy/regression owner.
+
 permissions:
   contents: read
 jobs:
