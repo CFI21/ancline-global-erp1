@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-004",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED",
   "title": "Operations SLA Automation + Escalation Notifications",
   "businessRequirement": "Connect the staging-accepted Operations Action Queue/SLA controls to ANCLINE's existing workflow-automation and notification engine so operational tasks can generate deterministic at-risk/overdue escalation events, in-app notifications and controlled escalation tasks without changing booking, finance, payment, document or release lifecycle rules.",
   "objective": "Move from manually visible SLA state to governed proactive operational follow-up using the existing WorkflowAutomationService, NotificationRule, EscalationTimer, Task, AuditEvent and IntegrationEvent structures.",
@@ -115,12 +115,27 @@
     "Full SHARED regression plus targeted SLA automation/notification E2E must pass before staging deployment can be approved."
   ],
   "buildAllowed": true,
-  "deploymentAllowed": true,
+  "deploymentAllowed": false,
   "promotionAllowed": false,
-  "approvalRequired": "Production promotion remains prohibited; a separate explicit user approval is required after staging acceptance.",
-  "notes": "STAGING-ONLY APPROVED. Merge PR #8, deploy staging candidate, run full SHARED regression plus dedicated SLA automation/escalation E2E, and auto-rollback on failure. Preserve CR-001/CR-002/CR-003, frozen UI/workflows, role/privacy/finance/release controls. NO PRODUCTION PROMOTION.",
+  "approvalRequired": "Further runtime deployment or any production promotion requires a new explicit user approval.",
+  "notes": "SINGLE-SYSTEM STAGING ACCEPTANCE PASS. Web/API candidate edbe08745fa0fe32067170097e37e85699a6486a is live for business review. Full SHARED regression passed after fixing the concurrent run-due PROCESSING-claim race. Further deployment disabled; production promotion prohibited.",
   "approvedAt": "2026-09-23T15:35:00+02:00",
   "approvedBy": "User command: CR-20260923-004 approve business requirement + build only",
   "stagingApprovedAt": "2026-09-23T15:55:00+02:00",
-  "stagingApprovedBy": "User command: CR-20260923-004 approve merge PR #8 + staging-only deployment + full SHARED and SLA automation UAT"
+  "stagingApprovedBy": "User command: CR-20260923-004 approve merge PR #8 + staging-only deployment + full SHARED and SLA automation UAT",
+  "stagingAcceptance": {
+    "status": "PASS",
+    "acceptedAt": "2026-09-23T17:44:24Z",
+    "candidateRuntimeCommit": "edbe08745fa0fe32067170097e37e85699a6486a",
+    "smartReleaseRunId": 35896773817,
+    "sharedRegression": "PASS",
+    "transactionLifecycle": "PASS",
+    "resilienceSecurity": "PASS",
+    "roleBrowserUat": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "slaAutomationEscalation": "PASS",
+    "concurrentRunDueProtection": "PASS",
+    "autoRollbackTriggered": false,
+    "productionPromotionAuthorized": false
+  }
 }
