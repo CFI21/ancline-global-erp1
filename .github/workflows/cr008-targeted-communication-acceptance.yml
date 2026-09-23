@@ -1,0 +1,232 @@
+name: ANCLINE CR-008 Targeted Communication Acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cr008-targeted-communication-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  communication-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve approved CR-008 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved.json
+          expected="$(jq -r '.current.api.commit' /tmp/approved.json)"
+          [[ "$expected" == "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6" ]] || { echo "Unexpected approved runtime $expected"; exit 1; }
+          echo "EXPECTED_COMMIT=$expected" >> "$GITHUB_ENV"
+
+      - name: CR-008 notification and external communication API E2E
+        shell: bash
+        run: |
+          mkdir -p cr008-communication-artifacts
+          node <<'NODE'
+          import {writeFileSync} from 'node:fs';
+          const BASE=(process.env.WEB_URL||'').replace(/\/$/,'');
+          const EXPECTED=process.env.EXPECTED_COMMIT||'';
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          async function call(path,opt={}){
+            const headers={Accept:'application/json',...(opt.headers||{})};
+            if(opt.token)headers.Authorization='Bearer '+opt.token;
+            if(opt.body!==undefined)headers['Content-Type']='application/json';
+            const r=await fetch(BASE+'/api-proxy'+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:JSON.stringify(opt.body)});
+            const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
+            return {status:r.status,ok:r.ok,body,raw};
+          }
+          async function login(email,role){
+            const r=await call('/auth/login',{method:'POST',body:{email,role}});
+            assert(r.ok&&r.body?.accessToken&&r.body?.user,email+' login failed HTTP '+r.status);
+            return {token:r.body.accessToken,user:r.body.user};
+          }
+          const health=await call('/health');
+          assert(health.ok,'health failed');
+          assert(String(health.body?.buildCommit||'')===EXPECTED,'API commit mismatch '+String(health.body?.buildCommit));
+
+          const users={
+            admin:await login('test.admin@ancline.invalid','GLOBAL_ADMIN'),
+            control:await login('test.control@ancline.invalid','CONTROL_TOWER'),
+            ops:await login('test.ops@ancline.invalid','BRANCH_OPS'),
+            finance:await login('test.finance@ancline.invalid','FINANCE'),
+            customer:await login('test.customer.nl@ancline.invalid','CUSTOMER'),
+            shipper:await login('test.shipper.nl@ancline.invalid','SHIPPER'),
+            consignee:await login('test.consignee.ae@ancline.invalid','CONSIGNEE'),
+            agent:await login('test.agent.sg@ancline.invalid','AGENT')
+          };
+
+          const seed=await call('/test-data/seed',{token:users.admin.token,method:'POST',body:{}});
+          assert(seed.ok&&Number(seed.body?.summary?.bookings)===5,'synthetic seed failed');
+
+          const scan=await call('/operations/notifications/scan',{token:users.admin.token,method:'POST',body:{}});
+          assert(scan.ok,'notification scan failed HTTP '+scan.status);
+          const internal={};
+          for(const name of ['admin','control','ops','finance']){
+            const r=await call('/operations/communication-center',{token:users[name].token});
+            assert(r.ok,name+' center failed HTTP '+r.status);
+            assert(Array.isArray(r.body?.items),name+' center items missing');
+            assert(r.body?.preferences?.mandatoryCritical===true,name+' mandatory critical protection missing');
+            assert(r.body.items.every(x=>typeof x.actionHref==='string'&&x.actionHref.startsWith('/')),name+' direct remediation link missing');
+            internal[name]={role:users[name].user.role,total:r.body?.summary?.total??r.body.items.length};
+          }
+          for(const name of ['customer','shipper','consignee','agent']){
+            const r=await call('/operations/communication-center',{token:users[name].token});
+            assert([401,403].includes(r.status),name+' internal communication center leaked HTTP '+r.status);
+          }
+
+          const templates=await call('/portal/external-communications/templates',{token:users.admin.token});
+          assert(templates.ok&&Array.isArray(templates.body)&&templates.body.length>=10,'approved external templates missing');
+
+          const customerBookings=await call('/portal/bookings',{token:users.customer.token});
+          assert(customerBookings.ok&&Array.isArray(customerBookings.body)&&customerBookings.body.length>0,'customer scoped forwarding booking missing');
+          const booking=customerBookings.body[0];
+          const key='CR008-TARGETED-'+EXPECTED+'-'+String(booking.id);
+          const pub=await call('/portal/external-communications',{token:users.admin.token,method:'POST',body:{
+            bookingId:booking.id,
+            category:'DOCUMENT_REQUEST',
+            title:'Documents required',
+            message:'Additional shipment documents are required. Please open the shipment and provide the requested documents.',
+            audienceRoles:['CUSTOMER'],
+            channels:['IN_APP','EMAIL'],
+            requiresAcknowledgement:true,
+            idempotencyKey:key
+          }});
+          assert(pub.ok&&pub.body?.message?.id,'external publish failed HTTP '+pub.status+' '+pub.raw);
+          const messageId=String(pub.body.message.id);
+          if(pub.body.email)assert(['PENDING_CONFIGURATION','SENT','FAILED'].includes(String(pub.body.email.deliveryStatus)),'invalid email delivery state');
+          const dup=await call('/portal/external-communications',{token:users.admin.token,method:'POST',body:{
+            bookingId:booking.id,category:'DOCUMENT_REQUEST',title:'Documents required',
+            message:'Additional shipment documents are required. Please open the shipment and provide the requested documents.',
+            audienceRoles:['CUSTOMER'],channels:['IN_APP','EMAIL'],requiresAcknowledgement:true,idempotencyKey:key
+          }});
+          assert(dup.ok&&dup.body?.duplicate===true,'external publish idempotency failed');
+
+          const feed=await call('/portal/communications',{token:users.customer.token});
+          assert(feed.ok&&Array.isArray(feed.body?.items),'customer communication feed missing');
+          const item=feed.body.items.find(x=>String(x.id)===messageId);
+          assert(item,'published message not visible in customer scope');
+          assert(item.category==='DOCUMENT_REQUEST'&&item.requiresAcknowledgement===true,'published message semantics mismatch');
+          assert(typeof item.actionHref==='string'&&item.actionHref.startsWith('/customer-portal'),'customer action link invalid');
+
+          const read=await call('/portal/communications/'+encodeURIComponent(messageId)+'/read',{token:users.customer.token,method:'POST',body:{}});
+          assert(read.ok,'customer mark-read failed');
+          const ack=await call('/portal/communications/'+encodeURIComponent(messageId)+'/acknowledge',{token:users.customer.token,method:'POST',body:{}});
+          assert(ack.ok,'customer acknowledge failed');
+          const after=await call('/portal/communications',{token:users.customer.token});
+          const afterItem=after.body.items.find(x=>String(x.id)===messageId);
+          assert(afterItem?.read===true&&afterItem?.acknowledged===true,'read/ack state not durable');
+
+          const prefs0=await call('/portal/communication-preferences',{token:users.customer.token});
+          assert(prefs0.ok&&prefs0.body?.mandatoryOperational===true,'external preferences mandatory control missing');
+          const prefs=await call('/portal/communication-preferences',{token:users.customer.token,method:'PATCH',body:{channels:['IN_APP'],categories:['DOCUMENT_REQUEST'],muteOptional:true}});
+          assert(prefs.ok&&prefs.body?.mandatoryOperational===true,'external preference update weakened mandatory controls');
+          await call('/portal/communication-preferences',{token:users.customer.token,method:'PATCH',body:{channels:['IN_APP','EMAIL'],categories:[],muteOptional:false}});
+
+          const history=await call('/portal/external-communications/history',{token:users.admin.token});
+          assert(history.ok&&Array.isArray(history.body)&&history.body.some(x=>String(x.id)===messageId),'internal delivery history missing message');
+
+          const externalPublishDenied=await call('/portal/external-communications',{token:users.customer.token,method:'POST',body:{
+            bookingId:booking.id,category:'DOCUMENT_REQUEST',title:'Denied',message:'Denied',audienceRoles:['CUSTOMER'],channels:['IN_APP']
+          }});
+          assert([401,403].includes(externalPublishDenied.status),'customer gained internal publish rights');
+
+          const prohibited=await call('/portal/external-communications',{token:users.admin.token,method:'POST',body:{
+            bookingId:booking.id,category:'DOCUMENT_REQUEST',title:'Internal SLA escalation metadata',message:'CONTROL_TOWER internal note',audienceRoles:['CUSTOMER'],channels:['IN_APP']
+          }});
+          assert([400,422].includes(prohibited.status),'prohibited internal content was externally publishable');
+
+          const report={
+            schema:'ANCLINE_CR008_TARGETED_COMMUNICATION_API_V1',status:'PASS',testedAt:new Date().toISOString(),
+            expectedCommit:EXPECTED,healthCommit:health.body?.buildCommit,seedJobs:seed.body?.summary?.bookings,
+            internalNotificationCenter:internal,external:{
+              templates:templates.body.length,messageId,idempotency:true,customerScopedVisibility:true,
+              read:true,acknowledge:true,preferencesMandatory:true,history:true,externalPublishDenied:true,
+              prohibitedContentDenied:true,emailState:pub.body?.email?.deliveryStatus||'NOT_RETURNED'
+            }
+          };
+          writeFileSync('cr008-communication-artifacts/api-e2e.json',JSON.stringify(report,null,2));
+          console.log(JSON.stringify(report,null,2));
+          NODE
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: CR-008 communication browser E2E
+        shell: bash
+        run: |
+          node <<'NODE'
+          import {chromium} from 'playwright';
+          import {writeFileSync} from 'node:fs';
+          const BASE=(process.env.WEB_URL||'').replace(/\/$/,'');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const browser=await chromium.launch({headless:true});
+          async function loginPage(email,role,path){
+            const ctx=await browser.newContext({viewport:{width:1440,height:1000}});
+            const page=await ctx.newPage();
+            await page.goto(BASE+'/login',{waitUntil:'domcontentloaded',timeout:60000});
+            const auth=await page.evaluate(async({email,role})=>{
+              const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role})});
+              const b=await r.json(); if(r.ok&&b.accessToken){localStorage.setItem('ancline_token',b.accessToken);localStorage.setItem('ancline_user',JSON.stringify(b.user));}
+              return {ok:r.ok,role:b?.user?.role};
+            },{email,role});
+            assert(auth.ok&&auth.role===role,email+' browser auth failed');
+            const resp=await page.goto(BASE+path,{waitUntil:'domcontentloaded',timeout:60000});
+            assert(resp&&resp.status()<500,path+' HTTP '+String(resp?.status()));
+            await page.waitForTimeout(1200);
+            return {ctx,page};
+          }
+
+          const a=await loginPage('test.admin@ancline.invalid','GLOBAL_ADMIN','/notifications');
+          let text=await a.page.locator('body').innerText();
+          assert(text.includes('Operations Notification + Communication Center'),'internal center title missing');
+          assert(text.includes('CRITICAL / LEVEL 3 always enabled'),'mandatory internal control missing');
+          assert(text.includes('Customer / Agent Communication Publisher'),'external publisher missing from internal center');
+          assert(text.includes('Only customer-safe content is permitted'),'external publisher privacy notice missing');
+          await a.page.screenshot({path:'cr008-communication-artifacts/admin-communication-center.png',fullPage:true});
+          await a.ctx.close();
+
+          const c=await loginPage('test.customer.nl@ancline.invalid','CUSTOMER','/customer-portal');
+          text=await c.page.locator('body').innerText();
+          assert(text.includes('Communication Center'),'customer communication center missing');
+          assert(text.includes('CUSTOMER-SAFE COMMUNICATIONS'),'customer-safe label missing');
+          assert(text.includes('Required operational messages always remain visible'),'customer mandatory-message protection missing');
+          await c.page.screenshot({path:'cr008-communication-artifacts/customer-communication-center.png',fullPage:true});
+          await c.ctx.close();
+
+          const g=await loginPage('test.agent.sg@ancline.invalid','AGENT','/agent-portal');
+          text=await g.page.locator('body').innerText();
+          assert(text.includes('Liner Agency Workspace'),'agent workspace missing');
+          assert(text.includes('Communication Center'),'agent communication center missing');
+          assert(!text.includes('Operations Notification + Communication Center'),'internal notification center leaked into agent portal');
+          await g.page.screenshot({path:'cr008-communication-artifacts/agent-communication-center.png',fullPage:true});
+          await g.ctx.close();
+
+          writeFileSync('cr008-communication-artifacts/browser-e2e.json',JSON.stringify({
+            schema:'ANCLINE_CR008_TARGETED_COMMUNICATION_BROWSER_V1',status:'PASS',testedAt:new Date().toISOString(),
+            adminPublisher:true,customerCenter:true,agentCenter:true,internalCenterNotLeakedToAgent:true
+          },null,2));
+          await browser.close();
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ancline-cr008-targeted-communication-acceptance
+          path: cr008-communication-artifacts/
+          retention-days: 90
