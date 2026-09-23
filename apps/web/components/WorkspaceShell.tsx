@@ -38,6 +38,7 @@ const menuGroups=[
     step:'03',
     label:'Booking & Carrier',
     items:[
+      ['/jobs','Jobs'],
       ['/bookings','Bookings'],
       ['/booking-control','Booking Control'],
       ['/carrier-operations','Carrier Space'],

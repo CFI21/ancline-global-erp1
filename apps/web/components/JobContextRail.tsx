@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {api} from '../lib/api';
 
-export type JobWorkspaceKey='BOOKING'|'RATES'|'SCHEDULE'|'ROUTING'|'CARRIER'|'SHIPMENT'|'CONTAINERS'|'DOCUMENTS'|'DETAILS'|'TRACKING'|'EXCEPTIONS'|'FINANCE'|'TASKS'|'APPROVALS';
+export type JobWorkspaceKey='BOOKING'|'RATES'|'SCHEDULE'|'ROUTING'|'CARRIER'|'PAYMENT'|'SHIPMENT'|'CONTAINERS'|'DOCUMENTS'|'DETAILS'|'TRACKING'|'EXCEPTIONS'|'FINANCE'|'TASKS'|'APPROVALS';
 
 type Props={
   bookingId:string;
@@ -86,6 +86,7 @@ export default function JobContextRail({
   ],[bookingId,q]);
   const taskPages=useMemo(()=>[
     ...pages.filter(p=>p.key!=='DETAILS'),
+    {key:'PAYMENT' as JobWorkspaceKey,label:'Carrier Payment / Payer',href:`/carrier-payment?${q}`},
     {key:'TRACKING' as JobWorkspaceKey,label:'Tracking',href:`/tracking?${q}`},
     {key:'EXCEPTIONS' as JobWorkspaceKey,label:'Exceptions',href:`/exceptions?${q}`},
     {key:'FINANCE' as JobWorkspaceKey,label:'Job Costing',href:`/finance?${q}`},
