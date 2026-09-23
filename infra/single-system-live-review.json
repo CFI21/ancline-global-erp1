@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_SINGLE_SYSTEM_LIVE_REVIEW_V1",
-  "status": "ACTIVE",
+  "status": "LIVE_BUSINESS_REVIEW",
   "activatedAt": "2026-09-23",
   "mode": "SINGLE_SYSTEM_LIVE_REVIEW",
   "objective": "Operate one staging/live-preview ANCLINE system with one serialized release pipeline, one controlled synthetic 50001-50005 dataset and one browser review surface.",
@@ -15,7 +15,9 @@
       "50003",
       "50004",
       "50005"
-    ]
+    ],
+    "webImage": "ghcr.io/cfi21/ancline-web:sha-edbe08745fa0fe32067170097e37e85699a6486a",
+    "apiImage": "ghcr.io/cfi21/ancline-api:sha-edbe08745fa0fe32067170097e37e85699a6486a"
   },
   "rules": [
     "Only smart-release.yml may auto build, deploy or mutate staging.",
@@ -33,5 +35,8 @@
     "Frozen UI/workflows",
     "Role/privacy/finance/payment/release controls"
   ],
-  "productionPromotionAllowed": false
+  "productionPromotionAllowed": false,
+  "currentReviewCandidate": "edbe08745fa0fe32067170097e37e85699a6486a",
+  "acceptanceRunId": 35896773817,
+  "acceptanceStatus": "PASS"
 }
