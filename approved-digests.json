@@ -1,6 +1,6 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-23T14:29:54.476678+00:00",
+  "updatedAt": "2026-09-23T16:48:45.917947+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
@@ -10,13 +10,24 @@
       "digest": "sha256:1f8644f40a28380a17eba5f1e8a98196304f7ce4ab6dd3d3221f8739a02b6e7f"
     },
     "api": {
-      "commit": "41ba5fd0fb3d12d6e7708507380ddf75be452664",
-      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-41ba5fd0fb3d12d6e7708507380ddf75be452664",
-      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-41ba5fd0fb3d",
-      "digest": "sha256:7f3ce9ecd57569167ef1307fde3d27b992bec20a74151643036ae785a477501e"
+      "commit": "bda0cbb60f6127f117d9cbf1c2a39e7b7e4c0a2c",
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-bda0cbb60f6127f117d9cbf1c2a39e7b7e4c0a2c",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-bda0cbb60f61",
+      "digest": "sha256:3c5e59ac501e3b7523b2ba6d709febb496924b73fcb5f78f5911a25bd78eb586"
     }
   },
   "history": [
+    {
+      "runId": "35890541770",
+      "approvedAt": "2026-09-23T16:48:45.917947+00:00",
+      "commit": "bda0cbb60f6127f117d9cbf1c2a39e7b7e4c0a2c",
+      "components": [
+        "api"
+      ],
+      "uatRunId": "UAT-20260923164542-1AYSQ",
+      "backupSha256": "8328094e18eb76fda8b23eac625caad32c5b2b3d753ef04fd90e3d45d42a1e74",
+      "offPlatformArtifactSha256": "30221aa13f3f6e2cf5e60974b2d014e51bb0c3b5ae33d44b41ebf28edb5e105f"
+    },
     {
       "runId": "35873258900",
       "approvedAt": "2026-09-23T14:29:54.476678+00:00",
@@ -488,15 +499,6 @@
       "runId": "35759548611",
       "approvedAt": "2026-09-22T17:16:49.042151+00:00",
       "commit": "68ccf54100a54c3114f413349ba317a4fa13b7dd",
-      "components": [],
-      "uatRunId": "UAT-20260922170726-C2IRQ",
-      "backupSha256": "c968f1a03a3ba5bc70b33899178e84dbbbb319a8728b089e3e9f6a22774f268b",
-      "offPlatformArtifactSha256": "bde207573bcfc574bd480a783e02908155d2cf3963e5ee801da19e0c01e80614"
-    },
-    {
-      "runId": "35759330776",
-      "approvedAt": "2026-09-22T17:14:59.685504+00:00",
-      "commit": "2b9290988f496ce239c609553ebe532c6cf23700",
       "components": [],
       "uatRunId": "UAT-20260922170726-C2IRQ",
       "backupSha256": "c968f1a03a3ba5bc70b33899178e84dbbbb319a8728b089e3e9f6a22774f268b",
