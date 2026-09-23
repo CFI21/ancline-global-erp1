@@ -136,12 +136,17 @@
   "promotionAllowed": false,
   "activationBlocked": false,
   "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
-  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Merge PR #15, deploy exact candidate to staging, run full SHARED regression + unified notification center E2E, auto-rollback on failure. Preserve CR-006 baseline and CR-001/002/003/004. NO PRODUCTION PROMOTION.",
+  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Canonical JOB_DONE Web/API baseline commits restored for Smart Release governance; CR-006 accepted runtime remains the staging candidate base. Merge PR #15 already complete; deploy exact CR-005 candidate to staging, run full SHARED regression + unified notification center E2E, auto-rollback on failure. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
   "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
   "reconciledFromPr": 14,
   "reconciledBranch": "cr-20260923-005-reconciled-on-cr006",
   "reconciledAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
-  "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline"
+  "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline",
+  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "baselineDecision": "JOB_DONE",
+  "baselineStatus": "FINAL_ACCEPTED",
+  "stagingCandidateBaseCommit": "bc37709e9b888410136213bee477630c3956b78d"
 }
