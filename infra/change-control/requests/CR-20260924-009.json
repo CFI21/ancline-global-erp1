@@ -1,0 +1,171 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260924-009",
+  "status": "DRAFT_AWAITING_APPROVAL",
+  "title": "Job Workspace + Cross-Module Navigation Consistency",
+  "createdAt": "2026-09-24T01:43:00+02:00",
+  "baseline": {
+    "changeRequest": "CR-20260924-008",
+    "runtimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "lockCommit": "33032afc7de505c076b474474d38e48b8e79ee0e",
+    "state": "FROZEN_APPROVED_STAGING_BASELINE"
+  },
+  "frozenRoot": {
+    "changeRequest": "CR-20260923-006",
+    "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "lockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a"
+  },
+  "businessRequirement": "Improve job workspace discoverability and cross-module navigation without creating a second job model, duplicating data, or changing any approved CR-008 workflows.",
+  "objectives": [
+    "Add an explicit Jobs register/navigation surface using the existing Booking/Job records only.",
+    "Add Carrier Payment / Payer Control to the JobContextRail Related Tasks list and Quick View.",
+    "Add Open Job and Quick View actions to the NVOCC Booking Register.",
+    "Reuse the existing /bookings/{id} Job Workspace and current JobContextRail/Quick View architecture.",
+    "Preserve all approved CR-008 runtime behavior, roles, privacy, data model, workflows, notifications and communication functions."
+  ],
+  "outOfScope": [
+    "No new Job database table or duplicate job entity.",
+    "No booking/job migration.",
+    "No changes to job reference generation.",
+    "No changes to NVOCC/Forwarding business logic.",
+    "No changes to finance, payment, document-release, SLA, notification or external communication semantics.",
+    "No production promotion.",
+    "No destructive database change.",
+    "No credential or secret change."
+  ],
+  "impactedModules": {
+    "web": [
+      {
+        "path": "apps/web/components/WorkspaceShell.tsx",
+        "impact": "Add explicit Jobs navigation/menu entry for internal operational roles while preserving existing grouped sidebar and menu search."
+      },
+      {
+        "path": "apps/web/app/jobs/page.tsx",
+        "impact": "New Jobs register presentation only, backed by the existing /bookings API and existing booking/job model."
+      },
+      {
+        "path": "apps/web/components/JobContextRail.tsx",
+        "impact": "Add Carrier Payment / Payer Control as a related task and Quick View target for applicable Forwarding jobs."
+      },
+      {
+        "path": "apps/web/app/nvocc-portal/page.tsx",
+        "impact": "Add Open Job and Quick View actions per NVOCC booking row, linking to the existing /bookings/{id} workspace."
+      },
+      {
+        "path": "apps/web/app/bookings/[id]/page.tsx",
+        "impact": "No workflow change expected; reused as the canonical Job Workspace target."
+      }
+    ],
+    "api": [
+      {
+        "path": "existing bookings APIs",
+        "impact": "No new business API required unless a presentation-only query optimization is proven necessary; existing /bookings scope remains source of truth."
+      }
+    ],
+    "shared": [
+      "Existing role/privacy boundaries must remain unchanged.",
+      "Existing 5-digit booking/job reference must remain canonical.",
+      "NVOCC and Forwarding continue to share one Booking/Job model.",
+      "Customer/agent external users must not gain new internal job-register access."
+    ]
+  },
+  "proposedBehavior": {
+    "jobsRegister": {
+      "route": "/jobs",
+      "sourceOfTruth": "Existing /bookings API and Booking records",
+      "internalRoles": [
+        "GLOBAL_ADMIN",
+        "CONTROL_TOWER",
+        "BRANCH_OPS",
+        "FINANCE"
+      ],
+      "externalRolesDenied": [
+        "CUSTOMER",
+        "SHIPPER",
+        "CONSIGNEE",
+        "AGENT"
+      ],
+      "minimumColumns": [
+        "Job Ref",
+        "Business Model",
+        "Customer / Party",
+        "Route",
+        "Carrier",
+        "ETD",
+        "ETA",
+        "Status",
+        "Owner / Operator",
+        "Actions"
+      ],
+      "actions": [
+        "Open Job",
+        "Quick View"
+      ],
+      "navigationRule": "Open Job routes to /bookings/{id}; Quick View reuses existing embedded Job Workspace/JobContextRail pattern."
+    },
+    "jobContextRail": {
+      "addition": "Carrier Payment / Payer",
+      "route": "/carrier-payment?bookingId={id}",
+      "quickView": true,
+      "visibilityRule": "Show only where the existing role and business-model permissions already allow Carrier Payment access."
+    },
+    "nvoccRegister": {
+      "additions": [
+        "Open Job",
+        "Quick View"
+      ],
+      "target": "/bookings/{id}",
+      "dataRule": "No new data source; row id from existing NVOCC booking list."
+    }
+  },
+  "acceptanceCriteria": [
+    "CR-008 frozen runtime behavior is preserved except for the explicitly approved navigation additions.",
+    "A Jobs menu item is visible to approved internal roles and participates in menu search.",
+    "/jobs lists the same underlying Booking/Job records; counts and job refs match /bookings.",
+    "No second job table/entity or duplicated transactional state is introduced.",
+    "Opening a job from /jobs routes to the existing /bookings/{id} Job Workspace.",
+    "Quick View from /jobs opens the existing Job Workspace in embedded mode without losing context.",
+    "Carrier Payment / Payer appears in the right-side JobContextRail for applicable Forwarding jobs and opens via Quick View.",
+    "Carrier Payment / Payer remains unavailable where existing permissions/business-model rules deny it.",
+    "NVOCC Booking Register rows provide Open Job and Quick View actions into the existing Job Workspace.",
+    "Customer, Shipper, Consignee and unauthorized Agent users cannot access the internal Jobs register.",
+    "NVOCC and Global Forwarding portal access and privacy remain unchanged.",
+    "Jobs 50001–50005 remain fully navigable and transactionally unchanged.",
+    "No regression in documents, finance, payment, release, Operations Control, Action Queue, SLA, notifications or external communications.",
+    "Desktop/tablet/mobile layouts remain free of new horizontal-overflow regressions.",
+    "Production remains unchanged."
+  ],
+  "regressionPlan": {
+    "scope": "WEB_PRIMARY + SHARED_GUARDS",
+    "tests": [
+      "Web build and frozen sidebar/menu regression.",
+      "Route smoke tests: /jobs, /bookings, /bookings/{id}, /carrier-payment, /nvocc-portal.",
+      "Role-by-role UI access: GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS, FINANCE, AGENT, CUSTOMER, SHIPPER, CONSIGNEE.",
+      "Menu search finds Jobs and preserves all current CR-008 menu groups.",
+      "Jobs register parity check against /bookings for jobs 50001–50005.",
+      "Jobs register Open Job and Quick View navigation for 50001–50005.",
+      "JobContextRail Carrier Payment Quick View on Forwarding jobs.",
+      "Negative test: NVOCC and unauthorized roles do not gain Carrier Payment capability.",
+      "NVOCC register Open Job and Quick View actions.",
+      "Existing NVOCC/Forwarding portal navigation regression.",
+      "Existing role/privacy negative regression.",
+      "Existing notification/external communication smoke regression.",
+      "Responsive desktop/tablet/mobile navigation and Quick View regression.",
+      "No database migration check.",
+      "No production promotion check."
+    ],
+    "fullTransactionMutationRequired": false,
+    "reason": "Requested change is presentation/navigation-only; full 50001–50005 mutation UAT is not required unless implementation touches shared runtime/business logic beyond the approved navigation scope."
+  },
+  "components": [
+    "web"
+  ],
+  "buildAllowed": false,
+  "deploymentAllowed": false,
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "databaseMigration": false,
+  "secretCredentialChange": false,
+  "approvalRequired": "Explicit user approval of CR-20260924-009 is required before any implementation, build, merge to main, staging deployment or runtime change.",
+  "notes": "DEFINE IMPACT + REGRESSION PLAN ONLY. No implementation is authorized by this CR definition."
+}
