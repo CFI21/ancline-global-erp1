@@ -647,16 +647,42 @@ jobs:
         name: Register approved Web digest
         run: |
           set -euo pipefail
-          actual="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA | awk '/^Digest:/ {print $2; exit}')"
-          [[ "$actual" == "${{ needs.build-web.outputs.digest }}" ]] || { echo "Web digest mismatch"; exit 1; }
-          docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest --tag ghcr.io/cfi21/ancline-web:staging-approved-current --tag ghcr.io/cfi21/ancline-web:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA
+          image="ghcr.io/cfi21/ancline-web:sha-$GITHUB_SHA"
+          expected="${{ needs.build-web.outputs.digest }}"
+          actual=""
+          for i in $(seq 1 12); do
+            actual="$(docker buildx imagetools inspect "$image" 2>/dev/null | awk '/^Digest:/ {print $2; exit}' || true)"
+            [[ "$actual" == "$expected" ]] && break
+            sleep 5
+          done
+          [[ "$actual" == "$expected" ]] || { echo "::error::Web digest verification failed expected=$expected actual=$actual"; exit 1; }
+          for i in $(seq 1 5); do
+            if docker buildx imagetools create --tag ghcr.io/cfi21/ancline-web:latest --tag ghcr.io/cfi21/ancline-web:staging-approved-current --tag ghcr.io/cfi21/ancline-web:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) "$image"; then
+              exit 0
+            fi
+            [[ "$i" == "5" ]] && exit 1
+            sleep 5
+          done
       - if: needs.changes.outputs.api == 'true'
         name: Register approved API digest
         run: |
           set -euo pipefail
-          actual="$(docker buildx imagetools inspect ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA | awk '/^Digest:/ {print $2; exit}')"
-          [[ "$actual" == "${{ needs.build-api.outputs.digest }}" ]] || { echo "API digest mismatch"; exit 1; }
-          docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest --tag ghcr.io/cfi21/ancline-api:staging-approved-current --tag ghcr.io/cfi21/ancline-api:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA
+          image="ghcr.io/cfi21/ancline-api:sha-$GITHUB_SHA"
+          expected="${{ needs.build-api.outputs.digest }}"
+          actual=""
+          for i in $(seq 1 12); do
+            actual="$(docker buildx imagetools inspect "$image" 2>/dev/null | awk '/^Digest:/ {print $2; exit}' || true)"
+            [[ "$actual" == "$expected" ]] && break
+            sleep 5
+          done
+          [[ "$actual" == "$expected" ]] || { echo "::error::API digest verification failed expected=$expected actual=$actual"; exit 1; }
+          for i in $(seq 1 5); do
+            if docker buildx imagetools create --tag ghcr.io/cfi21/ancline-api:latest --tag ghcr.io/cfi21/ancline-api:staging-approved-current --tag ghcr.io/cfi21/ancline-api:staging-approved-$(echo "$GITHUB_SHA" | cut -c1-12) "$image"; then
+              exit 0
+            fi
+            [[ "$i" == "5" ]] && exit 1
+            sleep 5
+          done
       - id: registry
         name: Persist approved digest registry branch
         env:
@@ -744,13 +770,14 @@ jobs:
           retention-days: 90
 
   recovery:
-    needs: [changes, baseline, promote, remote-gate, impact_regression]
+    needs: [changes, baseline, promote, remote-gate, impact_regression, finalize]
     if: |
       always() &&
       needs.promote.result == 'success' &&
       (
         needs.remote-gate.result == 'failure' ||
         needs.impact_regression.result == 'failure' ||
+        needs.finalize.result == 'failure' ||
         (needs.remote-gate.result == 'success' && needs.remote-gate.outputs.drill_triggered == 'true')
       ) &&
       (needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true')

@@ -1,0 +1,7 @@
+{
+  "schema": "ANCLINE_CR008_REVALIDATION_V1",
+  "changeRequest": "CR-20260924-008",
+  "frozenRoot": "CR-20260923-006 / bc37709e9b888410136213bee477630c3956b78d",
+  "purpose": "Force full governed Web/API rebuild and shared staging regression after approved-baseline recovery.",
+  "productionPromotionAuthorized": false
+}
