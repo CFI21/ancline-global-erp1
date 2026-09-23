@@ -7,23 +7,31 @@ const OUT='ui-hardening-artifacts';
 // Freeze-candidate rerun after responsive/accessibility fixes.
 mkdirSync(OUT,{recursive:true});
 const assert=(x,m)=>{if(!x)throw new Error(m)};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function retry(label,fn,attempts=6,delay=1200){
+  let last;
+  for(let i=1;i<=attempts;i++){
+    try{return await fn();}catch(e){last=e;if(i<attempts)await sleep(delay*i);}
+  }
+  throw new Error(label+': '+String(last&&last.message||last));
+}
 const profiles=[
   {name:'desktop',viewport:{width:1440,height:1000}},
   {name:'tablet',viewport:{width:820,height:1180}},
   {name:'mobile',viewport:{width:390,height:844}}
 ];
 async function establish(page,email='test.admin@ancline.invalid',role='GLOBAL_ADMIN'){
-  await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
-  const r=await page.evaluate(async ({email,role})=>{
+  await retry('login navigation',()=>page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000}));
+  const r=await retry('login fetch',()=>page.evaluate(async ({email,role})=>{
     const x=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role})});
     const b=await x.json().catch(()=>null);
     if(x.ok&&b?.accessToken){localStorage.setItem('ancline_token',b.accessToken);localStorage.setItem('ancline_user',JSON.stringify(b.user));}
     return {status:x.status,user:b?.user||null};
-  },{email,role});
+  },{email,role}));
   assert(r.status>=200&&r.status<300&&r.user,'auth failed '+r.status); return r.user;
 }
-async function api(page,path){return page.evaluate(async path=>{const t=localStorage.getItem('ancline_token');const r=await fetch('/api-proxy'+path,{headers:{Authorization:'Bearer '+t}});return {status:r.status,body:await r.json().catch(()=>null)}},path)}
-async function goto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(900);assert(r&&r.status()<500,path+' HTTP '+r?.status());}
+async function api(page,path){return retry('api '+path,()=>page.evaluate(async path=>{const t=localStorage.getItem('ancline_token');const r=await fetch('/api-proxy'+path,{headers:{Authorization:'Bearer '+t}});return {status:r.status,body:await r.json().catch(()=>null)}},path))}
+async function goto(page,path){const r=await retry('goto '+path,()=>page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000}));await page.waitForTimeout(900);assert(r&&r.status()<500,path+' HTTP '+r?.status());}
 async function snap(page,name){await page.screenshot({path:OUT+'/'+name+'.png',fullPage:true});}
 async function layout(page,label){
   const m=await page.evaluate(()=>({
