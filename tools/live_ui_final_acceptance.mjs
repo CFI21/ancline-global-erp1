@@ -7,6 +7,13 @@ const OUT='ui-acceptance-artifacts';
 mkdirSync(OUT,{recursive:true});
 const assert=(x,m)=>{if(!x)throw new Error(m)};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function retry(label,fn,attempts=6,delay=1200){
+  let last;
+  for(let i=1;i<=attempts;i++){
+    try{return await fn();}catch(e){last=e;if(i<attempts)await sleep(delay*i);}
+  }
+  throw new Error(label+': '+String(last&&last.message||last));
+}
 
 async function establish(page,email,requestedRole){
   let last=null;
@@ -31,17 +38,17 @@ async function establish(page,email,requestedRole){
   assert(false,email+': auth failed after retry '+JSON.stringify(last));
 }
 async function api(page,path,init={}){
-  return page.evaluate(async ({path,init})=>{
+  return retry('api '+path,()=>page.evaluate(async ({path,init})=>{
     const token=localStorage.getItem('ancline_token');
     const headers={...(init.headers||{}),Authorization:'Bearer '+token};
     if(init.body!==undefined)headers['Content-Type']='application/json';
     const r=await fetch('/api-proxy'+path,{...init,headers});
     const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
     return {ok:r.ok,status:r.status,body};
-  },{path,init});
+  },{path,init}));
 }
 async function shot(page,name){await page.screenshot({path:OUT+'/'+name+'.png',fullPage:true});}
-async function safeGoto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(1000);assert(r&&r.status()<500,path+': HTTP '+(r?.status()));}
+async function safeGoto(page,path){const r=await retry('goto '+path,()=>page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000}));await page.waitForTimeout(1000);assert(r&&r.status()<500,path+': HTTP '+(r?.status()));}
 async function reseed(page){const r=await api(page,'/test-data/seed',{method:'POST',body:'{}'});assert(r.ok,'reseed HTTP '+r.status);return r.body;}
 
 const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],operationsControl:[],actionQueue:[],slaAutomation:[],exceptions:[],status:'RUNNING'};
