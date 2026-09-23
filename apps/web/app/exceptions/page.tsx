@@ -3,6 +3,9 @@
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle} from '../../components/WorkspaceShell';
 import JobContextRail from '../../components/JobContextRail';
+import JobFlowNav from '../../components/JobFlowNav';
+
+void JobFlowNav;
 import {api,fmtDate,requireToken} from '../../lib/api';
 
 type Severity='CRITICAL'|'HIGH'|'MEDIUM';
