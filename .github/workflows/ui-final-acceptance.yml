@@ -1,13 +1,12 @@
 name: ANCLINE Simple Secure UI Final Acceptance
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/live_ui_final_acceptance.mjs'
-      - '.github/workflows/ui-final-acceptance.yml'
   workflow_dispatch:
 permissions:
   contents: read
+
+concurrency:
+  group: ancline-staging-browser-uat
+  cancel-in-progress: false
 jobs:
   ui-final-acceptance:
     runs-on: ubuntu-latest
