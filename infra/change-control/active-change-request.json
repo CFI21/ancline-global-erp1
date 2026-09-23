@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-003",
-  "status": "BUILD_APPROVED",
+  "status": "STAGING_APPROVED",
   "title": "Operations Action Queue + SLA Escalation",
   "businessRequirement": "Extend the staging-accepted Operations Control + Exception Dashboard into a governed internal action queue that lets authorized operations users take ownership of existing exceptions, acknowledge work, assign or reassign an owner, set/adjust due dates, complete linked operational tasks, and surface SLA/escalation state using existing approved Task, Approval, Booking, AuditEvent and exception data. Preserve all existing booking, document, finance, payment, release, NVOCC and Forwarding workflow rules.",
   "objective": "Move from exception visibility to controlled operational follow-through without creating a second workflow engine or changing the frozen transactional baseline.",
@@ -102,10 +102,12 @@
     "Full SHARED regression and targeted action-queue E2E must pass before any staging deployment can be approved."
   ],
   "buildAllowed": true,
-  "deploymentAllowed": false,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
-  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
-  "notes": "BUILD ONLY APPROVED. Implement Operations Action Queue + SLA Escalation using existing Task/Audit data. Preserve CR-001 Operations Control, CR-002 hardening, frozen UI/workflows and role/privacy boundaries. No database migration. No staging deployment. No production promotion.",
+  "approvalRequired": "Production promotion remains prohibited; a separate explicit user approval is required after staging acceptance.",
+  "notes": "STAGING-ONLY APPROVED. Merge PR #7, deploy the candidate to staging, run full SHARED regression plus targeted Operations Action Queue E2E, and auto-rollback on failure. Preserve CR-001/CR-002, frozen UI/workflows, privacy and transactional rules. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T13:00:00+02:00",
-  "approvedBy": "User command: CR-20260923-003 approve business requirement + build only"
+  "approvedBy": "User command: CR-20260923-003 approve business requirement + build only",
+  "stagingApprovedAt": "2026-09-23T13:45:00+02:00",
+  "stagingApprovedBy": "User command: CR-20260923-003 approve merge PR #7 + staging-only deployment + full SHARED UAT"
 }
