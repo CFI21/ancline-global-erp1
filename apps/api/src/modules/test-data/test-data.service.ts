@@ -47,6 +47,12 @@ export class TestDataService implements OnModuleInit {
     // persistent synthetic jobs after destructive acceptance mutations.
     await this.db.booking.updateMany({where:{bookingNo:{in:[...TEST_JOB_REFS]}},data:{consolId:null}});
     await this.db.consol.deleteMany({where:{consolNo:{startsWith:'ANC-TEST-UAT-'}}});
+    await this.db.integrationEvent.deleteMany({where:{OR:[
+      {sourceSystem:'ANCLINE_ACCOUNTING',objectType:'FinanceInvoice',objectId:{startsWith:'HARD-'}},
+      {sourceSystem:'HARDENING_CARRIER'},
+      {sourceSystem:'HARDENING_PROVIDER'},
+      {sourceSystem:'ANCLINE_ORCHESTRATION',objectType:'AutomationIdempotencyClaim',objectId:{startsWith:'HARDENING-IDEM-'}}
+    ]}});
     await this.db.integrationEvent.deleteMany({where:{sourceSystem:'ANCLINE_CARRIER_OPERATIONS',objectType:'CarrierBooking',objectId:{startsWith:'TEST-CBR-'}}});
 
     const customers=[

@@ -22,6 +22,7 @@ export class IntegrationsService {
   private uniqueError(e:any){return String(e?.code||'')==='P2002';}
   private sleep(ms:number){return new Promise(resolve=>setTimeout(resolve,ms));}
   private date(v:any){if(!v)return null;const d=new Date(v);if(Number.isNaN(d.getTime()))throw new BadRequestException(`Invalid date/time: ${v}`);return d;}
+  private externalClaimId(sourceSystem:string,externalId:string){return 'ievt_'+createHash('sha256').update(sourceSystem+':'+externalId).digest('hex').slice(0,24);}
 
   async list(user:ScopeUser){
     this.assertInternal(user);
@@ -204,7 +205,12 @@ export class IntegrationsService {
     const original:any=row.payload&&typeof row.payload==='object'?row.payload:{};
     const clean={...original};delete clean._processing;
     const attempt=row.attemptCount+1;
-    await this.prisma.integrationEvent.update({where:{id},data:{status:'PROCESSING',attemptCount:{increment:1},completedAt:null,payload:{...clean,_processing:{processingStartedAt:new Date().toISOString(),attempt,maxAttempts:MAX_ATTEMPTS}}}});
+    const claimed=await this.prisma.integrationEvent.updateMany({where:{id,status:row.status,attemptCount:row.attemptCount},data:{status:'PROCESSING',attemptCount:{increment:1},completedAt:null,payload:{...clean,_processing:{processingStartedAt:new Date().toISOString(),attempt,maxAttempts:MAX_ATTEMPTS}}}});
+    if(claimed.count!==1){
+      const current=await this.prisma.integrationEvent.findUnique({where:{id}});
+      if(current?.status==='COMPLETED')return {...current,duplicate:true};
+      throw new BadRequestException('Integration event state changed concurrently; retry from current state');
+    }
     try{
       const result=await this.execute(row.eventType,clean);
       const payload:any={...clean,_processing:{result,processedAt:new Date().toISOString(),attempt,maxAttempts:MAX_ATTEMPTS,lastError:null}};
@@ -230,27 +236,18 @@ export class IntegrationsService {
     if(!sourceSystem||!eventType)throw new BadRequestException('Source system and event type are required');
     if(!body?.payload||typeof body.payload!=='object'||Array.isArray(body.payload))throw new BadRequestException('Payload must be a JSON object');
     if(externalId){
-      const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem,externalId,status:'COMPLETED'},orderBy:{createdAt:'desc'}});
-      if(prior)return {...prior,duplicate:true};
+      const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem,externalId},orderBy:{createdAt:'desc'}});
+      if(prior)return {...prior,duplicate:true,retryRequired:['FAILED','DEAD_LETTER'].includes(String(prior.status))};
     }
-
+    const deterministicId=externalId?this.externalClaimId(sourceSystem,externalId):undefined;
     let row:any;
-    if(externalId){
-      const dedupeId=this.deterministicId(sourceSystem,externalId);
-      try{
-        row=await this.prisma.integrationEvent.create({data:{id:dedupeId,sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:externalId,status:'RECEIVED',payload:body.payload}});
-      }catch(e:any){
-        if(!this.uniqueError(e))throw e;
-        for(let i=0;i<120;i++){
-          const prior=await this.prisma.integrationEvent.findUnique({where:{id:dedupeId}});
-          if(prior?.status==='COMPLETED')return {...prior,duplicate:true};
-          if(prior?.status==='FAILED'||prior?.status==='DEAD_LETTER')throw new BadRequestException(`Duplicate event ${externalId} already exists in ${prior.status}; use the retry/reprocess control instead of inserting it again.`);
-          await this.sleep(100);
-        }
-        throw new BadRequestException(`Duplicate event ${externalId} is still processing`);
-      }
-    }else{
-      row=await this.prisma.integrationEvent.create({data:{sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:'PENDING',status:'RECEIVED',payload:body.payload}});
+    try{
+      row=await this.prisma.integrationEvent.create({data:{...(deterministicId?{id:deterministicId}:{}),sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:externalId||'PENDING',status:'RECEIVED',payload:body.payload}});
+    }catch(e:any){
+      if(e?.code!=='P2002'||!deterministicId)throw e;
+      const prior=await this.prisma.integrationEvent.findUnique({where:{id:deterministicId}});
+      if(prior)return {...prior,duplicate:true,retryRequired:['FAILED','DEAD_LETTER'].includes(String(prior.status))};
+      throw e;
     }
     await this.audit.log({actorId:user.sub,action:'INTEGRATION_EVENT_RECEIVED',objectType:'IntegrationEvent',objectId:row.id,detail:{sourceSystem,eventType,externalId}});
     return this.processEvent(row.id,user,false);

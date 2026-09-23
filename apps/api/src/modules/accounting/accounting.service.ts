@@ -14,6 +14,7 @@ export class AccountingService {
 
   private access(user:ScopeUser){ this.scope.assertFinanceAccess(user); }
   private round(value:number){ return Math.round((value+Number.EPSILON)*100)/100; }
+  private paymentEventId(invoiceNo:string,reference:string){return 'pay_'+createHash('sha256').update(invoiceNo+':'+reference.toUpperCase()).digest('hex').slice(0,24);}
   private payload(event:any){ return (event?.payload||{}) as any; }
   private required(value:any,name:string){
     const text=String(value??'').trim();
@@ -259,45 +260,60 @@ export class AccountingService {
 
   async payment(invoiceNo:string,body:any,user:ScopeUser){
     this.access(user);
-    const invoice:any=await this.getInvoice(invoiceNo,user);
-    await this.scope.assertBookingAccess(user,invoice.bookingId);
+    const initial:any=await this.getInvoice(invoiceNo,user);
+    await this.scope.assertBookingAccess(user,initial.bookingId);
     const amount=Number(body?.amount);
     if(!Number.isFinite(amount)||amount<=0) throw new BadRequestException('Payment amount must be greater than zero');
-    const currency=String(body?.currency||invoice.currency).toUpperCase();
+    const currency=String(body?.currency||initial.currency).toUpperCase();
+    const paidAt=body?.paidAt?this.date(body.paidAt,'Payment date'):new Date();
     const reference=body?.reference?String(body.reference).trim():null;
-    const rounded=this.round(amount);
-
-    const duplicateResult=async(event:any)=>{
+    const method=body?.method?String(body.method).trim().toUpperCase():'BANK_TRANSFER';
+    const eventId=reference?this.paymentEventId(invoiceNo,reference):null;
+    const samePayment=(p:any)=>Math.abs(Number(p?.amount||0)-amount)<0.005&&String(p?.currency||'').toUpperCase()===currency&&String(p?.method||'BANK_TRANSFER').toUpperCase()===method;
+    const duplicateResponse=async(event:any)=>{
       const p:any=event?.payload||{};
-      if(this.round(Number(p.amount||0))!==rounded||String(p.currency||'').toUpperCase()!==currency)throw new BadRequestException('Payment reference was already used with different amount or currency');
-      return {...await this.getInvoice(invoiceNo,user),duplicate:true,duplicatePaymentReference:reference};
+      if(!samePayment(p))throw new BadRequestException('Payment reference already exists with different payment details');
+      return {...await this.getInvoice(invoiceNo,user),duplicate:true,paymentEventId:event.id};
     };
     if(reference){
-      const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',objectType:'FinanceInvoice',objectId:invoiceNo,externalId:reference},orderBy:{createdAt:'desc'}});
-      if(prior)return duplicateResult(prior);
+      const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',objectType:'FinanceInvoice',objectId:invoiceNo,externalId:reference}});
+      if(prior)return duplicateResponse(prior);
     }
-
-    if(['DRAFT','VOID','DISPUTED','PAID'].includes(invoice.status)) throw new BadRequestException(`Payment cannot be recorded against ${invoice.status} invoice`);
-    if(amount-invoice.balanceAmount>0.005) throw new BadRequestException('Payment exceeds the outstanding balance');
-    if(currency!==invoice.currency) throw new BadRequestException('Payment currency must match invoice currency');
-    const paidAt=body?.paidAt?this.date(body.paidAt,'Payment date'):new Date();
-    const method=body?.method?String(body.method).trim().toUpperCase():'BANK_TRANSFER';
-    const eventId=reference?this.deterministicId('PAYREF',invoiceNo+'|'+reference):null;
-    let event:any;
-    try{
-      event=await this.prisma.integrationEvent.create({data:{
-        ...(eventId?{id:eventId}:{}),
-        sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',externalId:reference||`${invoiceNo}-${Date.now()}`,
-        objectType:'FinanceInvoice',objectId:invoiceNo,status:'COMPLETED',payload:{invoiceNo,amount:rounded,currency,paidAt:paidAt.toISOString(),method,reference,notes:body?.notes?String(body.notes):null,recordedBy:user.sub},completedAt:new Date()
-      }});
-    }catch(e:any){
-      if(!eventId||!this.uniqueError(e))throw e;
-      const prior=await this.prisma.integrationEvent.findUnique({where:{id:eventId}});
-      if(!prior)throw e;
-      return duplicateResult(prior);
+    let event:any=null;
+    for(let attempt=1;attempt<=4;attempt++){
+      try{
+        const result:any=await this.prisma.$transaction(async(tx:any)=>{
+          const events=await tx.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_ACCOUNTING',objectType:'FinanceInvoice',objectId:invoiceNo},orderBy:{createdAt:'asc'}});
+          const invoice:any=this.buildInvoice(events);
+          if(!invoice)throw new NotFoundException('Accounting invoice not found');
+          if(['DRAFT','VOID','DISPUTED','PAID'].includes(invoice.status))throw new BadRequestException(`Payment cannot be recorded against ${invoice.status} invoice`);
+          if(amount-invoice.balanceAmount>0.005)throw new BadRequestException('Payment exceeds the outstanding balance');
+          if(currency!==invoice.currency)throw new BadRequestException('Payment currency must match invoice currency');
+          if(reference){
+            const prior=events.find((e:any)=>e.eventType==='PAYMENT_RECORDED'&&String(e.externalId||'')===reference);
+            if(prior){
+              const p:any=prior.payload||{};
+              if(!samePayment(p))throw new BadRequestException('Payment reference already exists with different payment details');
+              return {duplicate:true,event:prior};
+            }
+          }
+          const created=await tx.integrationEvent.create({data:{...(eventId?{id:eventId}:{}),sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',externalId:reference||`${invoiceNo}-${Date.now()}`,objectType:'FinanceInvoice',objectId:invoiceNo,status:'COMPLETED',payload:{invoiceNo,amount:this.round(amount),currency,paidAt:paidAt.toISOString(),method,reference,notes:body?.notes?String(body.notes):null,recordedBy:user.sub},completedAt:new Date()}});
+          return {duplicate:false,event:created};
+        },{isolationLevel:'Serializable' as any});
+        if(result.duplicate)return duplicateResponse(result.event);
+        event=result.event;break;
+      }catch(e:any){
+        if(e?.code==='P2002'&&reference){
+          const prior=await this.prisma.integrationEvent.findUnique({where:{id:eventId!}});
+          if(prior)return duplicateResponse(prior);
+        }
+        if(e?.code==='P2034'&&attempt<4){await new Promise(r=>setTimeout(r,25*attempt));continue;}
+        throw e;
+      }
     }
-    await this.audit.log({actorId:user.sub,action:'ACCOUNTING_PAYMENT_RECORD',objectType:'FinanceInvoice',objectId:invoiceNo,bookingId:invoice.bookingId,detail:{paymentEventId:event.id,amount:rounded,currency,method,reference}});
-    return this.getInvoice(invoiceNo,user);
+    if(!event)throw new BadRequestException('Payment could not be committed after concurrent retries');
+    await this.audit.log({actorId:user.sub,action:'ACCOUNTING_PAYMENT_RECORD',objectType:'FinanceInvoice',objectId:invoiceNo,bookingId:initial.bookingId,detail:{paymentEventId:event.id,amount,currency,method,reference}});
+    return {...await this.getInvoice(invoiceNo,user),duplicate:false,paymentEventId:event.id};
   }
 
   async dispute(invoiceNo:string,body:any,user:ScopeUser){

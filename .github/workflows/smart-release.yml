@@ -59,7 +59,7 @@ jobs:
               case "$file" in
                 apps/web/*) web=true ;;
                 packages/db/*) ;;
-                packages/*|package.json|package-lock.json|tsconfig.json|.github/workflows/smart-release.yml)
+                packages/*|package.json|package-lock.json|tsconfig.json)
                   web=true; api=true; shared=true ;;
               esac
             done < <(git diff --name-only "$web_before" "$GITHUB_SHA")
@@ -67,7 +67,7 @@ jobs:
             while IFS= read -r file; do
               case "$file" in
                 apps/api/*|packages/db/*) api=true ;;
-                packages/*|package.json|package-lock.json|tsconfig.json|.github/workflows/smart-release.yml)
+                packages/*|package.json|package-lock.json|tsconfig.json)
                   web=true; api=true; shared=true ;;
               esac
             done < <(git diff --name-only "$api_before" "$GITHUB_SHA")

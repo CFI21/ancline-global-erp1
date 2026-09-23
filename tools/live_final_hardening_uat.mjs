@@ -120,7 +120,18 @@ try{
   const paid=ok(await call('/accounting/invoices/'+encodeURIComponent(invoiceNo),{token:finance.token}),'paid invoice');
   assert(Math.abs(Number(paid.paidAmount)-payAmount)<0.01,'Duplicate payment reference changed paid amount more than once');
   denied(await call('/accounting/invoices/'+encodeURIComponent(invoiceNo)+'/payments',{token:finance.token,method:'POST',body:{amount:payAmount+1,currency:issued.currency,reference:payRef}}),'conflicting duplicate payment denial');
-  report.paymentFailure={overpaymentBlocked:true,currencyMismatchBlocked:true,concurrentRequests:12,duplicates:payDuplicates,appliedAmount:paid.paidAmount,status:'PASS'};
+  const b50002=(summary.bookings||[]).find(x=>String(x.bookingNo)==='50002');
+  assert(b50002,'50002 missing for payment balance race');
+  const raceInvoiceNo='HARD-RACE-'+stamp();
+  ok(await call('/accounting/invoices',{token:finance.token,method:'POST',body:{bookingId:b50002.id,invoiceNo:raceInvoiceNo,invoiceType:'AR',reference:'FINAL_HARDENING_RACE'}}),'create race invoice');
+  const raceIssued=ok(await call('/accounting/invoices/'+encodeURIComponent(raceInvoiceNo)+'/issue',{token:finance.token,method:'POST',body:{}}),'issue race invoice');
+  const raceStamp=stamp();
+  const racePays=await Promise.all(['A','B'].map(s=>call('/accounting/invoices/'+encodeURIComponent(raceInvoiceNo)+'/payments',{token:finance.token,method:'POST',body:{amount:Number(raceIssued.totalAmount),currency:raceIssued.currency,reference:'HARD-RACE-'+s+'-'+raceStamp,method:'BANK_TRANSFER'}})));
+  assert(racePays.filter(r=>r.ok).length===1,'Concurrent different-reference full-balance payments must allow exactly one success');
+  assert(racePays.filter(r=>!r.ok).length===1,'Concurrent different-reference full-balance payments must reject exactly one loser');
+  const raceFinal=ok(await call('/accounting/invoices/'+encodeURIComponent(raceInvoiceNo),{token:finance.token}),'race invoice final');
+  assert(Math.abs(Number(raceFinal.paidAmount)-Number(raceIssued.totalAmount))<0.01,'Concurrent payment race over-allocated invoice balance');
+  report.paymentFailure={overpaymentBlocked:true,currencyMismatchBlocked:true,concurrentRequests:12,duplicates:payDuplicates,appliedAmount:paid.paidAmount,balanceRaceBlocked:true,raceSuccesses:1,raceDenials:1,status:'PASS'};
 
   // 5) Security boundary and live security-header acceptance.
   const anon=await call('/bookings');

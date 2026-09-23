@@ -20,6 +20,15 @@ export class WorkflowAutomationService {
   private latest(rows:any[],objectType:string){const m=new Map<string,any>();for(const e of rows.filter((x:any)=>x.objectType===objectType))m.set(e.objectId,{...this.payload(e),objectId:e.objectId,eventType:e.eventType,updatedAt:e.createdAt});return [...m.values()];}
   private async ownEvents(){return this.db.integrationEvent.findMany({where:{sourceSystem:SOURCE},orderBy:{createdAt:'asc'}});}
   private async governanceEvents(){return this.db.integrationEvent.findMany({where:{sourceSystem:GOVERNANCE},orderBy:{createdAt:'asc'}});}
+  private automationClaimId(key:string){return 'aidem_'+createHash('sha256').update('ANCLINE_AUTOMATION:'+key).digest('hex').slice(0,24);}
+  private async resolvedClaim(id:string){
+    for(let i=0;i<80;i++){
+      const row=await this.db.integrationEvent.findUnique({where:{id}});
+      if(row?.status==='COMPLETED'||row?.status==='FAILED')return row;
+      await new Promise(r=>setTimeout(r,50));
+    }
+    return this.db.integrationEvent.findUnique({where:{id}});
+  }
   private config(notes:any){if(!notes||typeof notes!=='string')return {};try{const x=JSON.parse(notes);return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}catch{return {};}}
   private valueAt(context:any,path:any){if(!path)return undefined;return String(path).split('.').reduce((v:any,k:string)=>v==null?undefined:v[k],context);}
   private condition(rule:any,context:any){if(!rule.conditionField)return true;const actual=this.valueAt(context,rule.conditionField);const expected=rule.conditionValue;switch(String(rule.operator||'EQUALS').toUpperCase()){
@@ -65,44 +74,28 @@ export class WorkflowAutomationService {
     if(!body?.trigger&&!body?.eventType)throw new BadRequestException('Trigger is required');
     if(body.bookingId)await this.scope.assertBookingAccess(user,String(body.bookingId));
     const idempotencyKey=body.idempotencyKey?String(body.idempotencyKey):null;
-    const own=await this.ownEvents();
-    if(idempotencyKey){
-      const prior=this.latest(own,'AutomationRun').find((x:any)=>x.idempotencyKey===idempotencyKey);
-      if(prior)return {...prior,duplicate:true};
-    }
-
     let claimId:string|null=null;
     if(idempotencyKey){
-      claimId=this.deterministicId('AUTOIDEM',idempotencyKey);
+      const own=await this.ownEvents(),prior=this.latest(own,'AutomationRun').find((x:any)=>x.idempotencyKey===idempotencyKey);
+      if(prior)return {...prior,duplicate:true};
+      claimId=this.automationClaimId(idempotencyKey);
       try{
-        await this.db.integrationEvent.create({data:{
-          id:claimId,sourceSystem:SOURCE,eventType:'IDEMPOTENCY_CLAIMED',externalId:idempotencyKey,
-          objectType:'AutomationIdempotency',objectId:idempotencyKey,status:'PROCESSING',
-          payload:{idempotencyKey,claimedAt:new Date().toISOString(),claimedBy:user.email||user.sub}
-        }});
+        await this.db.integrationEvent.create({data:{id:claimId,sourceSystem:SOURCE,eventType:'AUTOMATION_IDEMPOTENCY_CLAIM',externalId:idempotencyKey,objectType:'AutomationIdempotencyClaim',objectId:idempotencyKey,status:'PROCESSING',payload:{idempotencyKey,startedAt:new Date().toISOString()},attemptCount:0}});
       }catch(e:any){
-        if(!this.uniqueError(e))throw e;
-        for(let i=0;i<100;i++){
-          const marker=await this.db.integrationEvent.findUnique({where:{id:claimId}});
-          const p:any=marker?.payload||{};
-          if(marker?.status==='COMPLETED'&&p.runId){
-            const prior=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:'AutomationRun',objectId:String(p.runId),eventType:'AUTOMATION_RUN_COMPLETED'}});
-            if(prior)return {...(prior.payload as any),duplicate:true};
-          }
-          if(marker?.status==='FAILED')throw new BadRequestException('Prior request using this idempotency key failed; use a new key after resolving the failure.');
-          await this.sleep(100);
-        }
-        throw new BadRequestException('Identical automation request is still processing');
+        if(e?.code!=='P2002')throw e;
+        const settled=await this.resolvedClaim(claimId),p=this.payload(settled);
+        if(settled?.status==='COMPLETED'&&p?.result)return {...p.result,duplicate:true};
+        if(settled?.status==='FAILED')throw new BadRequestException('Prior idempotent automation attempt failed; use a new idempotency key');
+        return {runId:p?.runId||null,idempotencyKey,status:'IN_PROGRESS',duplicate:true};
       }
     }
-
     try{
       const {workflows,notifications}=await this.rules(),matched=this.match(workflows,body),trigger=String(body.trigger||body.eventType).toUpperCase(),runId=this.id('RUN');const results:any[]=[],errors:any[]=[];
       for(const rule of matched){try{results.push({workflowId:rule.workflowId,action:rule.action,result:await this.executeRule(rule,{...body,trigger},user)});}catch(e:any){errors.push({workflowId:rule.workflowId,action:rule.action,error:e?.message||'Automation action failed'});}}
       for(const rule of notifications.filter((x:any)=>x.eventType===trigger)){try{const n=await this.notify(trigger,body,rule,user,{ruleId:rule.notificationRuleId});results.push({notificationRuleId:rule.notificationRuleId,action:'NOTIFY',result:{type:'Notification',id:n.notificationId,status:n.status}});}catch(e:any){errors.push({notificationRuleId:rule.notificationRuleId,action:'NOTIFY',error:e?.message||'Notification creation failed'});}}
       const payload={runId,idempotencyKey,process:String(body.process||'').toUpperCase()||null,trigger,bookingId:body.bookingId||null,objectType:body.objectType||null,objectId:body.objectId||null,context:body.context||{},matchedRuleCount:matched.length,resultCount:results.length,errorCount:errors.length,results,errors,executedBy:user.email||user.sub,executedAt:new Date().toISOString(),status:errors.length?'COMPLETED_WITH_ERRORS':'COMPLETED'};
       await this.write('AutomationRun','AUTOMATION_RUN_COMPLETED',runId,payload,user);
-      if(claimId)await this.db.integrationEvent.update({where:{id:claimId},data:{status:'COMPLETED',completedAt:new Date(),payload:{idempotencyKey,runId,completedAt:new Date().toISOString()}}});
+      if(claimId)await this.db.integrationEvent.update({where:{id:claimId},data:{status:'COMPLETED',completedAt:new Date(),payload:{idempotencyKey,runId,result:payload,completedAt:new Date().toISOString()}}});
       return payload;
     }catch(e:any){
       if(claimId)await this.db.integrationEvent.update({where:{id:claimId},data:{status:'FAILED',payload:{idempotencyKey,error:e?.message||'Automation failed',failedAt:new Date().toISOString()}}}).catch(()=>undefined);

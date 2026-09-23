@@ -1,114 +1,49 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260923-001",
-  "status": "DRAFT",
-  "title": "Operations Control + Exception Dashboard",
-  "businessRequirement": "Build a consolidated Operations Control + Exception Dashboard using approved ANCLINE data to surface action-required jobs, cut-off risks, document gaps, payment/release blocks, failed integration events, milestone delays, and reconciliation exceptions, with direct links to the relevant job/action. Preserve current workflows and the frozen accepted runtime baseline.",
-  "objective": "Give internal operations a single control-tower surface for prioritized exceptions and direct remediation without changing underlying booking, finance, document, payment, release, NVOCC, or Forwarding business rules.",
+  "id": "CR-20260923-002",
+  "status": "APPROVED",
+  "title": "ANCLINE ECOM final resilience hardening",
+  "businessRequirement": "Run and enforce concurrency, idempotency, retry, provider failure, payment failure, duplicate callback, security, bounded staging load and disaster-recovery acceptance; fix all API resilience defects found without altering unrelated frozen UI/business behavior.",
+  "objective": "Harden the approved API/runtime against duplicate and concurrent side effects, provider/payment failure paths, retry/dead-letter behavior, security misuse and bounded staging load, then prove exact-image automatic recovery.",
   "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
   "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
   "baselineDecision": "JOB_DONE",
   "baselineStatus": "FINAL_ACCEPTED",
   "impactedModules": [
-    "apps/web/app/exceptions",
-    "apps/web/components/WorkspaceShell",
-    "apps/api/src/modules/operations",
-    "apps/api/src/modules/documents/release-security",
-    "existing booking/task/approval/tracking/integration/finance data sources"
+    "apps/api/src/modules/workflow-automation",
+    "apps/api/src/modules/integrations",
+    "apps/api/src/modules/accounting",
+    "apps/api/src/modules/test-data",
+    "tools/live_final_hardening_uat.mjs"
   ],
   "components": [
-    "shared"
+    "api"
   ],
   "regressionScopes": [
-    "WEB_BUILD",
     "API_TEST_BUILD",
-    "ROLE_BROWSER_UAT",
-    "RESPONSIVE_FAILURE_ACCESSIBILITY",
     "TRANSACTION_LIFECYCLE",
     "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
   ],
   "impactAssessment": {
-    "web": "REQUIRED — evolve the existing Exceptions & Action Board into the consolidated Operations Control dashboard and add direct action links while preserving WorkspaceShell/navigation conventions.",
-    "api": "REQUIRED — add/read-only aggregated operations-control data endpoint(s) so the dashboard can consume scoped exception data efficiently and consistently instead of duplicating business logic in the browser.",
-    "shared": "REQUIRED — dashboard UI and aggregation logic span Web and API; classify as SHARED.",
-    "dataMigration": "NOT_REQUIRED — use existing approved data models/events; no schema change planned.",
-    "securityPrivacy": "REQUIRED — internal-only scoped aggregation; customer/agent/shipper privacy boundaries must remain unchanged.",
-    "financeReleaseControls": "READ_ONLY — surface existing payment/release/reconciliation blockers only; do not alter release-security or payment rules."
+    "web": "NO_RUNTIME_CHANGE",
+    "api": "REQUIRED — concurrency/idempotency/payment/provider resilience controls",
+    "shared": "NO_RUNTIME_CHANGE",
+    "dataMigration": "NOT_REQUIRED",
+    "securityPrivacy": "REQUIRED — fail-closed access and duplicate-event protection",
+    "financeReleaseControls": "REQUIRED — duplicate/concurrent payment protection without changing approved finance rules"
   },
   "regressionPlan": {
-    "rule": "Populate automatically from approved component scope before build.",
-    "web": [
-      "WEB_BUILD",
-      "ROLE_BROWSER_UAT",
-      "RESPONSIVE_FAILURE_ACCESSIBILITY"
-    ],
+    "rule": "API-only post-acceptance change. Require API build/tests, full transaction lifecycle, resilience/security hardening UAT and exact-image DR rollback.",
     "api": [
       "API_TEST_BUILD",
       "TRANSACTION_LIFECYCLE",
       "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
-    ],
-    "shared": [
-      "WEB_BUILD",
-      "API_TEST_BUILD",
-      "ROLE_BROWSER_UAT",
-      "RESPONSIVE_FAILURE_ACCESSIBILITY",
-      "TRANSACTION_LIFECYCLE",
-      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
     ]
   },
-  "buildAllowed": false,
-  "deploymentAllowed": false,
-  "promotionAllowed": false,
-  "approvedAt": null,
-  "approvedBy": null,
-  "notes": "Scope assessed as SHARED. Existing /exceptions page already covers credit/slot/equipment, overdue tasks, pending approvals and late milestones. New work should consolidate additional cut-off, document, payment/release, failed integration and reconciliation signals through read-only scoped API aggregation. No build/deploy/promotion until explicit approval.",
-  "designScope": {
-    "primarySurface": "Operations Control + Exception Dashboard",
-    "existingSurfaceToExtend": "/exceptions",
-    "cards": [
-      "Action Required",
-      "Critical",
-      "Cut-off Risk",
-      "Document Gaps",
-      "Payment / Release Blocks",
-      "Failed Events",
-      "Late Milestones",
-      "Reconciliation Exceptions"
-    ],
-    "filters": [
-      "severity",
-      "category",
-      "booking/job",
-      "owner",
-      "business model",
-      "branch/office when permitted"
-    ],
-    "actions": [
-      "Open Job",
-      "Open Documents",
-      "Open Finance/Payment",
-      "Open Tracking",
-      "Open Integration/Event context"
-    ],
-    "nonGoals": [
-      "No new booking lifecycle states",
-      "No finance rule changes",
-      "No payment rule changes",
-      "No release-security rule changes",
-      "No NVOCC/Forwarding conversion changes",
-      "No database schema migration",
-      "No customer data exposure to carriers or external roles"
-    ]
-  },
-  "acceptanceCriteria": [
-    "One dashboard shows all requested exception categories from existing approved data.",
-    "Every actionable exception links to the correct job or remediation surface.",
-    "Severity and category counts reconcile with source records.",
-    "No duplicate exception rows for the same source event/object condition.",
-    "Role scope prevents external roles from seeing internal operational data.",
-    "Forwarding and NVOCC records remain correctly separated where controls differ.",
-    "Existing booking/document/finance/payment/release workflows remain unchanged.",
-    "Desktop, tablet, and mobile show no uncontrolled overflow/cutoff.",
-    "All mandatory SHARED regression scopes pass before promotion."
-  ]
+  "buildAllowed": true,
+  "deploymentAllowed": true,
+  "promotionAllowed": true,
+  "approvedAt": "2026-09-23T11:38:00+02:00",
+  "approvedBy": "User command: ANCLINE ECOM FINAL HARDENING",
+  "notes": "Explicitly approved by user. Preserve frozen Web/UI behavior and existing booking/document/finance/release business rules. Candidate failure must roll back to approved runtime."
 }
