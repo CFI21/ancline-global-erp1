@@ -1,0 +1,100 @@
+{
+  "schema": "ANCLINE_CR005_STAGING_ACCEPTANCE_V1",
+  "changeRequest": "CR-20260923-005",
+  "status": "FINAL_ACCEPTED_STAGING_LOCKED",
+  "acceptedAt": "2026-09-23T22:29:45+02:00",
+  "preservedBaseline": {
+    "changeRequest": "CR-20260923-006",
+    "commit": "bc37709e9b888410136213bee477630c3956b78d",
+    "state": "STAGING_ACCEPTED_LOCKED"
+  },
+  "gateRepair": {
+    "status": "PASS",
+    "releaseRegistryBaselineUsed": true,
+    "baselineWebCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "baselineApiCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "applicationBusinessLogicChangedByRepair": false,
+    "applicationUiChangedByRepair": false
+  },
+  "approvedStagingRuntime": {
+    "commit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+    "web": {
+      "image": "ghcr.io/cfi21/ancline-web:sha-12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+      "digest": "sha256:655c451343b33d899dfb06965469ac4fb155a2627f9edf3ae2514a9652bc8a91",
+      "url": "https://ancline-web-live.onrender.com"
+    },
+    "api": {
+      "image": "ghcr.io/cfi21/ancline-api:sha-12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+      "digest": "sha256:cc24af4fa5ecf5f34bd4a9a7b0bf8d91cef1384868b0ec5bc6cb2b29ecd0b32d",
+      "url": "https://ancline-api-staging.onrender.com"
+    }
+  },
+  "evidence": {
+    "smartRelease": {
+      "runId": 35914797225,
+      "runNumber": 224,
+      "result": "PASS",
+      "uatRunId": "UAT-20260923202007-2ZX9G"
+    },
+    "targetedCommunicationCenter": {
+      "runId": 35916194831,
+      "result": "PASS",
+      "apiE2E": "PASS",
+      "browserE2E": "PASS"
+    },
+    "smartReleaseNoRuntimeTestCommit": {
+      "runId": 35916194799,
+      "result": "PASS",
+      "runtimePromotion": "SKIPPED"
+    }
+  },
+  "targetedResults": {
+    "seededJobs": 5,
+    "internalFeedCounts": {
+      "GLOBAL_ADMIN": 66,
+      "CONTROL_TOWER": 66,
+      "BRANCH_OPS": 61,
+      "FINANCE": 8
+    },
+    "externalRoleHttp403": [
+      "CUSTOMER",
+      "SHIPPER",
+      "CONSIGNEE",
+      "AGENT"
+    ],
+    "feed": {
+      "total": 66,
+      "critical": 7,
+      "level3": 2,
+      "uniqueIds": true,
+      "directRemediationLinks": true,
+      "acknowledgement": true
+    },
+    "preferences": {
+      "mandatoryCritical": true,
+      "muteOptionalRestore": true
+    },
+    "browser": {
+      "route": "/notifications",
+      "title": true,
+      "preferences": true,
+      "mandatoryCritical": true,
+      "filters": true,
+      "scanRefresh": true
+    }
+  },
+  "regression": {
+    "transactionLifecycle50001To50005": "PASS",
+    "concurrencyIdempotencyProviderPaymentSecurity": "PASS",
+    "rolePrivacyBrowser": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "remoteHealthReleaseEvidence": "PASS",
+    "backup": "PASS"
+  },
+  "production": {
+    "promoted": false,
+    "webImageUnchanged": "ghcr.io/cfi21/ancline-web:sha-5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31",
+    "apiImageUnchanged": "ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d"
+  },
+  "futureChangeRule": "CR-005 is frozen at staging. Any later runtime change requires a new explicitly approved change request and impact-scoped regression."
+}
