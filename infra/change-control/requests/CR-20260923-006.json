@@ -1,67 +1,73 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-006",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED_LOCKED",
   "title": "Latest State Reconciliation + Final Staging Freeze",
   "businessRequirement": "Recover and reconcile the JOB_DONE final accepted baseline with CR-20260923-001, CR-20260923-003 and the staging-accepted CR-20260923-004 runtime; preserve frozen UI/workflows/data/roles; rerun full SHARED regression and jobs 50001-50005 end-to-end UAT; fix only verified gaps; verify Operations Control action links, role/privacy and reconciliation; do not promote production; produce current standalone HTML and acceptance evidence; freeze the new approved staging baseline.",
-  "objective": "Create one canonical, evidenced staging baseline without introducing new business behavior.",
-  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
-  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "objective": "One canonical evidenced staging baseline with no new business behavior.",
   "baselineDecision": "JOB_DONE",
   "baselineStatus": "FINAL_ACCEPTED",
-  "acceptedStagingSource": {
+  "originalJobDoneRuntime": {
+    "webCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+    "apiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a"
+  },
+  "reconciledRuntime": {
+    "commit": "bc37709e9b888410136213bee477630c3956b78d",
+    "webImage": "ghcr.io/cfi21/ancline-web:sha-bc37709e9b888410136213bee477630c3956b78d",
+    "webDigest": "sha256:40328b6ef1d0e087f3f5a18413ec7c483d94b1e3aba6092ab5b51fab6558b790",
+    "apiImage": "ghcr.io/cfi21/ancline-api:sha-bc37709e9b888410136213bee477630c3956b78d",
+    "apiDigest": "sha256:7ab5cc9bd3855c4bc8345620ff5af17604e02ca76e1230a2ba6777825d08061b"
+  },
+  "sourceAcceptedRuntime": {
     "changeRequest": "CR-20260923-004",
     "runtimeCommit": "edbe08745fa0fe32067170097e37e85699a6486a",
-    "smartReleaseRunId": 35896773817,
-    "sharedRegression": "PASS"
+    "smartReleaseRunId": 35896773817
   },
   "preservedChangeRequests": [
-    "CR-20260923-001 — Operations Control + Exception Dashboard — staging acceptance PASS",
-    "CR-20260923-002 — ECOM resilience hardening — preserved dependency",
-    "CR-20260923-003 — Operations Action Queue + SLA Escalation — staging acceptance PASS",
-    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — staging acceptance PASS"
+    "CR-20260923-001 — Operations Control + Exception Dashboard — PASS",
+    "CR-20260923-002 — ECOM resilience hardening — PASS/preserved",
+    "CR-20260923-003 — Operations Action Queue + SLA Escalation — PASS",
+    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — PASS"
   ],
   "deferredChangeRequests": [
-    "CR-20260923-005 — not part of this reconciliation/freeze; remains unapproved for runtime promotion"
+    "CR-20260923-005 — excluded from this reconciled freeze; requires a new explicit approval before any future runtime change"
   ],
   "components": [
     "shared"
   ],
-  "impactedModules": [
-    "approved Web runtime",
-    "approved API runtime",
-    "Operations Control / Exception Dashboard",
-    "Operations Action Queue / SLA",
-    "SLA automation / escalation notifications",
-    "role/privacy/finance/payment/release controls",
-    "synthetic jobs 50001-50005"
-  ],
-  "regressionScopes": [
-    "WEB_BUILD",
-    "API_TEST_BUILD",
-    "ROLE_BROWSER_UAT",
-    "RESPONSIVE_FAILURE_ACCESSIBILITY",
-    "TRANSACTION_LIFECYCLE",
-    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
-  ],
-  "acceptanceCriteria": [
-    "Web and API build gates pass from the reconciled source state.",
-    "Jobs 50001-50005 complete the approved Quote → Booking → Job → BL → Invoice → Payment → Release → Close regression without lifecycle regressions.",
-    "Operations Control and exception rows continue linking to the correct approved job/remediation surfaces.",
-    "CR-003 action queue and CR-004 SLA escalation/idempotency behavior remain intact.",
-    "GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE remain within approved internal scopes.",
-    "CUSTOMER, SHIPPER, CONSIGNEE and AGENT remain denied from internal operational control/escalation data.",
-    "Reconciliation remains balanced and approved finance/release security rules are unchanged.",
-    "Responsive/failure/accessibility and security/resilience regression pass.",
-    "No production service is deployed or promoted.",
-    "A current standalone review HTML and final acceptance manifest are produced after the fresh run passes."
-  ],
-  "buildAllowed": true,
-  "deploymentAllowed": true,
+  "acceptance": {
+    "status": "PASS",
+    "acceptedAt": "2026-09-23T20:55:04+02:00",
+    "smartReleaseRunId": 35904455636,
+    "uatRunId": "UAT-20260923184756-YJT67",
+    "fullSharedRegression": "PASS",
+    "webBuild": "PASS",
+    "apiTestBuild": "PASS",
+    "transactionLifecycle50001To50005": "PASS",
+    "concurrencyIdempotencyProviderPaymentSecurity": "PASS",
+    "rolePrivacyBrowserUat": "PASS",
+    "operationsControlActionLinks": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "remoteHealthAndReleaseEvidence": "PASS",
+    "encryptedBackup": "PASS",
+    "backupSha256": "f3999da966238ba8b0f461148cf62016684c62191c14a17d19fd284dbe7a05fb",
+    "offPlatformArtifactSha256": "466917be2afac55302d8a25897467fb65b48a223f1e372e647313750c31331e2",
+    "autoRollbackTriggered": false
+  },
+  "reconciliation": {
+    "jobs": 5,
+    "totalInvoiced": 20100,
+    "totalPaid": 20100,
+    "totalBalance": 0,
+    "status": "PASS"
+  },
   "deploymentTarget": "STAGING_ONLY",
+  "buildAllowed": false,
+  "deploymentAllowed": false,
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
-  "approvedAt": "2026-09-23T20:37:00+02:00",
+  "frozen": true,
+  "frozenAt": "2026-09-23T20:55:04+02:00",
   "approvedBy": "User command: ANCLINE LATEST STATE RECONCILIATION",
-  "notes": "Reconciliation-only release. No new business behavior. Shared marker intentionally forces both Web and API through the hardened staging pipeline. Fix only verified regression gaps. Production remains frozen."
+  "notes": "FINAL RECONCILIATION PASS. Reconciled staging runtime bc37709e9b888410136213bee477630c3956b78d is locked as the current approved staging baseline. No verified functional regression required a business-logic fix. Production was not promoted or modified."
 }

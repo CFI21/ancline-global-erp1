@@ -1,27 +1,107 @@
 {
   "schema": "ANCLINE_RECONCILIATION_ACCEPTANCE_V1",
   "changeRequest": "CR-20260923-006",
-  "status": "PENDING_FRESH_SHARED_REGRESSION",
-  "sourceApprovedRuntime": "edbe08745fa0fe32067170097e37e85699a6486a",
-  "priorAcceptedRunId": 35896773817,
-  "required": [
-    "WEB_BUILD",
-    "API_TEST_BUILD",
-    "ROLE_BROWSER_UAT",
-    "RESPONSIVE_FAILURE_ACCESSIBILITY",
-    "TRANSACTION_LIFECYCLE",
-    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-    "OPERATIONS_CONTROL_ACTION_LINKS",
-    "ROLE_PRIVACY",
-    "RECONCILIATION"
+  "status": "FINAL_ACCEPTED",
+  "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+  "acceptedAt": "2026-09-23T20:55:04+02:00",
+  "sourceRun": {
+    "workflow": "ANCLINE Smart Release Hardened",
+    "runId": 35904455636,
+    "headSha": "bc37709e9b888410136213bee477630c3956b78d",
+    "result": "PASS",
+    "uatRunId": "UAT-20260923184756-YJT67"
+  },
+  "approvedStagingRuntime": {
+    "web": {
+      "commit": "bc37709e9b888410136213bee477630c3956b78d",
+      "image": "ghcr.io/cfi21/ancline-web:sha-bc37709e9b888410136213bee477630c3956b78d",
+      "digest": "sha256:40328b6ef1d0e087f3f5a18413ec7c483d94b1e3aba6092ab5b51fab6558b790",
+      "url": "https://ancline-web-live.onrender.com"
+    },
+    "api": {
+      "commit": "bc37709e9b888410136213bee477630c3956b78d",
+      "image": "ghcr.io/cfi21/ancline-api:sha-bc37709e9b888410136213bee477630c3956b78d",
+      "digest": "sha256:7ab5cc9bd3855c4bc8345620ff5af17604e02ca76e1230a2ba6777825d08061b",
+      "url": "https://ancline-api-staging.onrender.com"
+    }
+  },
+  "preserved": [
+    "JOB_DONE",
+    "CR-20260923-001",
+    "CR-20260923-002",
+    "CR-20260923-003",
+    "CR-20260923-004",
+    "frozen UI/workflows",
+    "role/privacy/finance/payment/release controls"
   ],
   "jobs": [
-    "50001",
-    "50002",
-    "50003",
-    "50004",
-    "50005"
+    {
+      "bookingNo": "50001",
+      "businessModel": "FORWARDING",
+      "total": 1725,
+      "paid": 1725,
+      "balance": 0,
+      "status": "PASS"
+    },
+    {
+      "bookingNo": "50002",
+      "businessModel": "FORWARDING",
+      "total": 2650,
+      "paid": 2650,
+      "balance": 0,
+      "status": "PASS"
+    },
+    {
+      "bookingNo": "50003",
+      "businessModel": "FORWARDING",
+      "total": 6125,
+      "paid": 6125,
+      "balance": 0,
+      "status": "PASS"
+    },
+    {
+      "bookingNo": "50004",
+      "businessModel": "FORWARDING",
+      "total": 7975,
+      "paid": 7975,
+      "balance": 0,
+      "status": "PASS"
+    },
+    {
+      "bookingNo": "50005",
+      "businessModel": "NVOCC",
+      "total": 1625,
+      "paid": 1625,
+      "balance": 0,
+      "status": "PASS"
+    }
   ],
-  "productionPromotionAuthorized": false,
-  "note": "Updated to FINAL_ACCEPTED only after the fresh CR-20260923-006 SHARED smart-release run passes."
+  "reconciliation": {
+    "jobs": 5,
+    "totalInvoiced": 20100,
+    "totalPaid": 20100,
+    "totalBalance": 0,
+    "status": "PASS"
+  },
+  "regression": {
+    "webBuild": "PASS",
+    "apiTestBuild": "PASS",
+    "transactionLifecycle": "PASS",
+    "concurrencyIdempotencyProviderPaymentSecurity": "PASS",
+    "rolePrivacyBrowser": "PASS",
+    "operationsControlExceptionActionLinks": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "remoteHealthReleaseEvidence": "PASS"
+  },
+  "backup": {
+    "status": "PASS",
+    "sha256": "f3999da966238ba8b0f461148cf62016684c62191c14a17d19fd284dbe7a05fb",
+    "offPlatformArtifactSha256": "466917be2afac55302d8a25897467fb65b48a223f1e372e647313750c31331e2"
+  },
+  "production": {
+    "promoted": false,
+    "webImageUnchanged": "ghcr.io/cfi21/ancline-web:sha-5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31",
+    "apiImageUnchanged": "ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d"
+  },
+  "futureChangeRule": "Any runtime change after this freeze requires a new explicitly approved change request and impact-scoped regression."
 }
