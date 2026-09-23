@@ -11,6 +11,7 @@ export class PortalController {
   @Post('communications/:id/acknowledge') communicationAcknowledge(@Param('id') id:string,@Req() req:any){return this.s.acknowledgeExternalCommunication(id,req.user);}
   @Get('communication-preferences') communicationPreferences(@Req() req:any){return this.s.externalCommunicationPreferences(req.user);}
   @Patch('communication-preferences') updateCommunicationPreferences(@Body() body:any,@Req() req:any){return this.s.updateExternalCommunicationPreferences(body,req.user);}
+  @Get('external-communications/templates') externalCommunicationTemplates(@Req() req:any){return this.s.externalCommunicationTemplates(req.user);}
   @Get('external-communications/history') externalCommunicationHistory(@Req() req:any){return this.s.externalCommunicationHistory(req.user);}
   @Post('external-communications') publishExternalCommunication(@Body() body:any,@Req() req:any){return this.s.publishExternalCommunication(body,req.user);}
   @Post('external-communications/:id/resend') resendExternalCommunication(@Param('id') id:string,@Body() body:any,@Req() req:any){return this.s.resendExternalCommunication(id,body,req.user);}
