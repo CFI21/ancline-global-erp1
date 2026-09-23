@@ -1,0 +1,122 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260923-004",
+  "status": "DRAFT",
+  "title": "Operations SLA Automation + Escalation Notifications",
+  "businessRequirement": "Connect the staging-accepted Operations Action Queue/SLA controls to ANCLINE's existing workflow-automation and notification engine so operational tasks can generate deterministic at-risk/overdue escalation events, in-app notifications and controlled escalation tasks without changing booking, finance, payment, document or release lifecycle rules.",
+  "objective": "Move from manually visible SLA state to governed proactive operational follow-up using the existing WorkflowAutomationService, NotificationRule, EscalationTimer, Task, AuditEvent and IntegrationEvent structures.",
+  "repositoryPlanningBaseCommit": "37d5a1b1f194243644a23ce70384e39e95851514",
+  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "baselineDecision": "JOB_DONE",
+  "baselineStatus": "FINAL_ACCEPTED",
+  "stagingAcceptedRuntimeCommit": "82994ab813ed40e0aac799ff2fd119a7035f4b9a",
+  "stagingAcceptedChangeRequest": "CR-20260923-003",
+  "preservedChangeRequests": [
+    "CR-20260923-001 — Operations Control + Exception Dashboard — staging acceptance PASS",
+    "CR-20260923-002 — ECOM resilience hardening — preserve approved API hardening behavior",
+    "CR-20260923-003 — Operations Action Queue + SLA Escalation — staging acceptance PASS"
+  ],
+  "impactedModules": [
+    "apps/api/src/modules/workflow-automation",
+    "apps/api/src/modules/tasks",
+    "apps/api/src/modules/operations",
+    "apps/web/app/exceptions",
+    "existing WorkflowRule, NotificationRule, EscalationTimer, AutomationNotification, Task, AuditEvent and IntegrationEvent data",
+    "tools/live_ui_final_acceptance.mjs",
+    "tools/live_role_uat_v2.mjs",
+    "tools/live_transaction_mutation_uat.mjs"
+  ],
+  "components": [
+    "shared"
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "OPERATIONS_ACTION_QUEUE_E2E",
+    "SLA_AUTOMATION_NOTIFICATION_E2E"
+  ],
+  "impactAssessment": {
+    "web": "REQUIRED — surface escalation/notification state inside the accepted Operations Control + Action Queue without replacing the frozen layout or navigation model.",
+    "api": "REQUIRED — add narrow integration between task SLA transitions and the existing workflow-automation trigger/timer/notification engine, preserving idempotency and scope enforcement.",
+    "shared": "REQUIRED — API escalation state, queue presentation and role visibility must stay consistent.",
+    "dataMigration": "NOT_REQUIRED — reuse existing IntegrationEvent-backed WorkflowRule, NotificationRule, EscalationTimer and AutomationNotification records plus Task/Audit data.",
+    "securityPrivacy": "REQUIRED — internal-only automation dashboard and notifications remain booking scoped; external roles must not receive or query internal operational escalation details.",
+    "financeReleaseControls": "NO_RULE_CHANGE — escalation may notify about payment/release blockers but cannot override, clear or mutate finance/release security decisions.",
+    "workflowCompatibility": "REQUIRED — automation creates coordination signals/tasks only; no automatic booking lifecycle transitions."
+  },
+  "proposedBehavior": {
+    "triggers": [
+      "Task enters AT_RISK within the configured SLA warning window",
+      "Task becomes OVERDUE",
+      "Critical Operations Control exception remains unacknowledged beyond configured threshold",
+      "Assigned task remains unresolved at escalation due time"
+    ],
+    "automation": [
+      "Use deterministic idempotency keys per task + escalation stage to prevent duplicate escalation",
+      "Create in-app AutomationNotification records using existing NotificationRule behavior",
+      "Use existing EscalationTimer records for delayed escalation",
+      "Use existing runDue processing for due timers, with booking scope enforcement",
+      "Optionally create escalation Task records through existing automation behavior without duplicating the original queue task",
+      "Record every trigger, notification, timer execution and escalation action in existing audit/integration evidence"
+    ],
+    "escalationLevels": [
+      "LEVEL_1 — assigned owner reminder / at-risk notification",
+      "LEVEL_2 — overdue notification to owner plus configured Operations Manager or CONTROL_TOWER audience",
+      "LEVEL_3 — persistent critical exception escalated to CONTROL_TOWER visibility, without granting broader mutation rights"
+    ],
+    "userExperience": [
+      "Show escalation level/status and latest notification state in the existing Operations Action Queue",
+      "Provide direct link to existing job/action surface",
+      "Do not introduce a separate competing operational workflow screen"
+    ]
+  },
+  "regressionPlan": {
+    "rule": "Planning only. If later BUILD_APPROVED, classify as SHARED and require Web/API build gates, full role/privacy browser UAT, responsive/failure/accessibility, transaction lifecycle, resilience/security regression, CR-003 Action Queue E2E and targeted SLA automation/notification E2E before staging deployment approval.",
+    "web": [
+      "WEB_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E"
+    ],
+    "api": [
+      "API_TEST_BUILD",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E"
+    ],
+    "shared": [
+      "WEB_BUILD",
+      "API_TEST_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E"
+    ]
+  },
+  "acceptanceCriteria": [
+    "CR-001 Operations Control categories/counts/filters/direct links remain intact.",
+    "CR-003 claim/assign/reassign/acknowledge/in-progress/due-date/SLA/complete/audit behavior remains intact.",
+    "At-risk and overdue queue tasks trigger only the configured automation stage and do not create duplicate notifications or escalation tasks on retry.",
+    "Escalation timers execute through the existing idempotent workflow-automation engine.",
+    "GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE see only escalation data permitted by existing booking scope and role rules.",
+    "CUSTOMER, SHIPPER, CONSIGNEE and AGENT cannot access internal SLA escalation notifications or automation controls.",
+    "Escalation does not modify booking lifecycle, document release, finance, payment, carrier release or NVOCC/Forwarding privacy rules.",
+    "Every automated escalation action is auditable and traceable to the original task/booking/control exception.",
+    "No database schema migration.",
+    "Full SHARED regression plus targeted SLA automation/notification E2E must pass before staging deployment can be approved."
+  ],
+  "buildAllowed": false,
+  "deploymentAllowed": false,
+  "promotionAllowed": false,
+  "approvalRequired": "Explicit user approval of CR-20260923-004 business requirement and scope before any implementation.",
+  "notes": "DRAFT ONLY. Preserve CR-003 staging-accepted runtime 82994ab813ed40e0aac799ff2fd119a7035f4b9a and the canonical JOB_DONE baseline. No build, staging deployment or production promotion is authorized."
+}
