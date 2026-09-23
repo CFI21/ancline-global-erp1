@@ -1,11 +1,10 @@
 name: ANCLINE Live Role UAT v2
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/live_role_uat_v2.mjs'
-      - '.github/workflows/live-role-uat-v2.yml'
   workflow_dispatch:
+
+# Single-System Live Review Mode: manual-only.
+# smart-release.yml is the only automatic staging build/deploy/regression owner.
+
 permissions:
   contents: read
 jobs:
