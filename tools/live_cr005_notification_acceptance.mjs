@@ -42,6 +42,15 @@ try{
   assert(booking?.id,'booking 50001 missing');
   const bookingId=String(booking.id);
 
+  // Create a controlled finance blocker so payment/finance notification coverage is deterministic.
+  const financeUser=await login('test.finance@ancline.invalid','FINANCE');
+  const financeBlock=ok(await call('/finance',{token:financeUser.token,method:'POST',body:{
+    bookingId,type:'REVENUE',chargeCode:'CR005_UAT_BLOCK',description:'CR005 synthetic disputed blocker',
+    amount:1,currency:'USD',status:'DISPUTED',source:'CR005_UAT'
+  }}),'create finance blocker');
+  assert(financeBlock?.id,'finance blocker creation failed');
+  pass('finance-block-source',{financeLineId:financeBlock.id});
+
   // Create deterministic SLA sources for LEVEL 1/2/3.
   const makeTask=async(title,dueAt)=>ok(await call('/tasks',{token:admin.token,method:'POST',body:{bookingId,title,ownerId:'test.ops@ancline.invalid',dueAt,status:'In Progress'}}),'create '+title);
   const l1=await makeTask('CR005 UAT L1 '+stamp(),new Date(Date.now()+10*60000).toISOString());
