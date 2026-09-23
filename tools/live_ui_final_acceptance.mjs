@@ -36,7 +36,7 @@ async function shot(page,name){await page.screenshot({path:OUT+'/'+name+'.png',f
 async function safeGoto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(1000);assert(r&&r.status()<500,path+': HTTP '+(r?.status()));}
 async function reseed(page){const r=await api(page,'/test-data/seed',{method:'POST',body:'{}'});assert(r.ok,'reseed HTTP '+r.status);return r.body;}
 
-const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],operationsControl:[],actionQueue:[],exceptions:[],status:'RUNNING'};
+const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],operationsControl:[],actionQueue:[],slaAutomation:[],exceptions:[],status:'RUNNING'};
 const browser=await chromium.launch({headless:true});
 
 try{
@@ -218,6 +218,128 @@ try{
       assert(r.status===profile.expect,profile.role+': operations-control boundary expected '+profile.expect+' got '+r.status);
       if(profile.expect===200)assert(Array.isArray(r.body?.rows),profile.role+': internal queue payload malformed');
       report.actionQueue.push({role:profile.role,case:profile.expect===200?'internal-queue-access':'external-queue-denial',status:'PASS'});
+      await ctx.close();
+    }
+  }
+
+
+  // SLA AUTOMATION + ESCALATION — explicit CR-20260923-004 end-to-end acceptance.
+  {
+    const ctx=await browser.newContext({viewport:{width:1440,height:1000}}); const page=await ctx.newPage();
+    const user=await establish(page,'test.admin@ancline.invalid','GLOBAL_ADMIN'); assert(user.role==='GLOBAL_ADMIN','sla-automation admin role mismatch');
+    await safeGoto(page,'/exceptions');
+    await reseed(page);
+
+    const summary=(await api(page,'/test-data/summary')).body;
+    const booking=(summary.bookings||[]).find(x=>String(x.bookingNo)==='50001');
+    assert(booking?.id,'SLA automation requires seeded booking 50001');
+    const bookingId=String(booking.id);
+
+    // LEVEL 1: task due shortly -> owner reminder + deterministic timer.
+    const l1=await api(page,'/tasks',{method:'POST',body:JSON.stringify({
+      bookingId,title:'CR004 E2E L1 owner reminder',ownerId:'test.ops@ancline.invalid',
+      dueAt:new Date(Date.now()+5000).toISOString(),status:'In Progress'
+    })});
+    assert(l1.ok&&l1.body?.id,'LEVEL_1 task creation failed '+l1.status);
+
+    // LEVEL 2: overdue task -> owner + Operations Manager escalation.
+    const l2=await api(page,'/tasks',{method:'POST',body:JSON.stringify({
+      bookingId,title:'CR004 E2E L2 overdue',ownerId:'test.ops@ancline.invalid',
+      dueAt:new Date(Date.now()-2*3600000).toISOString(),status:'In Progress'
+    })});
+    assert(l2.ok&&l2.body?.id,'LEVEL_2 task creation failed '+l2.status);
+
+    // LEVEL 3: persistent critical OC-style task >24h overdue -> CONTROL_TOWER escalation, no further timer.
+    const l3=await api(page,'/tasks',{method:'POST',body:JSON.stringify({
+      bookingId,title:'[OC:cr004-e2e-critical] CR004 E2E L3 persistent critical',ownerId:'test.ops@ancline.invalid',
+      dueAt:new Date(Date.now()-26*3600000).toISOString(),status:'In Progress'
+    })});
+    assert(l3.ok&&l3.body?.id,'LEVEL_3 task creation failed '+l3.status);
+
+    let wa=await api(page,'/workflow-automation/dashboard');
+    assert(wa.status===200&&wa.body,'workflow automation dashboard unavailable');
+    const notifications=wa.body.notifications||[];
+    const timers=wa.body.timers||[];
+    const n1=notifications.find(x=>String(x.taskId)===String(l1.body.id)&&x.level==='LEVEL_1');
+    const n2=notifications.find(x=>String(x.taskId)===String(l2.body.id)&&x.level==='LEVEL_2');
+    const n3=notifications.find(x=>String(x.taskId)===String(l3.body.id)&&x.level==='LEVEL_3');
+    assert(n1&&Array.isArray(n1.recipients)&&n1.recipients.includes('test.ops@ancline.invalid'),'LEVEL_1 owner reminder missing');
+    assert(n2&&Array.isArray(n2.recipients)&&n2.recipients.includes('Operations Manager'),'LEVEL_2 Operations Manager escalation missing');
+    assert(n3&&Array.isArray(n3.recipients)&&n3.recipients.includes('CONTROL_TOWER'),'LEVEL_3 CONTROL_TOWER escalation missing');
+    const t1=timers.find(x=>String(x.objectId)===String(l1.body.id)&&x.status==='PENDING');
+    const t2=timers.find(x=>String(x.objectId)===String(l2.body.id)&&x.status==='PENDING');
+    const t3=timers.find(x=>String(x.objectId)===String(l3.body.id)&&x.status==='PENDING');
+    assert(t1,'LEVEL_1 escalation timer missing');
+    assert(t2,'LEVEL_2 escalation timer missing');
+    assert(!t3,'LEVEL_3 must not create another escalation timer');
+
+    // Repeating the same SLA state must not duplicate stage notification/timer.
+    const repeat=await api(page,'/tasks/'+encodeURIComponent(String(l2.body.id)),{method:'PATCH',body:JSON.stringify({ownerId:'test.ops@ancline.invalid'})});
+    assert(repeat.ok,'LEVEL_2 repeat update failed');
+    wa=await api(page,'/workflow-automation/dashboard');
+    const l2Notifications=(wa.body.notifications||[]).filter(x=>String(x.taskId)===String(l2.body.id)&&x.level==='LEVEL_2');
+    const l2Timers=(wa.body.timers||[]).filter(x=>String(x.objectId)===String(l2.body.id));
+    assert(l2Notifications.length===1,'LEVEL_2 duplicate notification created');
+    assert(l2Timers.length===1,'LEVEL_2 duplicate timer created');
+
+    // Action Queue API + rendered UI must persist escalation level / notification state.
+    let dash=await api(page,'/operations/control-dashboard');
+    const row2=(dash.body?.rows||[]).find(x=>String(x.taskId)===String(l2.body.id));
+    const row3=(dash.body?.rows||[]).find(x=>String(x.taskId)===String(l3.body.id));
+    assert(row2?.escalationLevel==='LEVEL_2'&&row2?.escalationNotificationId,'LEVEL_2 queue escalation metadata missing');
+    assert(row3?.escalationLevel==='LEVEL_3'&&row3?.escalationNotificationId,'LEVEL_3 queue escalation metadata missing');
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000}); await page.waitForTimeout(900);
+    const body=await page.locator('body').innerText();
+    assert(body.includes('LEVEL_2')&&body.includes('LEVEL_3'),'Action Queue UI did not render persisted escalation levels');
+
+    // Let the Level-1 timer become due, then race two run-due executions.
+    await sleep(6000);
+    const tasksBefore=await api(page,'/tasks');
+    const beforeEsc=(Array.isArray(tasksBefore.body)?tasksBefore.body:[]).filter(x=>String(x.title||'').includes('Escalation: OPERATIONS_ACTION_QUEUE · TASK_SLA_ESCALATION')).length;
+    const raced=await page.evaluate(async ()=>{
+      const token=localStorage.getItem('ancline_token');
+      const call=async()=>{const r=await fetch('/api-proxy/workflow-automation/run-due',{method:'POST',headers:{Authorization:'Bearer '+token}});const raw=await r.text();let body;try{body=raw?JSON.parse(raw):null}catch{body=raw}return {status:r.status,body};};
+      return Promise.all([call(),call()]);
+    });
+    assert(raced.every(x=>x.status===200),'concurrent run-due request failed');
+    const executed=raced.reduce((n,x)=>n+Number(x.body?.executed||0),0);
+    assert(executed===1,'concurrent run-due executed the same due timer more than once: '+JSON.stringify(raced.map(x=>x.body)));
+    const tasksAfter=await api(page,'/tasks');
+    const afterEsc=(Array.isArray(tasksAfter.body)?tasksAfter.body:[]).filter(x=>String(x.title||'').includes('Escalation: OPERATIONS_ACTION_QUEUE · TASK_SLA_ESCALATION')).length;
+    assert(afterEsc-beforeEsc===1,'concurrent run-due created duplicate escalation tasks');
+
+    // Audit trace back to the booking/task.
+    const detail=await api(page,'/bookings/'+encodeURIComponent(bookingId));
+    assert(detail.ok&&Array.isArray(detail.body?.auditEvents),'SLA booking audit unavailable');
+    const actions=detail.body.auditEvents.map(x=>String(x.action));
+    assert(actions.includes('TASK_SLA_AUTOMATION'),'TASK_SLA_AUTOMATION audit trace missing');
+    assert(actions.includes('AUTOMATION_NOTIFICATION_CREATED'),'notification audit trace missing');
+
+    await shot(page,'sla-automation-escalation');
+    report.slaAutomation.push({
+      role:'GLOBAL_ADMIN',
+      case:'level1-level2-level3-notifications-timers-idempotency-concurrent-run-due-audit-queue-persistence',
+      level1TaskId:String(l1.body.id),level2TaskId:String(l2.body.id),level3TaskId:String(l3.body.id),status:'PASS'
+    });
+    await ctx.close();
+  }
+
+  // CR-004 workflow-automation role/privacy boundary acceptance.
+  {
+    for(const profile of [
+      {email:'test.admin@ancline.invalid',role:'GLOBAL_ADMIN',expect:200},
+      {email:'test.control@ancline.invalid',role:'CONTROL_TOWER',expect:200},
+      {email:'test.ops@ancline.invalid',role:'BRANCH_OPS',expect:200},
+      {email:'test.finance@ancline.invalid',role:'FINANCE',expect:200},
+      {email:'test.customer.nl@ancline.invalid',role:'CUSTOMER',expect:403},
+      {email:'test.agent.sg@ancline.invalid',role:'AGENT',expect:403},
+      {email:'test.shipper.nl@ancline.invalid',role:'SHIPPER',expect:403}
+    ]){
+      const ctx=await browser.newContext(); const page=await ctx.newPage();
+      const user=await establish(page,profile.email,profile.role); assert(user.role===profile.role,profile.role+': SLA role mismatch');
+      const r=await api(page,'/workflow-automation/dashboard');
+      assert(r.status===profile.expect,profile.role+': workflow automation boundary expected '+profile.expect+' got '+r.status);
+      report.slaAutomation.push({role:profile.role,case:profile.expect===200?'internal-automation-access':'external-automation-denial',status:'PASS'});
       await ctx.close();
     }
   }
