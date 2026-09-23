@@ -1,0 +1,67 @@
+{
+  "schema": "ANCLINE_CR005_FINAL_FREEZE_V1",
+  "changeRequest": "CR-20260923-005",
+  "status": "FINAL_ACCEPTED_LOCKED",
+  "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+  "frozenAt": "2026-09-24T00:13:00+02:00",
+  "currentApprovedStagingRuntime": "e427e9fed6b219c097852cea98ad55fd411e8769",
+  "preservedRootBaseline": {
+    "changeRequest": "CR-20260923-006",
+    "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "repositoryLockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+    "state": "STAGING_ACCEPTED_LOCKED"
+  },
+  "preservedChangeRequests": [
+    "CR-20260923-001 — Operations Control + Exception Dashboard",
+    "CR-20260923-002 — ECOM resilience hardening",
+    "CR-20260923-003 — Operations Action Queue + SLA Escalation",
+    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications",
+    "CR-20260923-006 — Latest State Reconciliation + Final Staging Freeze — frozen root baseline"
+  ],
+  "acceptanceEvidence": {
+    "smartRelease": {
+      "runId": 35917097673,
+      "conclusion": "SUCCESS",
+      "runtimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769"
+    },
+    "uat": {
+      "runId": "UAT-20260923204108-FQOY8",
+      "result": "PASS"
+    },
+    "unifiedNotificationCenterE2E": {
+      "runId": 35918495453,
+      "result": "PASS"
+    }
+  },
+  "runtimeRegistry": {
+    "web": {
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-e427e9fed6b219c097852cea98ad55fd411e8769",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-e427e9fed6b2",
+      "digest": "sha256:27a9b0c615ca9b527a67894aca99bb2efe45ed1209fe9ce65362e769f4976bda"
+    },
+    "api": {
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-e427e9fed6b219c097852cea98ad55fd411e8769",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-e427e9fed6b2",
+      "digest": "sha256:2056a7d5f567076370dd283fa2824b3d255adf152ef5b20feb9484e67709e86f"
+    }
+  },
+  "backupEvidence": {
+    "backupSha256": "9238c4bc7c807ff579104d03905dd03347bcf282c2dfa0821d44409869dfcbe2",
+    "offPlatformArtifactSha256": "2cc3e416daa22831dbe575bb53c27f0a65d7cf50f7e000a046b97dec2db92e40"
+  },
+  "stagingServices": {
+    "web": "ancline-web-live",
+    "api": "ancline-api-staging"
+  },
+  "productionGuard": {
+    "promotionAuthorized": false,
+    "productionWebImage": "ghcr.io/cfi21/ancline-web:sha-5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31",
+    "productionApiImage": "ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d",
+    "productionModified": false
+  },
+  "changeControl": {
+    "cr005Closed": true,
+    "furtherRuntimeChangeWithoutNewApprovedCR": false,
+    "newApprovedChangeRequestRequired": true
+  }
+}

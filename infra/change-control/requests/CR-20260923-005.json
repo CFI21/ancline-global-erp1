@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-005",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED_LOCKED",
   "title": "Unified Operations Notification + Communication Center",
   "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
   "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
@@ -132,12 +132,12 @@
     "No database migration unless a later approved implementation review documents why existing governance/event storage is insufficient.",
     "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
   ],
-  "buildAllowed": true,
-  "deploymentAllowed": true,
+  "buildAllowed": false,
+  "deploymentAllowed": false,
   "promotionAllowed": false,
-  "activationBlocked": false,
-  "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
-  "notes": "REOPENED FOR ONE STAGING-ONLY FULL SHARED REVALIDATION BY EXPLICIT USER COMMAND. Immediate approved baseline is 12ad25dcbb3533594c34c28e37a490d9d85aaf1a; CR-006 remains the preserved frozen root. No CR-005 business logic/UI change. Full SHARED + notification center E2E + role/privacy + 50001-50005 UAT required. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
+  "activationBlocked": true,
+  "approvalRequired": "Any further Web/API/shared runtime change requires a NEW explicitly approved change request. CR-005 is closed and locked. Production promotion remains prohibited.",
+  "notes": "FINAL FREEZE: CR-005 runtime e427e9fed6b219c097852cea98ad55fd411e8769 is the locked current approved staging baseline. CR-006 remains the frozen root baseline and CR-001/002/003/004 remain preserved. Smart Release 35917097673, UAT UAT-20260923204108-FQOY8 and Unified Notification Center E2E 35918495453 are recorded PASS. No further CR-005 runtime change is authorized; a new approved CR is mandatory. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
   "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
   "reconciledFromPr": 14,
@@ -145,11 +145,11 @@
   "reconciledAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline",
-  "baselineWebCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-  "baselineApiCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-  "baselineDecision": "LATEST_APPROVED_STAGING_REGISTRY",
-  "baselineStatus": "STAGING_ACCEPTED",
-  "stagingCandidateBaseCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
+  "baselineWebCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+  "baselineApiCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+  "baselineDecision": "CR-20260923-005_FINAL_FROZEN_STAGING_BASELINE",
+  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
+  "stagingCandidateBaseCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
   "gateRepair": {
     "reason": "Current Smart Release gate validates against the latest approved staging release registry. Registry advanced after successful CR-005 full acceptance run 35914797225, so follow-up CR-005 revalidation must use 12ad25dc... as the immediate baseline while preserving CR-006 as the frozen root baseline.",
     "repairedAt": "2026-09-23T22:35:00+02:00",
@@ -167,15 +167,17 @@
   "productionPromotionAuthorized": false,
   "stagingAcceptance": {
     "status": "PASS",
-    "acceptedAt": "2026-09-23T22:29:45+02:00",
-    "runtimeCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-    "smartReleaseRunId": 35914797225,
-    "smartReleaseRunNumber": 224,
-    "uatRunId": "UAT-20260923202007-2ZX9G",
-    "targetedE2ERunId": 35916194831,
+    "acceptedAt": "2026-09-24T00:13:00+02:00",
+    "runtimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+    "smartReleaseRunId": 35917097673,
+    "smartReleaseRunNumber": 239,
+    "uatRunId": "UAT-20260923204108-FQOY8",
+    "targetedE2ERunId": 35918495453,
     "targetedE2EStatus": "PASS",
-    "webDigest": "sha256:655c451343b33d899dfb06965469ac4fb155a2627f9edf3ae2514a9652bc8a91",
-    "apiDigest": "sha256:cc24af4fa5ecf5f34bd4a9a7b0bf8d91cef1384868b0ec5bc6cb2b29ecd0b32d",
+    "webDigest": "sha256:27a9b0c615ca9b527a67894aca99bb2efe45ed1209fe9ce65362e769f4976bda",
+    "apiDigest": "sha256:2056a7d5f567076370dd283fa2824b3d255adf152ef5b20feb9484e67709e86f",
+    "backupSha256": "9238c4bc7c807ff579104d03905dd03347bcf282c2dfa0821d44409869dfcbe2",
+    "offPlatformArtifactSha256": "2cc3e416daa22831dbe575bb53c27f0a65d7cf50f7e000a046b97dec2db92e40",
     "sharedRegression": "PASS",
     "transactionLifecycle50001To50005": "PASS",
     "resilienceSecurity": "PASS",
@@ -190,13 +192,61 @@
     "autoRollbackTriggered": false,
     "productionPromotionAuthorized": false
   },
-  "acceptedRuntimeCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-  "lockedAt": "2026-09-23T22:29:45+02:00",
+  "acceptedRuntimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+  "lockedAt": "2026-09-24T00:13:00+02:00",
   "revalidationAuthorization": {
     "command": "ANCLINE CR-20260923-005 GATE REPAIR",
     "authorizedAt": "2026-09-23T22:36:00+02:00",
     "scope": "STAGING_FULL_SHARED_REVALIDATION_ONLY",
     "productionPromotionAuthorized": false,
-    "reopenReason": "Prior staging acceptance locked CR-005; explicit user command authorizes one additional staging revalidation after gate metadata repair."
+    "reopenReason": "Prior staging acceptance locked CR-005; explicit user command authorizes one additional staging revalidation after gate metadata repair.",
+    "consumed": true,
+    "consumedByRuntimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+    "closedAt": "2026-09-24T00:13:00+02:00",
+    "furtherReuseAllowed": false
+  },
+  "lockedBy": "User command: ANCLINE CR-20260923-005 FINAL FREEZE",
+  "finalFreeze": {
+    "status": "FINAL_ACCEPTED_LOCKED",
+    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+    "frozenAt": "2026-09-24T00:13:00+02:00",
+    "runtimeCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+    "preservedRootBaseline": {
+      "changeRequest": "CR-20260923-006",
+      "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+      "repositoryLockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+      "state": "STAGING_ACCEPTED_LOCKED"
+    },
+    "preservedChangeRequests": [
+      "CR-20260923-001 — Operations Control + Exception Dashboard",
+      "CR-20260923-002 — ECOM resilience hardening",
+      "CR-20260923-003 — Operations Action Queue + SLA Escalation",
+      "CR-20260923-004 — Operations SLA Automation + Escalation Notifications",
+      "CR-20260923-006 — Latest State Reconciliation + Final Staging Freeze — frozen root baseline"
+    ],
+    "evidence": {
+      "smartReleaseRunId": 35917097673,
+      "uatRunId": "UAT-20260923204108-FQOY8",
+      "unifiedNotificationCenterE2ERunId": 35918495453
+    },
+    "web": {
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-e427e9fed6b219c097852cea98ad55fd411e8769",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-e427e9fed6b2",
+      "digest": "sha256:27a9b0c615ca9b527a67894aca99bb2efe45ed1209fe9ce65362e769f4976bda"
+    },
+    "api": {
+      "immutableTag": "ghcr.io/cfi21/ancline-api:sha-e427e9fed6b219c097852cea98ad55fd411e8769",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-e427e9fed6b2",
+      "digest": "sha256:2056a7d5f567076370dd283fa2824b3d255adf152ef5b20feb9484e67709e86f"
+    },
+    "backupEvidence": {
+      "backupSha256": "9238c4bc7c807ff579104d03905dd03347bcf282c2dfa0821d44409869dfcbe2",
+      "offPlatformArtifactSha256": "2cc3e416daa22831dbe575bb53c27f0a65d7cf50f7e000a046b97dec2db92e40"
+    },
+    "controls": {
+      "furtherRuntimeChangeWithoutNewApprovedCR": false,
+      "productionPromotionAuthorized": false,
+      "rollbackRequired": false
+    }
   }
 }
