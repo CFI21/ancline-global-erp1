@@ -268,16 +268,16 @@ export class AccountingService {
     const paidAt=body?.paidAt?this.date(body.paidAt,'Payment date'):new Date();
     const reference=body?.reference?String(body.reference).trim():null;
     const method=body?.method?String(body.method).trim().toUpperCase():'BANK_TRANSFER';
-    const eventId=reference?this.paymentEventId(invoiceNo,reference):null;
+    const eventId=reference?this.deterministicId('PAYREF',invoiceNo+'|'+reference):null;
     const samePayment=(p:any)=>Math.abs(Number(p?.amount||0)-amount)<0.005&&String(p?.currency||'').toUpperCase()===currency&&String(p?.method||'BANK_TRANSFER').toUpperCase()===method;
-    const duplicateResponse=async(event:any)=>{
+    const duplicatePaymentReference=async(event:any)=>{
       const p:any=event?.payload||{};
-      if(!samePayment(p))throw new BadRequestException('Payment reference already exists with different payment details');
+      if(!samePayment(p))throw new BadRequestException('Payment reference was already used with different amount or currency');
       return {...await this.getInvoice(invoiceNo,user),duplicate:true,paymentEventId:event.id};
     };
     if(reference){
       const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',objectType:'FinanceInvoice',objectId:invoiceNo,externalId:reference}});
-      if(prior)return duplicateResponse(prior);
+      if(prior)return duplicatePaymentReference(prior);
     }
     let event:any=null;
     for(let attempt=1;attempt<=4;attempt++){
@@ -293,19 +293,19 @@ export class AccountingService {
             const prior=events.find((e:any)=>e.eventType==='PAYMENT_RECORDED'&&String(e.externalId||'')===reference);
             if(prior){
               const p:any=prior.payload||{};
-              if(!samePayment(p))throw new BadRequestException('Payment reference already exists with different payment details');
+              if(!samePayment(p))throw new BadRequestException('Payment reference was already used with different amount or currency');
               return {duplicate:true,event:prior};
             }
           }
           const created=await tx.integrationEvent.create({data:{...(eventId?{id:eventId}:{}),sourceSystem:'ANCLINE_ACCOUNTING',eventType:'PAYMENT_RECORDED',externalId:reference||`${invoiceNo}-${Date.now()}`,objectType:'FinanceInvoice',objectId:invoiceNo,status:'COMPLETED',payload:{invoiceNo,amount:this.round(amount),currency,paidAt:paidAt.toISOString(),method,reference,notes:body?.notes?String(body.notes):null,recordedBy:user.sub},completedAt:new Date()}});
           return {duplicate:false,event:created};
         },{isolationLevel:'Serializable' as any});
-        if(result.duplicate)return duplicateResponse(result.event);
+        if(result.duplicate)return duplicatePaymentReference(result.event);
         event=result.event;break;
       }catch(e:any){
         if(e?.code==='P2002'&&reference){
           const prior=await this.prisma.integrationEvent.findUnique({where:{id:eventId!}});
-          if(prior)return duplicateResponse(prior);
+          if(prior)return duplicatePaymentReference(prior);
         }
         if(e?.code==='P2034'&&attempt<4){await new Promise(r=>setTimeout(r,25*attempt));continue;}
         throw e;

@@ -237,16 +237,16 @@ export class IntegrationsService {
     if(!body?.payload||typeof body.payload!=='object'||Array.isArray(body.payload))throw new BadRequestException('Payload must be a JSON object');
     if(externalId){
       const prior=await this.prisma.integrationEvent.findFirst({where:{sourceSystem,externalId},orderBy:{createdAt:'desc'}});
-      if(prior)return {...prior,duplicate:true,retryRequired:['FAILED','DEAD_LETTER'].includes(String(prior.status))};
+      if(prior)return {...prior,duplicate:true,duplicateReason:'Duplicate event',retryRequired:['FAILED','DEAD_LETTER'].includes(String(prior.status))};
     }
-    const deterministicId=externalId?this.externalClaimId(sourceSystem,externalId):undefined;
+    const dedupeId=externalId?this.deterministicId(sourceSystem,externalId):null;
     let row:any;
     try{
-      row=await this.prisma.integrationEvent.create({data:{...(deterministicId?{id:deterministicId}:{}),sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:externalId||'PENDING',status:'RECEIVED',payload:body.payload}});
+      row=await this.prisma.integrationEvent.create({data:{id:dedupeId||undefined,sourceSystem,eventType,externalId,objectType:'UNMATCHED',objectId:externalId||'PENDING',status:'RECEIVED',payload:body.payload}});
     }catch(e:any){
-      if(e?.code!=='P2002'||!deterministicId)throw e;
-      const prior=await this.prisma.integrationEvent.findUnique({where:{id:deterministicId}});
-      if(prior)return {...prior,duplicate:true,retryRequired:['FAILED','DEAD_LETTER'].includes(String(prior.status))};
+      if(!this.uniqueError(e)||!dedupeId)throw e;
+      const prior=await this.prisma.integrationEvent.findUnique({where:{id:dedupeId}});
+      if(prior)return {...prior,duplicate:true,duplicateReason:'Duplicate event',retryRequired:['FAILED','DEAD_LETTER'].includes(String(prior.status))};
       throw e;
     }
     await this.audit.log({actorId:user.sub,action:'INTEGRATION_EVENT_RECEIVED',objectType:'IntegrationEvent',objectId:row.id,detail:{sourceSystem,eventType,externalId}});

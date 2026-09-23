@@ -80,7 +80,7 @@ export class WorkflowAutomationService {
       if(prior)return {...prior,duplicate:true};
       claimId=this.automationClaimId(idempotencyKey);
       try{
-        await this.db.integrationEvent.create({data:{id:claimId,sourceSystem:SOURCE,eventType:'AUTOMATION_IDEMPOTENCY_CLAIM',externalId:idempotencyKey,objectType:'AutomationIdempotencyClaim',objectId:idempotencyKey,status:'PROCESSING',payload:{idempotencyKey,startedAt:new Date().toISOString()},attemptCount:0}});
+        await this.db.integrationEvent.create({data:{id:claimId,sourceSystem:SOURCE,eventType:'IDEMPOTENCY_CLAIMED',externalId:idempotencyKey,objectType:'AutomationIdempotency',objectId:idempotencyKey,status:'PROCESSING',payload:{idempotencyKey,startedAt:new Date().toISOString()},attemptCount:0}});
       }catch(e:any){
         if(e?.code!=='P2002')throw e;
         const settled=await this.resolvedClaim(claimId),p=this.payload(settled);
