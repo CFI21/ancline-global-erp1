@@ -214,6 +214,29 @@ export class OperationsControlService {
       add({...ctx,id:`event-${e.id}`,severity:this.upper(e.status)==='FAILED'?'CRITICAL':'HIGH',category:'FAILED_EVENT',owner:'Integration / Platform',message:`${this.text(e.sourceSystem)||'Integration'} · ${this.text(e.eventType)||'Event'} · ${this.upper(e.status)}${detail?` — ${detail}`:''}`,source:'Integration Event',actionLabel:'Open Integration',actionHref:'/connectivity',updatedAt:this.iso(e.updatedAt||e.createdAt)});
     }
 
+    const controlTasks=new Map<string,any>();
+    for(const b of bookings){
+      for(const t of (b.tasks||[])){
+        const match=String(t.title||'').match(/^\[OC:([^\]]+)\]/);
+        if(match)controlTasks.set(match[1],t);
+      }
+    }
+    for(const row of out.values()){
+      if(!row.taskId){
+        const t=controlTasks.get(row.id);
+        if(t){
+          row.taskId=String(t.id);
+          row.taskStatus=this.text(t.status)||'Open';
+          row.slaState=this.text(t.slaState)||this.taskSla(t.dueAt,t.status);
+          row.owner=this.text(t.ownerId)||row.owner;
+          row.due=this.iso(t.dueAt)||row.due;
+          row.queueMutable=true;
+        }else if(row.bookingId){
+          row.queueMutable=true;
+        }
+      }
+    }
+
     const rank:Record<Severity,number>={CRITICAL:0,HIGH:1,MEDIUM:2};
     const rows=[...out.values()].sort((a,b)=>rank[a.severity]-rank[b.severity]||((a.due?new Date(a.due).getTime():Number.MAX_SAFE_INTEGER)-(b.due?new Date(b.due).getTime():Number.MAX_SAFE_INTEGER))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
     const categoryCounts:Record<Category,number>={
@@ -227,7 +250,11 @@ export class OperationsControlService {
         open:rows.length,
         critical:rows.filter(r=>r.severity==='CRITICAL').length,
         high:rows.filter(r=>r.severity==='HIGH').length,
-        ...categoryCounts
+        ...categoryCounts,
+        queueOpen:rows.filter(r=>r.taskId&&this.upper(r.taskStatus)!=='COMPLETED').length,
+        queueOverdue:rows.filter(r=>this.upper(r.slaState)==='OVERDUE').length,
+        queueAtRisk:rows.filter(r=>this.upper(r.slaState)==='AT RISK'||this.upper(r.slaState)==='AT_RISK').length,
+        queueUnassigned:rows.filter(r=>r.taskId&&(!r.owner||r.owner==='Unassigned')).length
       },
       rows,
       filters:{
