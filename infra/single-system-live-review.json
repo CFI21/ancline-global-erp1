@@ -1,0 +1,37 @@
+{
+  "schema": "ANCLINE_SINGLE_SYSTEM_LIVE_REVIEW_V1",
+  "status": "ACTIVE",
+  "activatedAt": "2026-09-23",
+  "mode": "SINGLE_SYSTEM_LIVE_REVIEW",
+  "objective": "Operate one staging/live-preview ANCLINE system with one serialized release pipeline, one controlled synthetic 50001-50005 dataset and one browser review surface.",
+  "automaticPipeline": ".github/workflows/smart-release.yml",
+  "staging": {
+    "webService": "ancline-web-live",
+    "webUrl": "https://ancline-web-live.onrender.com",
+    "apiService": "ancline-api-staging",
+    "testData": [
+      "50001",
+      "50002",
+      "50003",
+      "50004",
+      "50005"
+    ]
+  },
+  "rules": [
+    "Only smart-release.yml may auto build, deploy or mutate staging.",
+    "Legacy acceptance/UAT workflows are manual-only.",
+    "All live mutation/regression against 50001-50005 must be serialized.",
+    "One Web candidate and one API candidate per accepted bulk release.",
+    "Business review happens on the live preview system after technical acceptance.",
+    "No production promotion without separate explicit approval."
+  ],
+  "preserved": [
+    "CR-20260923-001 Operations Control",
+    "CR-20260923-002 resilience hardening",
+    "CR-20260923-003 Action Queue + SLA",
+    "CR-20260923-004 SLA automation design",
+    "Frozen UI/workflows",
+    "Role/privacy/finance/payment/release controls"
+  ],
+  "productionPromotionAllowed": false
+}
