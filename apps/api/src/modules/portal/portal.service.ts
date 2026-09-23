@@ -410,6 +410,11 @@ export class PortalService {
   private externalMessageId(key:string){return 'extmsg_'+createHash('sha256').update(key).digest('hex').slice(0,32);}
   private externalEventPayload(row:any){return row?.payload&&typeof row.payload==='object'?row.payload:{};}
   private externalRoles(){return ['CUSTOMER','SHIPPER','CONSIGNEE','AGENT'];}
+  private allowedExternalCommunicationRole(user:ScopeUser){
+    const role=String(user.role||'').toUpperCase();
+    if([...this.externalRoles(),'GLOBAL_ADMIN'].includes(role))return role;
+    throw new ForbiddenException('External portal communication access denied');
+  }
   private externalCategories(){return ['BOOKING_CONFIRMATION','DOCUMENT_REQUEST','SCHEDULE_CHANGE','CUT_OFF_CHANGE','MILESTONE_UPDATE','APPROVED_DELAY_NOTICE','APPROVED_EXCEPTION_NOTICE','PAYMENT_REQUEST','DOCUMENT_RELEASE_REQUEST','RELEASE_NOTICE'];}
   private externalForbiddenText(value:any){
     const s=String(value||'').toUpperCase();
@@ -422,7 +427,7 @@ export class PortalService {
     return rows.map(x=>String(x.id));
   }
   private async assertExternalMessageVisible(messageId:string,user:ScopeUser){
-    this.allowedPortalRole(user);
+    this.allowedExternalCommunicationRole(user);
     const event=await this.prisma.integrationEvent.findUnique({where:{id:messageId}});
     if(!event||event.sourceSystem!=='ANCLINE_EXTERNAL_COMMUNICATION'||event.objectType!=='ExternalCommunication'||event.eventType!=='EXTERNAL_MESSAGE_PUBLISHED')throw new BadRequestException('External communication was not found');
     const p:any=this.externalEventPayload(event),bookingId=String(p.bookingId||'');
@@ -434,7 +439,7 @@ export class PortalService {
   }
 
   async externalCommunicationPreferences(user:ScopeUser){
-    this.allowedPortalRole(user);
+    this.allowedExternalCommunicationRole(user);
     const id=this.externalPreferenceId(user);
     const event=await this.prisma.integrationEvent.findUnique({where:{id}});
     const p:any=this.externalEventPayload(event);
@@ -447,7 +452,7 @@ export class PortalService {
   }
 
   async updateExternalCommunicationPreferences(body:any,user:ScopeUser){
-    this.allowedPortalRole(user);
+    this.allowedExternalCommunicationRole(user);
     const allowedChannels=['IN_APP','EMAIL'];
     const channels=(Array.isArray(body?.channels)?body.channels:['IN_APP','EMAIL']).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedChannels.includes(x));
     const allowedCategories=this.externalCategories();
@@ -462,7 +467,7 @@ export class PortalService {
   }
 
   async externalCommunications(user:ScopeUser){
-    this.allowedPortalRole(user);
+    this.allowedExternalCommunicationRole(user);
     const bookingIds=await this.externalBookingIds(user);
     if(!bookingIds.length)return {summary:{total:0,unread:0,ackRequired:0,acknowledged:0},preferences:await this.externalCommunicationPreferences(user),items:[]};
     const [messages,reads,acks,prefs]=await Promise.all([
