@@ -545,6 +545,22 @@ export class PortalService {
     }finally{clearTimeout(timer);}
   }
 
+  externalCommunicationTemplates(user:ScopeUser){
+    this.scope.assertInternal(user);
+    return [
+      {id:'BOOKING_CONFIRMATION',category:'BOOKING_CONFIRMATION',title:'Booking confirmed',message:'Your ANCLINE booking has been confirmed. Open the shipment to review the latest booking details.',requiresAcknowledgement:false},
+      {id:'DOCUMENT_REQUEST',category:'DOCUMENT_REQUEST',title:'Documents required',message:'Additional shipment documents are required. Please open the shipment and provide the requested documents.',requiresAcknowledgement:true},
+      {id:'SCHEDULE_CHANGE',category:'SCHEDULE_CHANGE',title:'Schedule updated',message:'The shipment schedule has been updated. Please review the latest ETD/ETA and routing details in the portal.',requiresAcknowledgement:false},
+      {id:'CUT_OFF_CHANGE',category:'CUT_OFF_CHANGE',title:'Cut-off updated',message:'A shipment cut-off has changed. Please review the latest cut-off details and take the required action.',requiresAcknowledgement:true},
+      {id:'MILESTONE_UPDATE',category:'MILESTONE_UPDATE',title:'Shipment milestone update',message:'A new shipment milestone has been recorded. Open the shipment timeline for the latest status.',requiresAcknowledgement:false},
+      {id:'APPROVED_DELAY_NOTICE',category:'APPROVED_DELAY_NOTICE',title:'Shipment delay notice',message:'An approved shipment delay has been recorded. Please review the updated schedule in the portal.',requiresAcknowledgement:false},
+      {id:'APPROVED_EXCEPTION_NOTICE',category:'APPROVED_EXCEPTION_NOTICE',title:'Shipment exception update',message:'An approved customer-visible shipment exception requires your attention. Open the shipment for details.',requiresAcknowledgement:true},
+      {id:'PAYMENT_REQUEST',category:'PAYMENT_REQUEST',title:'Payment action required',message:'A payment action is required before the next shipment release step can proceed. Please review the shipment account information.',requiresAcknowledgement:true},
+      {id:'DOCUMENT_RELEASE_REQUEST',category:'DOCUMENT_RELEASE_REQUEST',title:'Document release action required',message:'A document release action is required. Please review the shipment documents and complete the requested action.',requiresAcknowledgement:true},
+      {id:'RELEASE_NOTICE',category:'RELEASE_NOTICE',title:'Shipment release update',message:'A shipment release update is available. Open the shipment to review the latest release status.',requiresAcknowledgement:false}
+    ];
+  }
+
   async publishExternalCommunication(body:any,user:ScopeUser){
     this.scope.assertInternal(user);
     const category=String(body?.category||'').trim().toUpperCase();
