@@ -107,9 +107,22 @@
   "secretCredentialChange": false,
   "approvedAt": "2026-09-24T00:40:00+02:00",
   "approvedBy": "User command: ANCLINE GOVERNED BULK BUILD ALL",
-  "baselineWebCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-  "baselineApiCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
-  "baselineDecision": "LATEST_APPROVED_STAGING_REGISTRY_WITH_CR006_FROZEN_ROOT",
-  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
-  "notes": "Single-command governed bulk execution authorized. Full Web/API/SHARED build, regression, staging-only deploy and freeze on PASS. Production prohibited."
+  "baselineWebCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "baselineDecision": "CR008_CORE_ACCEPTED_STAGING_REGISTRY",
+  "baselineStatus": "CORE_ACCEPTED_TARGETED_COMMUNICATION_PENDING",
+  "notes": "Single-command governed bulk execution authorized. Full Web/API/SHARED build, regression, staging-only deploy and freeze on PASS. Production prohibited.",
+  "coreAcceptance": {
+    "status": "PASS",
+    "smartReleaseRunId": 35931174958,
+    "runtimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "uatRunId": "UAT-20260923230330-XVXHI",
+    "fullSharedRegression": "PASS",
+    "transactionLifecycle50001To50005": "PASS",
+    "resilienceSecurity": "PASS",
+    "rolePrivacyBrowserUat": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "finalizeRegistry": "PASS",
+    "productionPromotionAuthorized": false
+  }
 }
