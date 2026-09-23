@@ -246,14 +246,16 @@ export class OperationsControlService {
           row.owner=this.text(t.ownerId)||row.owner;
           row.due=this.iso(t.dueAt)||row.due;
           row.queueMutable=true;
-          const escalation=slaByTask.get(String(t.id));
-          if(escalation){
-            row.escalationLevel=this.text(escalation.level);
-            row.escalationStatus=this.text(escalation.status);
-            row.escalationNotificationId=this.text(escalation.notificationId);
-          }
         }else if(row.bookingId){
           row.queueMutable=true;
+        }
+      }
+      if(row.taskId){
+        const escalation=slaByTask.get(String(row.taskId));
+        if(escalation){
+          row.escalationLevel=this.text(escalation.level);
+          row.escalationStatus=this.text(escalation.status);
+          row.escalationNotificationId=this.text(escalation.notificationId);
         }
       }
     }
