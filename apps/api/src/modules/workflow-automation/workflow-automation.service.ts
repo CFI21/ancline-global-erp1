@@ -182,6 +182,7 @@ export class WorkflowAutomationService {
         if(timer.bookingId)await this.scope.assertBookingAccess(user,String(timer.bookingId));
         const prior=await this.db.integrationEvent.findUnique({where:{id:executionId}});
         if(prior?.status==='COMPLETED'){results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED',taskId:this.payload(prior).taskId||null});continue;}
+        if(prior?.status==='PROCESSING'){results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED'});continue;}
         try{
           if(!prior)await this.db.integrationEvent.create({data:{id:executionId,sourceSystem:SOURCE,eventType:'ESCALATION_EXECUTION_CLAIMED',externalId:String(timer.timerId),objectType:'EscalationExecution',objectId:String(timer.timerId),status:'PROCESSING',payload:{timerId:timer.timerId,startedAt:new Date().toISOString()},attemptCount:0}});
         }catch(e:any){
