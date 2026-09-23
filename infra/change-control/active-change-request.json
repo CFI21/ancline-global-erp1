@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260924-008",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED_LOCKED",
   "title": "Governed Bulk Consolidation — CR-006 Root + Verified CR-005/CR-007 Adoption",
   "businessRequirement": "Use CR-20260923-006 / bc37709e as the frozen root baseline; preserve all approved UI, workflows, data structures, roles, privacy rules, NVOCC, Global Forwarding, booking, job, documents, finance, payment, release, Operations Control, Action Queue, SLA Automation and Control Tower; selectively re-adopt verified compatible CR-005 Unified Notification Center and CR-007 External Communication functionality; bulk build, integrate, validate and test end-to-end; deploy staging only on PASS; never promote production.",
   "objective": "Create one governed current staging baseline that retains CR-006 invariants and incorporates only already-verified compatible CR-005/CR-007 functionality, with full SHARED regression and realistic jobs 50001–50005 business-day UAT.",
@@ -96,8 +96,8 @@
     "On failure auto-rollback staging and do not freeze.",
     "Production remains unchanged."
   ],
-  "buildAllowed": true,
-  "deploymentAllowed": true,
+  "buildAllowed": false,
+  "deploymentAllowed": false,
   "deploymentTarget": "STAGING_ONLY",
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
@@ -109,9 +109,9 @@
   "approvedBy": "User command: ANCLINE GOVERNED BULK BUILD ALL",
   "baselineWebCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
   "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
-  "baselineDecision": "CR008_CORE_ACCEPTED_STAGING_REGISTRY",
-  "baselineStatus": "CORE_ACCEPTED_TARGETED_COMMUNICATION_PENDING",
-  "notes": "Single-command governed bulk execution authorized. Full Web/API/SHARED build, regression, staging-only deploy and freeze on PASS. Production prohibited.",
+  "baselineDecision": "CR-20260924-008_FINAL_FROZEN_APPROVED_STAGING_BASELINE",
+  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
+  "notes": "FINAL ACCEPTANCE: governed bulk consolidation passed full Web/API/SHARED build, remote gate, jobs 50001-50005 transaction lifecycle, resilience/security, role/privacy browser, responsive/accessibility, targeted internal/external communication E2E and realistic business-day payment/document/release/reconciliation UAT. CR-006 remains the preserved frozen root. CR-005 and CR-007 verified functions are selectively adopted. Production was not promoted.",
   "coreAcceptance": {
     "status": "PASS",
     "smartReleaseRunId": 35931174958,
@@ -124,5 +124,139 @@
     "responsiveFailureAccessibility": "PASS",
     "finalizeRegistry": "PASS",
     "productionPromotionAuthorized": false
-  }
+  },
+  "activationBlocked": true,
+  "frozen": true,
+  "acceptedRuntimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "lockedAt": "2026-09-24T01:16:14+02:00",
+  "stagingAcceptance": {
+    "status": "PASS",
+    "acceptedAt": "2026-09-24T01:16:14+02:00",
+    "runtimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "smartReleaseRunId": 35931174958,
+    "smartReleaseRunNumber": 245,
+    "uatRunId": "UAT-20260923230330-XVXHI",
+    "targetedCommunicationRunId": 35932370456,
+    "realisticBusinessDayRunId": 35932683780,
+    "webDigest": "sha256:ee13f10dbb5a6f6148a83192197594ecc6a54f3123236db79c9b60be5128084c",
+    "apiDigest": "sha256:29e2296f53bda74fa8dea58c5a5e5a41ce766a08edecc00401df72742bbc48ea",
+    "backupSha256": "fd5288e6a32001900ca96d02ccd50238c8c297c2fa1d5129ef83c8a0c3d33608",
+    "offPlatformArtifactSha256": "9ffa85feeb6ec5d8fec87f8a679d247e678e11245b39bca547a6e7ebee6e59c8",
+    "businessDayArtifactSha256": "4024ab6dad2db981d531a93bb95283158b196537c7c16afad746579238ee5913",
+    "fullSharedRegression": "PASS",
+    "webBuild": "PASS",
+    "apiTestBuild": "PASS",
+    "transactionLifecycle50001To50005": "PASS",
+    "realisticBusinessDay50001To50005": "PASS",
+    "reconciliation": {
+      "jobs": 5,
+      "totalInvoiced": 20100,
+      "totalPaid": 20100,
+      "totalBalance": 0,
+      "status": "PASS"
+    },
+    "resilienceSecurity": "PASS",
+    "rolePrivacyBrowserUat": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "operationsControlActionLinks": "PASS",
+    "unifiedNotificationCenterApiE2E": "PASS",
+    "unifiedNotificationCenterBrowserE2E": "PASS",
+    "externalCommunicationApiE2E": "PASS",
+    "externalCommunicationBrowserE2E": "PASS",
+    "externalPrivacyNegativeE2E": "PASS",
+    "emailDeliveryStateControl": "PASS",
+    "customerAgentPortalCommunication": "PASS",
+    "directRemediationLinks": "PASS",
+    "productionPromotionAuthorized": false,
+    "autoRollbackTriggered": false
+  },
+  "finalFreeze": {
+    "status": "FINAL_ACCEPTED_LOCKED",
+    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+    "frozenAt": "2026-09-24T01:16:14+02:00",
+    "runtimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "frozenRootBaseline": {
+      "changeRequest": "CR-20260923-006",
+      "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+      "lockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+      "state": "PRESERVED_FROZEN_ROOT"
+    },
+    "selectivelyAdopted": [
+      "CR-20260923-005 — Unified internal Operations Notification + Communication Center",
+      "CR-20260924-007 — External Customer / Agent Communication & Notification Delivery"
+    ],
+    "businessDay": {
+      "jobs": [
+        {
+          "bookingNo": "50001",
+          "businessModel": "FORWARDING",
+          "total": 1725,
+          "paid": 1725,
+          "balance": 0,
+          "releaseMode": "CREDIT",
+          "preReleaseBlocked": false,
+          "hblReleased": true,
+          "status": "PASS"
+        },
+        {
+          "bookingNo": "50002",
+          "businessModel": "FORWARDING",
+          "total": 2650,
+          "paid": 2650,
+          "balance": 0,
+          "releaseMode": "CREDIT",
+          "preReleaseBlocked": false,
+          "hblReleased": true,
+          "status": "PASS"
+        },
+        {
+          "bookingNo": "50003",
+          "businessModel": "FORWARDING",
+          "total": 6125,
+          "paid": 6125,
+          "balance": 0,
+          "releaseMode": "CREDIT",
+          "preReleaseBlocked": false,
+          "hblReleased": true,
+          "status": "PASS"
+        },
+        {
+          "bookingNo": "50004",
+          "businessModel": "FORWARDING",
+          "total": 7975,
+          "paid": 7975,
+          "balance": 0,
+          "releaseMode": "PREPAID",
+          "preReleaseBlocked": true,
+          "hblReleased": true,
+          "status": "PASS"
+        },
+        {
+          "bookingNo": "50005",
+          "businessModel": "NVOCC",
+          "total": 1625,
+          "paid": 1625,
+          "balance": 0,
+          "releaseMode": "NVOCC_SEPARATE_CONTROL",
+          "preReleaseBlocked": false,
+          "hblReleased": true,
+          "status": "PASS"
+        }
+      ],
+      "reconciliation": {
+        "jobs": 5,
+        "totalInvoiced": 20100,
+        "totalPaid": 20100,
+        "totalBalance": 0,
+        "status": "PASS"
+      }
+    },
+    "controls": {
+      "furtherRuntimeChangeWithoutNewApprovedCR": false,
+      "productionPromotionAuthorized": false,
+      "databaseMigration": false,
+      "secretCredentialChange": false
+    }
+  },
+  "approvalRequired": "Any further Web/API/shared runtime change requires a NEW explicitly approved change request. CR-008 is closed and locked. Production promotion remains prohibited."
 }
