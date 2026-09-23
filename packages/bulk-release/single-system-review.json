@@ -1,0 +1,24 @@
+{
+  "schema": "ANCLINE_SINGLE_SYSTEM_BULK_RELEASE_V1",
+  "mode": "SINGLE_SYSTEM_LIVE_REVIEW",
+  "requestedAt": "2026-09-23",
+  "sourceMain": "a7f4c5db36c9470ebbffd5cb982482dd780aea24",
+  "purpose": "Force one consolidated Web/API staging candidate from latest approved main after CR-004 blocker fixes and single-system workflow serialization.",
+  "preserved": [
+    "CR-20260923-001",
+    "CR-20260923-002",
+    "CR-20260923-003",
+    "CR-20260923-004",
+    "frozen UI/workflows",
+    "role/privacy/finance/payment/release controls"
+  ],
+  "testData": [
+    "50001",
+    "50002",
+    "50003",
+    "50004",
+    "50005"
+  ],
+  "deployment": "STAGING_ONLY",
+  "productionPromotionAllowed": false
+}
