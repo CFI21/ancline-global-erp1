@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-005",
-  "status": "BUILD_APPROVED_RECONCILED",
+  "status": "APPROVED",
   "title": "Unified Operations Notification + Communication Center",
   "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
   "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
@@ -132,14 +132,16 @@
     "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
   ],
   "buildAllowed": true,
-  "deploymentAllowed": false,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
   "activationBlocked": false,
-  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
-  "notes": "BUILD ONLY RECONCILED ON CR-006 LOCKED BASELINE. Port only verified CR-005 runtime/test changes from PR #14 onto repository baseline 92c12c9f7d559831bb484275f7c978a3f32ed86a / accepted runtime bc37709e9b888410136213bee477630c3956b78d. No staging deployment. No production promotion.",
+  "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
+  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Merge PR #15, deploy exact candidate to staging, run full SHARED regression + unified notification center E2E, auto-rollback on failure. Preserve CR-006 baseline and CR-001/002/003/004. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
   "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
   "reconciledFromPr": 14,
   "reconciledBranch": "cr-20260923-005-reconciled-on-cr006",
-  "reconciledAt": "2026-09-23T21:50:00+02:00"
+  "reconciledAt": "2026-09-23T21:50:00+02:00",
+  "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
+  "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline"
 }
