@@ -2,13 +2,9 @@ name: ANCLINE Simple Secure Validation
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/simple-secure-validation.yml'
-      - 'apps/api/src/modules/uat.controller.ts'
-      - 'apps/api/src/modules/uat.service.ts'
-      - 'infra/go-live/simple-secure-mode.json'
+
+# Single-System Live Review Mode: manual-only.
+# smart-release.yml is the only automatic staging build/deploy/regression owner.
 
 permissions:
   contents: write
