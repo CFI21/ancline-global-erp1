@@ -3,21 +3,18 @@
   "id": "CR-20260923-001",
   "status": "DRAFT",
   "title": "Operations Control + Exception Dashboard",
-  "businessRequirement": "Build a centralized Operations Control + Exception Dashboard using existing approved ANCLINE data to surface action-required jobs, cut-off risks, missing carrier references, document gaps, payment/release blocks, failed integration/retry events, overdue milestones, NVOCC/Forwarding exceptions, and finance/reconciliation exceptions, with direct links back to the affected job or action.",
-  "objective": "Improve day-to-day operational visibility and exception handling without redesigning or replacing approved transactional workflows.",
+  "businessRequirement": "Build a consolidated Operations Control + Exception Dashboard using approved ANCLINE data to surface action-required jobs, cut-off risks, document gaps, payment/release blocks, failed integration events, milestone delays, and reconciliation exceptions, with direct links to the relevant job/action. Preserve current workflows and the frozen accepted runtime baseline.",
+  "objective": "Give internal operations a single control-tower surface for prioritized exceptions and direct remediation without changing underlying booking, finance, document, payment, release, NVOCC, or Forwarding business rules.",
   "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
   "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
   "baselineDecision": "JOB_DONE",
   "baselineStatus": "FINAL_ACCEPTED",
   "impactedModules": [
-    "Global Operations / Control Tower",
-    "Booking & Job Management",
-    "Milestones & Tracking",
-    "Documents / BL Release",
-    "Finance / Invoicing / Reconciliation",
-    "Carrier Operations / References",
-    "NVOCC Portal / Forwarding Workflow",
-    "Integration / Retry / Failure Events"
+    "apps/web/app/exceptions",
+    "apps/web/components/WorkspaceShell",
+    "apps/api/src/modules/operations",
+    "apps/api/src/modules/documents/release-security",
+    "existing booking/task/approval/tracking/integration/finance data sources"
   ],
   "components": [
     "shared"
@@ -31,12 +28,12 @@
     "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
   ],
   "impactAssessment": {
-    "web": "REQUIRED — new dashboard UI, filters, exception cards/grids, direct action links, role-aware visibility.",
-    "api": "REQUIRED — consolidated exception/query endpoints or aggregation layer are likely needed for reliable cross-module status calculation.",
-    "shared": "REQUIRED — dashboard combines operational, finance, document, milestone, release, and integration state.",
-    "dataMigration": "NOT_EXPECTED — use existing approved schema/data first; schema change prohibited unless proven necessary during implementation.",
-    "securityPrivacy": "HIGH_IMPORTANCE — preserve role scope and customer/agent/carrier privacy; do not expose internal/KYC data.",
-    "financeReleaseControls": "HIGH_IMPORTANCE — dashboard may surface blockers/status but must not bypass payment/release approval logic."
+    "web": "REQUIRED — evolve the existing Exceptions & Action Board into the consolidated Operations Control dashboard and add direct action links while preserving WorkspaceShell/navigation conventions.",
+    "api": "REQUIRED — add/read-only aggregated operations-control data endpoint(s) so the dashboard can consume scoped exception data efficiently and consistently instead of duplicating business logic in the browser.",
+    "shared": "REQUIRED — dashboard UI and aggregation logic span Web and API; classify as SHARED.",
+    "dataMigration": "NOT_REQUIRED — use existing approved data models/events; no schema change planned.",
+    "securityPrivacy": "REQUIRED — internal-only scoped aggregation; customer/agent/shipper privacy boundaries must remain unchanged.",
+    "financeReleaseControls": "READ_ONLY — surface existing payment/release/reconciliation blockers only; do not alter release-security or payment rules."
   },
   "regressionPlan": {
     "rule": "Populate automatically from approved component scope before build.",
@@ -64,5 +61,54 @@
   "promotionAllowed": false,
   "approvedAt": null,
   "approvedBy": null,
-  "notes": "RECOMMENDED CHANGE DEFINED. Scope is SHARED because reliable exception computation spans Web and API. Build/deploy/promotion remain blocked until explicit approval. Implementation should prefer read-only aggregation over new write paths and must preserve current transactional controls."
+  "notes": "Scope assessed as SHARED. Existing /exceptions page already covers credit/slot/equipment, overdue tasks, pending approvals and late milestones. New work should consolidate additional cut-off, document, payment/release, failed integration and reconciliation signals through read-only scoped API aggregation. No build/deploy/promotion until explicit approval.",
+  "designScope": {
+    "primarySurface": "Operations Control + Exception Dashboard",
+    "existingSurfaceToExtend": "/exceptions",
+    "cards": [
+      "Action Required",
+      "Critical",
+      "Cut-off Risk",
+      "Document Gaps",
+      "Payment / Release Blocks",
+      "Failed Events",
+      "Late Milestones",
+      "Reconciliation Exceptions"
+    ],
+    "filters": [
+      "severity",
+      "category",
+      "booking/job",
+      "owner",
+      "business model",
+      "branch/office when permitted"
+    ],
+    "actions": [
+      "Open Job",
+      "Open Documents",
+      "Open Finance/Payment",
+      "Open Tracking",
+      "Open Integration/Event context"
+    ],
+    "nonGoals": [
+      "No new booking lifecycle states",
+      "No finance rule changes",
+      "No payment rule changes",
+      "No release-security rule changes",
+      "No NVOCC/Forwarding conversion changes",
+      "No database schema migration",
+      "No customer data exposure to carriers or external roles"
+    ]
+  },
+  "acceptanceCriteria": [
+    "One dashboard shows all requested exception categories from existing approved data.",
+    "Every actionable exception links to the correct job or remediation surface.",
+    "Severity and category counts reconcile with source records.",
+    "No duplicate exception rows for the same source event/object condition.",
+    "Role scope prevents external roles from seeing internal operational data.",
+    "Forwarding and NVOCC records remain correctly separated where controls differ.",
+    "Existing booking/document/finance/payment/release workflows remain unchanged.",
+    "Desktop, tablet, and mobile show no uncontrolled overflow/cutoff.",
+    "All mandatory SHARED regression scopes pass before promotion."
+  ]
 }
