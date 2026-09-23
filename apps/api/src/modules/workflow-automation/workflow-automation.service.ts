@@ -103,5 +103,101 @@ export class WorkflowAutomationService {
     }
   }
 
-  async runDue(user:ScopeUser){this.scope.assertInternal(user);const rows=await this.ownEvents(),timers=this.latest(rows,'EscalationTimer').filter((x:any)=>x.status==='PENDING'&&new Date(x.dueAt).getTime()<=Date.now());const results:any[]=[];for(const timer of timers){try{if(timer.bookingId)await this.scope.assertBookingAccess(user,String(timer.bookingId));const task=await this.db.task.create({data:{bookingId:timer.bookingId||null,title:`Escalation: ${timer.process} · ${timer.trigger}`,ownerId:timer.ownerRole||'Operations Manager',dueAt:new Date(),status:'Open',slaState:'Breached'}});await this.notify('WORKFLOW_ESCALATION',{process:timer.process,bookingId:timer.bookingId,objectType:timer.objectType,objectId:timer.objectId,message:`Workflow escalation due for ${timer.trigger}`},{severity:'WARNING',channels:['IN_APP'],recipients:timer.ownerRole?[timer.ownerRole]:[]},user,{timerId:timer.timerId,taskId:task.id});await this.write('EscalationTimer','ESCALATION_TIMER_EXECUTED',timer.timerId,{...timer,status:'EXECUTED',executedAt:new Date().toISOString(),taskId:task.id},user);results.push({timerId:timer.timerId,status:'EXECUTED',taskId:task.id});}catch(e:any){results.push({timerId:timer.timerId,status:'FAILED',error:e?.message||'Escalation failed'});}}return {due:timers.length,executed:results.filter(x=>x.status==='EXECUTED').length,failed:results.filter(x=>x.status==='FAILED').length,results};}
+  private slaLevel(task:any){
+    if(String(task?.status||'').toUpperCase()==='COMPLETED')return null;
+    const due=task?.dueAt?new Date(task.dueAt).getTime():NaN;
+    if(Number.isNaN(due))return null;
+    const delta=due-Date.now();
+    if(delta>24*3600000)return null;
+    if(delta>=0)return 'LEVEL_1';
+    const overdue=-delta;
+    const critical=String(task?.title||'').startsWith('[OC:');
+    return critical&&overdue>=24*3600000?'LEVEL_3':'LEVEL_2';
+  }
+
+  async processTaskSla(task:any,user:ScopeUser){
+    this.scope.assertInternal(user);
+    if(!task?.id)throw new BadRequestException('Task is required for SLA automation');
+    if(task.bookingId)await this.scope.assertBookingAccess(user,String(task.bookingId));
+    const level=this.slaLevel(task);
+    if(!level)return {taskId:String(task.id),status:'NO_ESCALATION',level:null};
+
+    const key=`TASK_SLA:${task.id}:${level}`;
+    const claimId=this.deterministicId('sla',key);
+    const existing=await this.db.integrationEvent.findUnique({where:{id:claimId}});
+    if(existing?.status==='COMPLETED')return {...this.payload(existing),duplicate:true};
+    if(existing?.status==='PROCESSING')return {taskId:String(task.id),level,status:'IN_PROGRESS',duplicate:true};
+
+    try{
+      await this.db.integrationEvent.create({data:{
+        id:claimId,sourceSystem:SOURCE,eventType:'SLA_ESCALATION_CLAIMED',externalId:key,
+        objectType:'TaskSlaAutomation',objectId:String(task.id),status:'PROCESSING',
+        payload:{taskId:String(task.id),bookingId:task.bookingId||null,level,startedAt:new Date().toISOString()},attemptCount:0
+      }});
+    }catch(e:any){
+      if(!this.uniqueError(e))throw e;
+      const settled=await this.db.integrationEvent.findUnique({where:{id:claimId}});
+      if(settled?.status==='COMPLETED')return {...this.payload(settled),duplicate:true};
+      return {taskId:String(task.id),level,status:'IN_PROGRESS',duplicate:true};
+    }
+
+    try{
+      const owner=String(task.ownerId||'Operations');
+      const recipients=level==='LEVEL_1'?[owner]:level==='LEVEL_2'?[owner,'Operations Manager']:[owner,'Operations Manager','CONTROL_TOWER'];
+      const severity=level==='LEVEL_1'?'INFO':level==='LEVEL_2'?'WARNING':'CRITICAL';
+      const notification=await this.notify('TASK_SLA_ESCALATION',{
+        process:'OPERATIONS_ACTION_QUEUE',bookingId:task.bookingId||null,objectType:'Task',objectId:String(task.id),
+        message:`${level}: ${task.title||'Operational task'} · ${task.slaState||'SLA attention required'}`
+      },{severity,channels:['IN_APP'],recipients},user,{taskId:String(task.id),level});
+
+      let timerId:string|null=null;
+      if(level!=='LEVEL_3'){
+        timerId=this.deterministicId('tmr',`${key}:NEXT`);
+        const dueAt=level==='LEVEL_1'
+          ? new Date(task.dueAt).toISOString()
+          : new Date(new Date(task.dueAt).getTime()+24*3600000).toISOString();
+        const timerPayload={timerId,workflowId:'CR-20260923-004-SLA',process:'OPERATIONS_ACTION_QUEUE',trigger:'TASK_SLA_ESCALATION',bookingId:task.bookingId||null,objectType:'Task',objectId:String(task.id),ownerRole:level==='LEVEL_1'?owner:'CONTROL_TOWER',dueAt,status:'PENDING',sourceResult:{taskId:String(task.id),level}};
+        const priorTimer=await this.db.integrationEvent.findUnique({where:{id:timerId}});
+        if(!priorTimer)await this.write('EscalationTimer','ESCALATION_TIMER_CREATED',timerId,timerPayload,user);
+      }
+
+      const result={taskId:String(task.id),bookingId:task.bookingId||null,level,status:'COMPLETED',notificationId:notification.notificationId,timerId,processedAt:new Date().toISOString()};
+      await this.audit.log({actorId:user.sub,action:'TASK_SLA_AUTOMATION',objectType:'Task',objectId:String(task.id),bookingId:task.bookingId||undefined,detail:result});
+      await this.db.integrationEvent.update({where:{id:claimId},data:{status:'COMPLETED',completedAt:new Date(),payload:result}});
+      return result;
+    }catch(e:any){
+      await this.db.integrationEvent.update({where:{id:claimId},data:{status:'FAILED',payload:{taskId:String(task.id),level,error:e?.message||'SLA automation failed',failedAt:new Date().toISOString()}}}).catch(()=>undefined);
+      throw e;
+    }
+  }
+
+  async runDue(user:ScopeUser){
+    this.scope.assertInternal(user);
+    const rows=await this.ownEvents();
+    const timers=this.latest(rows,'EscalationTimer').filter((x:any)=>x.status==='PENDING'&&new Date(x.dueAt).getTime()<=Date.now());
+    const results:any[]=[];
+    for(const timer of timers){
+      const executionId=this.deterministicId('timerexec',String(timer.timerId));
+      try{
+        if(timer.bookingId)await this.scope.assertBookingAccess(user,String(timer.bookingId));
+        const prior=await this.db.integrationEvent.findUnique({where:{id:executionId}});
+        if(prior?.status==='COMPLETED'){results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED',taskId:this.payload(prior).taskId||null});continue;}
+        try{
+          if(!prior)await this.db.integrationEvent.create({data:{id:executionId,sourceSystem:SOURCE,eventType:'ESCALATION_EXECUTION_CLAIMED',externalId:String(timer.timerId),objectType:'EscalationExecution',objectId:String(timer.timerId),status:'PROCESSING',payload:{timerId:timer.timerId,startedAt:new Date().toISOString()},attemptCount:0}});
+        }catch(e:any){
+          if(!this.uniqueError(e))throw e;
+          results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED'});continue;
+        }
+        const task=await this.db.task.create({data:{bookingId:timer.bookingId||null,title:`Escalation: ${timer.process} · ${timer.trigger}`,ownerId:timer.ownerRole||'Operations Manager',dueAt:new Date(),status:'Open',slaState:'Breached'}});
+        await this.notify('WORKFLOW_ESCALATION',{process:timer.process,bookingId:timer.bookingId,objectType:timer.objectType,objectId:timer.objectId,message:`Workflow escalation due for ${timer.trigger}`},{severity:'WARNING',channels:['IN_APP'],recipients:timer.ownerRole?[timer.ownerRole]:[]},user,{timerId:timer.timerId,taskId:task.id});
+        await this.write('EscalationTimer','ESCALATION_TIMER_EXECUTED',timer.timerId,{...timer,status:'EXECUTED',executedAt:new Date().toISOString(),taskId:task.id},user);
+        await this.db.integrationEvent.update({where:{id:executionId},data:{status:'COMPLETED',completedAt:new Date(),payload:{timerId:timer.timerId,taskId:task.id,status:'EXECUTED'}}});
+        results.push({timerId:timer.timerId,status:'EXECUTED',taskId:task.id});
+      }catch(e:any){
+        await this.db.integrationEvent.update({where:{id:executionId},data:{status:'FAILED',payload:{timerId:timer.timerId,error:e?.message||'Escalation failed'}}}).catch(()=>undefined);
+        results.push({timerId:timer.timerId,status:'FAILED',error:e?.message||'Escalation failed'});
+      }
+    }
+    return {due:timers.length,executed:results.filter(x=>x.status==='EXECUTED').length,failed:results.filter(x=>x.status==='FAILED').length,duplicates:results.filter(x=>x.status==='DUPLICATE_SKIPPED').length,results};
+  }
 }

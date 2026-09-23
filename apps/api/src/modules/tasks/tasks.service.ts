@@ -3,10 +3,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser, bookingScope } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
+import { WorkflowAutomationService } from '../workflow-automation/workflow-automation.service';
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
+  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService,private automation:WorkflowAutomationService){}
 
   private normalizedStatus(value:any,current='Open'){
     const raw=String(value??current).trim().toUpperCase().replace(/[ -]+/g,'_');
@@ -46,6 +47,7 @@ export class TasksService {
       slaState:this.slaState(status,dueAt,body.slaState)
     }});
     await this.audit.log({actorId:user.sub,action:'TASK_CREATE',objectType:'Task',objectId:row.id,bookingId:row.bookingId||undefined,detail:{title:row.title,ownerId:row.ownerId,dueAt:row.dueAt,status:row.status,slaState:row.slaState}});
+    await this.automation.processTaskSla(row,user);
     return row;
   }
 
@@ -71,6 +73,7 @@ export class TasksService {
       actorId:user.sub,action:'TASK_ACTION_QUEUE_UPDATE',objectType:'Task',objectId:id,bookingId:row.bookingId||undefined,
       detail:{before:{ownerId:current.ownerId,dueAt:current.dueAt,status:current.status,slaState:current.slaState},after:{ownerId:row.ownerId,dueAt:row.dueAt,status:row.status,slaState:row.slaState}}
     });
+    await this.automation.processTaskSla(row,user);
     return row;
   }
 

@@ -31,6 +31,9 @@ type ControlRow={
   taskStatus?:string;
   slaState?:string;
   queueMutable?:boolean;
+  escalationLevel?:string;
+  escalationStatus?:string;
+  escalationNotificationId?:string;
 };
 
 type Dashboard={
@@ -117,7 +120,9 @@ export default function ExceptionsPage(){
     ['Reconciliation',s.RECONCILIATION_EXCEPTION||0],
     ['Queue Open',s.queueOpen||0],
     ['Queue At Risk',s.queueAtRisk||0],
-    ['Queue Overdue',s.queueOverdue||0]
+    ['Queue Overdue',s.queueOverdue||0],
+    ['Escalated',s.escalated||0],
+    ['Level 3',s.level3||0]
   ];
   const contextRow=contextBookingId?rows.find(r=>r.bookingId===contextBookingId):undefined;
 
@@ -150,7 +155,7 @@ export default function ExceptionsPage(){
         </select>}
         <span className="status">{visible.length} visible</span>
       </div>
-      <div className="sub" style={{marginTop:8}}>Governed action queue · task ownership/SLA updates are audited. Booking, payment, release, finance and document workflow rules remain unchanged.</div>
+      <div className="sub" style={{marginTop:8}}>Governed action queue · task ownership, SLA automation and escalation notifications are audited. Booking, payment, release, finance and document workflow rules remain unchanged.</div>
     </div>
 
     <div className="card">
@@ -166,7 +171,8 @@ export default function ExceptionsPage(){
               <td style={{whiteSpace:'normal',minWidth:260}}>{r.message}</td>
               <td>
                 {r.taskId?<input aria-label={'Owner '+r.bookingNo} defaultValue={r.owner==='Unassigned'?'':r.owner} placeholder="Unassigned" style={{...fieldStyle,minWidth:150}} onBlur={e=>{if(e.target.value!==r.owner)void updateTask(r,{ownerId:e.target.value});}}/>:r.owner}
-                {r.taskId&&<div className="sub">{r.slaState||'On Track'}</div>}
+                {r.taskId&&<div className="sub">{r.slaState||'On Track'}{r.escalationLevel?(' · '+r.escalationLevel):''}</div>}
+                {r.escalationNotificationId&&<div className="sub">Notification {r.escalationNotificationId}</div>}
               </td>
               <td>{r.taskId?<input aria-label={'Due '+r.bookingNo} type="date" defaultValue={r.due?String(r.due).slice(0,10):''} style={{...fieldStyle,minWidth:140}} onChange={e=>void updateTask(r,{dueAt:e.target.value||null})}/>:fmtDate(r.due)}</td>
               <td>{r.source}{r.taskId&&<div className="sub">Queue task</div>}</td>

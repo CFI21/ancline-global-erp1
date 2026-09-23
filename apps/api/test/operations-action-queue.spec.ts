@@ -13,16 +13,18 @@ describe('Operations action queue task mutations',()=>{
     };
     const scope:any={assertInternal:jest.fn(),assertBookingAccess:jest.fn()};
     const audit:any={log:jest.fn()};
-    return {service:new TasksService(prisma,scope,audit),prisma,scope,audit,current};
+    const automation:any={processTaskSla:jest.fn().mockResolvedValue({status:'NO_ESCALATION'})};
+    return {service:new TasksService(prisma,scope,audit,automation),prisma,scope,audit,automation,current};
   }
 
   it('reassigns, acknowledges and derives overdue SLA with before/after audit',async()=>{
-    const {service,prisma,scope,audit}=make();
+    const {service,prisma,scope,audit,automation}=make();
     const row:any=await service.update('t1',{ownerId:'ops@ancline.test',status:'Acknowledged'},admin);
     expect(scope.assertInternal).toHaveBeenCalledWith(admin);
     expect(scope.assertBookingAccess).toHaveBeenCalledWith(admin,'b1');
     expect(prisma.task.update).toHaveBeenCalledWith({where:{id:'t1'},data:expect.objectContaining({ownerId:'ops@ancline.test',status:'Acknowledged',slaState:'Overdue'})});
     expect(row.slaState).toBe('Overdue');
+    expect(automation.processTaskSla).toHaveBeenCalledWith(expect.objectContaining({id:'t1',slaState:'Overdue'}),admin);
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
       action:'TASK_ACTION_QUEUE_UPDATE',
       detail:expect.objectContaining({before:expect.objectContaining({ownerId:null}),after:expect.objectContaining({ownerId:'ops@ancline.test'})})
