@@ -266,9 +266,9 @@ try{
     assert(n1&&Array.isArray(n1.recipients)&&n1.recipients.includes('test.ops@ancline.invalid'),'LEVEL_1 owner reminder missing');
     assert(n2&&Array.isArray(n2.recipients)&&n2.recipients.includes('Operations Manager'),'LEVEL_2 Operations Manager escalation missing');
     assert(n3&&Array.isArray(n3.recipients)&&n3.recipients.includes('CONTROL_TOWER'),'LEVEL_3 CONTROL_TOWER escalation missing');
-    const t1=timers.find(x=>String(x.objectId)===String(l1.body.id));
-    const t2=timers.find(x=>String(x.objectId)===String(l2.body.id)&&x.status==='PENDING');
-    const t3=timers.find(x=>String(x.objectId)===String(l3.body.id)&&x.status==='PENDING');
+    const t1=timers.find(x=>String(x.sourceResult?.taskId)===String(l1.body.id));
+    const t2=timers.find(x=>String(x.sourceResult?.taskId)===String(l2.body.id)&&x.status==='PENDING');
+    const t3=timers.find(x=>String(x.sourceResult?.taskId)===String(l3.body.id)&&x.status==='PENDING');
     assert(t1&&['PENDING','EXECUTED'].includes(String(t1.status)),'LEVEL_1 escalation timer missing');
     assert(t2,'LEVEL_2 escalation timer missing');
     assert(!t3,'LEVEL_3 must not create another escalation timer');
@@ -278,7 +278,7 @@ try{
     assert(repeat.ok,'LEVEL_2 repeat update failed');
     wa=await api(page,'/workflow-automation/dashboard');
     const l2Notifications=(wa.body.notifications||[]).filter(x=>String(x.taskId)===String(l2.body.id)&&x.level==='LEVEL_2');
-    const l2Timers=(wa.body.timers||[]).filter(x=>String(x.objectId)===String(l2.body.id));
+    const l2Timers=(wa.body.timers||[]).filter(x=>String(x.sourceResult?.taskId)===String(l2.body.id));
     assert(l2Notifications.length===1,'LEVEL_2 duplicate notification created');
     assert(l2Timers.length===1,'LEVEL_2 duplicate timer created');
 
@@ -313,7 +313,7 @@ try{
     const afterEsc=(Array.isArray(tasksAfter.body)?tasksAfter.body:[]).filter(x=>String(x.title||'').includes('Escalation: OPERATIONS_ACTION_QUEUE · TASK_SLA_ESCALATION')).length;
     assert(afterEsc-beforeEsc<=1,'concurrent run-due created duplicate escalation tasks');
     wa=await api(page,'/workflow-automation/dashboard');
-    const raceTimers=(wa.body.timers||[]).filter(x=>String(x.objectId)===String(raceTask.body.id));
+    const raceTimers=(wa.body.timers||[]).filter(x=>String(x.sourceResult?.taskId)===String(raceTask.body.id));
     assert(raceTimers.length===1,'concurrent run-due duplicated or lost the race timer');
 
     // Audit trace back to the booking/task.
