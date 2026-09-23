@@ -3,6 +3,7 @@
 import {useEffect,useState} from 'react';
 import {currentUser,requireToken} from '../../lib/api';
 import WorkspaceShell from '../../components/WorkspaceShell';
+import ExternalPortalCommunications from '../../components/ExternalPortalCommunications';
 
 export default function AgentPortal(){
   const [ready,setReady]=useState(false);
@@ -28,5 +29,6 @@ export default function AgentPortal(){
         {forwardingAllowed?<a className="btn" href="/customer-portal" style={{textDecoration:'none'}}>Open Forwarding Exception</a>:<div><span className="status">Not Authorized</span><div className="sub" style={{marginTop:8}}>Admin must assign FORWARDING_DIRECT_COLOAD_CROSS_TRADE and a cost center.</div></div>}
       </div>
     </div>
+    <ExternalPortalCommunications compact />
   </WorkspaceShell>;
 }

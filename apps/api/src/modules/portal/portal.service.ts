@@ -5,6 +5,7 @@ import { ScopeService } from '../auth/scope.service';
 import { AuditService } from '../audit/audit.service';
 import { evaluateReleaseSecurity } from '../documents/release-security';
 import { assertAncCarrierOutboundPayload } from '../carrier-outbound-policy';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class PortalService {
@@ -404,6 +405,215 @@ export class PortalService {
     const publicQuote:any={id:quote.id,quoteNo:quote.quoteNo,customerRef:quote.customerRef,sellRate:quote.sellRate,currency:quote.currency,status:'Customer Accepted',termsVersion:quote.termsVersion};
     if(role==='GLOBAL_ADMIN'){publicQuote.carrierCode=quote.carrierCode;publicQuote.carrierQuoteRef=quote.carrierQuoteRef;return {booking,quote:publicQuote,automation};}
     return {booking:publicBooking,quote:publicQuote,automation:{status:automation.status}};
+  }
+
+  private externalMessageId(key:string){return 'extmsg_'+createHash('sha256').update(key).digest('hex').slice(0,32);}
+  private externalEventPayload(row:any){return row?.payload&&typeof row.payload==='object'?row.payload:{};}
+  private externalRoles(){return ['CUSTOMER','SHIPPER','CONSIGNEE','AGENT'];}
+  private allowedExternalCommunicationRole(user:ScopeUser){
+    const role=String(user.role||'').toUpperCase();
+    if([...this.externalRoles(),'GLOBAL_ADMIN'].includes(role))return role;
+    throw new ForbiddenException('External portal communication access denied');
+  }
+  private externalCategories(){return ['BOOKING_CONFIRMATION','DOCUMENT_REQUEST','SCHEDULE_CHANGE','CUT_OFF_CHANGE','MILESTONE_UPDATE','APPROVED_DELAY_NOTICE','APPROVED_EXCEPTION_NOTICE','PAYMENT_REQUEST','DOCUMENT_RELEASE_REQUEST','RELEASE_NOTICE'];}
+  private externalForbiddenText(value:any){
+    const s=String(value||'').toUpperCase();
+    return ['CONTROL_TOWER','CONTROL TOWER','SLA LEVEL','LEVEL_1','LEVEL_2','LEVEL_3','BUY RATE','BUYRATE','GROSS MARGIN','PROFIT MARGIN','BENEFICIAL OWNER','KYC','PROVIDER SECRET','API KEY','PASSWORD','INTERNAL NOTE'].find(x=>s.includes(x))||null;
+  }
+  private externalPreferenceId(user:ScopeUser){return 'extpref_'+createHash('sha256').update(String(user.sub)).digest('hex').slice(0,32);}
+  private externalReceiptId(kind:string,user:ScopeUser,messageId:string){return 'ext'+kind+'_'+createHash('sha256').update(String(user.sub)+':'+messageId).digest('hex').slice(0,32);}
+  private async externalBookingIds(user:ScopeUser){
+    const rows=await this.prisma.booking.findMany({where:bookingScope(user),select:{id:true}});
+    return rows.map(x=>String(x.id));
+  }
+  private async assertExternalMessageVisible(messageId:string,user:ScopeUser){
+    this.allowedExternalCommunicationRole(user);
+    const event=await this.prisma.integrationEvent.findUnique({where:{id:messageId}});
+    if(!event||event.sourceSystem!=='ANCLINE_EXTERNAL_COMMUNICATION'||event.objectType!=='ExternalCommunication'||event.eventType!=='EXTERNAL_MESSAGE_PUBLISHED')throw new BadRequestException('External communication was not found');
+    const p:any=this.externalEventPayload(event),bookingId=String(p.bookingId||'');
+    if(!bookingId)throw new BadRequestException('External communication is not booking-bound');
+    await this.scope.assertBookingAccess(user,bookingId);
+    const audience=Array.isArray(p.audienceRoles)?p.audienceRoles.map((x:any)=>String(x).toUpperCase()):[];
+    if(user.role!=='GLOBAL_ADMIN'&&!audience.includes(String(user.role).toUpperCase()))throw new ForbiddenException('Communication is not addressed to this portal role');
+    return {event,p,bookingId};
+  }
+
+  async externalCommunicationPreferences(user:ScopeUser){
+    this.allowedExternalCommunicationRole(user);
+    const id=this.externalPreferenceId(user);
+    const event=await this.prisma.integrationEvent.findUnique({where:{id}});
+    const p:any=this.externalEventPayload(event);
+    return {
+      channels:Array.isArray(p.channels)?p.channels:['IN_APP','EMAIL'],
+      categories:Array.isArray(p.categories)?p.categories:[],
+      muteOptional:Boolean(p.muteOptional),
+      mandatoryOperational:true
+    };
+  }
+
+  async updateExternalCommunicationPreferences(body:any,user:ScopeUser){
+    this.allowedExternalCommunicationRole(user);
+    const allowedChannels=['IN_APP','EMAIL'];
+    const channels:string[]=(Array.isArray(body?.channels)?body.channels:['IN_APP','EMAIL']).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedChannels.includes(x));
+    const allowedCategories=this.externalCategories();
+    const categories:string[]=(Array.isArray(body?.categories)?body.categories:[]).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedCategories.includes(x));
+    const payload:any={channels:[...new Set<string>(channels.length?channels:['IN_APP'])],categories:[...new Set<string>(categories)],muteOptional:Boolean(body?.muteOptional),mandatoryOperational:true,updatedBy:user.sub,updatedAt:new Date().toISOString()};
+    const id=this.externalPreferenceId(user);
+    const existing=await this.prisma.integrationEvent.findUnique({where:{id}});
+    if(existing)await this.prisma.integrationEvent.update({where:{id},data:{status:'COMPLETED',payload,completedAt:new Date()}});
+    else await this.prisma.integrationEvent.create({data:{id,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_PREFERENCE_UPDATED',objectType:'ExternalCommunicationPreference',objectId:String(user.sub),status:'COMPLETED',payload,completedAt:new Date()}});
+    await this.audit.log({actorId:user.sub,action:'EXTERNAL_COMMUNICATION_PREFERENCE_UPDATE',objectType:'ExternalCommunicationPreference',objectId:String(user.sub),detail:{channels:payload.channels,categories:payload.categories,muteOptional:payload.muteOptional}});
+    return payload;
+  }
+
+  async externalCommunications(user:ScopeUser){
+    this.allowedExternalCommunicationRole(user);
+    const bookingIds=await this.externalBookingIds(user);
+    if(!bookingIds.length)return {summary:{total:0,unread:0,ackRequired:0,acknowledged:0},preferences:await this.externalCommunicationPreferences(user),items:[]};
+    const [messages,reads,acks,prefs]=await Promise.all([
+      this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',objectType:'ExternalCommunication',eventType:'EXTERNAL_MESSAGE_PUBLISHED',status:'COMPLETED'},orderBy:{createdAt:'desc'},take:500}),
+      this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',objectType:'ExternalCommunicationRead',objectId:{startsWith:String(user.sub)+':'}},orderBy:{createdAt:'desc'},take:500}),
+      this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',objectType:'ExternalCommunicationAcknowledgement',objectId:{startsWith:String(user.sub)+':'}},orderBy:{createdAt:'desc'},take:500}),
+      this.externalCommunicationPreferences(user)
+    ]);
+    const readSet=new Set(reads.map(x=>String(this.externalEventPayload(x).messageId||'')));
+    const ackSet=new Set(acks.map(x=>String(this.externalEventPayload(x).messageId||'')));
+    const role=String(user.role).toUpperCase();
+    const items:any[]=[];
+    for(const e of messages){
+      const p:any=this.externalEventPayload(e),bookingId=String(p.bookingId||'');
+      if(!bookingIds.includes(bookingId))continue;
+      const audience=Array.isArray(p.audienceRoles)?p.audienceRoles.map((x:any)=>String(x).toUpperCase()):[];
+      if(role!=='GLOBAL_ADMIN'&&!audience.includes(role))continue;
+      const category=String(p.category||'MILESTONE_UPDATE').toUpperCase();
+      const mandatory=Boolean(p.requiresAcknowledgement)||['PAYMENT_REQUEST','DOCUMENT_REQUEST','DOCUMENT_RELEASE_REQUEST'].includes(category);
+      if(!mandatory&&prefs.muteOptional)continue;
+      if(!mandatory&&prefs.categories.length&&!prefs.categories.includes(category))continue;
+      const read=readSet.has(e.id),acknowledged=ackSet.has(e.id);
+      items.push({
+        id:e.id,bookingId,bookingNo:p.bookingNo||null,category,title:p.title,message:p.message,
+        channels:Array.isArray(p.channels)?p.channels:['IN_APP'],requiresAcknowledgement:Boolean(p.requiresAcknowledgement),
+        read,acknowledged,publishedAt:p.publishedAt||e.createdAt,deliveryStatus:p.deliveryStatus||{},
+        actionHref:role==='AGENT'?'/agent-portal?bookingId='+encodeURIComponent(bookingId):'/customer-portal?bookingId='+encodeURIComponent(bookingId)
+      });
+    }
+    return {summary:{total:items.length,unread:items.filter(x=>!x.read).length,ackRequired:items.filter(x=>x.requiresAcknowledgement&&!x.acknowledged).length,acknowledged:items.filter(x=>x.acknowledged).length},preferences:prefs,items};
+  }
+
+  async markExternalCommunicationRead(messageId:string,user:ScopeUser){
+    await this.assertExternalMessageVisible(messageId,user);
+    const id=this.externalReceiptId('read',user,messageId),payload={messageId,readBy:user.sub,readAt:new Date().toISOString()};
+    const existing=await this.prisma.integrationEvent.findUnique({where:{id}});
+    if(!existing)await this.prisma.integrationEvent.create({data:{id,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_MESSAGE_READ',objectType:'ExternalCommunicationRead',objectId:String(user.sub)+':'+messageId,status:'COMPLETED',payload,completedAt:new Date()}});
+    await this.audit.log({actorId:user.sub,action:'EXTERNAL_COMMUNICATION_READ',objectType:'ExternalCommunication',objectId:messageId,detail:{messageId}});
+    return payload;
+  }
+
+  async acknowledgeExternalCommunication(messageId:string,user:ScopeUser){
+    const visible=await this.assertExternalMessageVisible(messageId,user);
+    if(!Boolean(visible.p.requiresAcknowledgement))throw new BadRequestException('This communication does not require acknowledgement');
+    const id=this.externalReceiptId('ack',user,messageId),payload={messageId,bookingId:visible.bookingId,acknowledgedBy:user.sub,acknowledgedAt:new Date().toISOString()};
+    const existing=await this.prisma.integrationEvent.findUnique({where:{id}});
+    if(!existing)await this.prisma.integrationEvent.create({data:{id,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_MESSAGE_ACKNOWLEDGED',objectType:'ExternalCommunicationAcknowledgement',objectId:String(user.sub)+':'+messageId,status:'COMPLETED',payload,completedAt:new Date()}});
+    await this.audit.log({actorId:user.sub,action:'EXTERNAL_COMMUNICATION_ACKNOWLEDGE',objectType:'ExternalCommunication',objectId:messageId,bookingId:visible.bookingId,detail:{messageId}});
+    return payload;
+  }
+
+  private async dispatchExternalEmail(messageEvent:any,attemptReason:string,user:ScopeUser){
+    const p:any=this.externalEventPayload(messageEvent);
+    const deliveryId='extdel_'+createHash('sha256').update(messageEvent.id+':EMAIL:'+String(Date.now())).digest('hex').slice(0,32);
+    const endpoint=String(process.env.ANCLINE_EXTERNAL_EMAIL_ENDPOINT||'').trim();
+    const basePayload={messageId:messageEvent.id,bookingId:p.bookingId,bookingNo:p.bookingNo||null,category:p.category,title:p.title,message:p.message,audienceRoles:p.audienceRoles,channel:'EMAIL',attemptReason,requestedBy:user.sub,attemptedAt:new Date().toISOString()};
+    if(!endpoint){
+      const payload={...basePayload,deliveryStatus:'PENDING_CONFIGURATION',reason:'Approved external email provider endpoint is not configured'};
+      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'RETRY_PENDING',payload}});
+      return payload;
+    }
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+    try{
+      const token=String(process.env.ANCLINE_EXTERNAL_EMAIL_TOKEN||'').trim();
+      const r=await (globalThis as any).fetch(endpoint,{method:'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify(basePayload),signal:controller.signal});
+      if(!r.ok)throw new Error('External email provider returned HTTP '+r.status);
+      const payload={...basePayload,deliveryStatus:'SENT',sentAt:new Date().toISOString()};
+      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'COMPLETED',payload,completedAt:new Date()}});
+      return payload;
+    }catch(e:any){
+      const reason=e?.name==='AbortError'?'External email provider timed out':String(e?.message||'External email delivery failed');
+      const payload={...basePayload,deliveryStatus:'FAILED',reason};
+      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'FAILED',payload}});
+      return payload;
+    }finally{clearTimeout(timer);}
+  }
+
+  externalCommunicationTemplates(user:ScopeUser){
+    this.scope.assertInternal(user);
+    return [
+      {id:'BOOKING_CONFIRMATION',category:'BOOKING_CONFIRMATION',title:'Booking confirmed',message:'Your ANCLINE booking has been confirmed. Open the shipment to review the latest booking details.',requiresAcknowledgement:false},
+      {id:'DOCUMENT_REQUEST',category:'DOCUMENT_REQUEST',title:'Documents required',message:'Additional shipment documents are required. Please open the shipment and provide the requested documents.',requiresAcknowledgement:true},
+      {id:'SCHEDULE_CHANGE',category:'SCHEDULE_CHANGE',title:'Schedule updated',message:'The shipment schedule has been updated. Please review the latest ETD/ETA and routing details in the portal.',requiresAcknowledgement:false},
+      {id:'CUT_OFF_CHANGE',category:'CUT_OFF_CHANGE',title:'Cut-off updated',message:'A shipment cut-off has changed. Please review the latest cut-off details and take the required action.',requiresAcknowledgement:true},
+      {id:'MILESTONE_UPDATE',category:'MILESTONE_UPDATE',title:'Shipment milestone update',message:'A new shipment milestone has been recorded. Open the shipment timeline for the latest status.',requiresAcknowledgement:false},
+      {id:'APPROVED_DELAY_NOTICE',category:'APPROVED_DELAY_NOTICE',title:'Shipment delay notice',message:'An approved shipment delay has been recorded. Please review the updated schedule in the portal.',requiresAcknowledgement:false},
+      {id:'APPROVED_EXCEPTION_NOTICE',category:'APPROVED_EXCEPTION_NOTICE',title:'Shipment exception update',message:'An approved customer-visible shipment exception requires your attention. Open the shipment for details.',requiresAcknowledgement:true},
+      {id:'PAYMENT_REQUEST',category:'PAYMENT_REQUEST',title:'Payment action required',message:'A payment action is required before the next shipment release step can proceed. Please review the shipment account information.',requiresAcknowledgement:true},
+      {id:'DOCUMENT_RELEASE_REQUEST',category:'DOCUMENT_RELEASE_REQUEST',title:'Document release action required',message:'A document release action is required. Please review the shipment documents and complete the requested action.',requiresAcknowledgement:true},
+      {id:'RELEASE_NOTICE',category:'RELEASE_NOTICE',title:'Shipment release update',message:'A shipment release update is available. Open the shipment to review the latest release status.',requiresAcknowledgement:false}
+    ];
+  }
+
+  async publishExternalCommunication(body:any,user:ScopeUser){
+    this.scope.assertInternal(user);
+    const category=String(body?.category||'').trim().toUpperCase();
+    if(!this.externalCategories().includes(category))throw new BadRequestException('Unsupported external communication category');
+    if(user.role==='FINANCE'&&!['PAYMENT_REQUEST','DOCUMENT_RELEASE_REQUEST','RELEASE_NOTICE'].includes(category))throw new ForbiddenException('Finance may publish only approved payment/release communication categories');
+    const bookingId=String(body?.bookingId||'').trim();
+    if(!bookingId)throw new BadRequestException('Booking is required');
+    await this.scope.assertBookingAccess(user,bookingId);
+    const booking:any=await this.prisma.booking.findUnique({where:{id:bookingId},select:{id:true,bookingNo:true}});
+    if(!booking)throw new BadRequestException('Booking not found');
+    const title=String(body?.title||'').trim().slice(0,160),message=String(body?.message||'').trim().slice(0,4000);
+    if(!title||!message)throw new BadRequestException('Title and message are required');
+    const forbidden=this.externalForbiddenText(title+' '+message);
+    if(forbidden)throw new BadRequestException('External communication contains prohibited internal content: '+forbidden);
+    const audienceRoles=[...new Set((Array.isArray(body?.audienceRoles)?body.audienceRoles:[]).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>this.externalRoles().includes(x)))];
+    if(!audienceRoles.length)throw new BadRequestException('At least one external audience role is required');
+    const channels=[...new Set((Array.isArray(body?.channels)?body.channels:['IN_APP']).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>['IN_APP','EMAIL'].includes(x)))];
+    if(!channels.length)throw new BadRequestException('At least one delivery channel is required');
+    const key=String(body?.idempotencyKey||[bookingId,category,title,message,audienceRoles.sort().join(','),channels.sort().join(',')].join('|'));
+    const id=this.externalMessageId(key);
+    const existing=await this.prisma.integrationEvent.findUnique({where:{id}});
+    if(existing)return {message:existing,duplicate:true};
+    const payload:any={bookingId,bookingNo:booking.bookingNo,category,title,message,audienceRoles,channels,requiresAcknowledgement:Boolean(body?.requiresAcknowledgement),publishedBy:user.sub,publishedAt:new Date().toISOString(),externalSafe:true,deliveryStatus:{IN_APP:channels.includes('IN_APP')?'DELIVERED':'NOT_REQUESTED',EMAIL:channels.includes('EMAIL')?'PENDING':'NOT_REQUESTED'}};
+    const event=await this.prisma.integrationEvent.create({data:{id,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_MESSAGE_PUBLISHED',objectType:'ExternalCommunication',objectId:id,status:'COMPLETED',payload,completedAt:new Date()}});
+    let email:any=null;
+    if(channels.includes('EMAIL'))email=await this.dispatchExternalEmail(event,'PUBLISH',user);
+    await this.audit.log({actorId:user.sub,action:'EXTERNAL_COMMUNICATION_PUBLISH',objectType:'ExternalCommunication',objectId:id,bookingId,detail:{category,audienceRoles,channels,requiresAcknowledgement:payload.requiresAcknowledgement,emailStatus:email?.deliveryStatus||'NOT_REQUESTED'}});
+    return {message:event,email,duplicate:false};
+  }
+
+  async resendExternalCommunication(messageId:string,body:any,user:ScopeUser){
+    this.scope.assertInternal(user);
+    const event=await this.prisma.integrationEvent.findUnique({where:{id:messageId}});
+    if(!event||event.sourceSystem!=='ANCLINE_EXTERNAL_COMMUNICATION'||event.objectType!=='ExternalCommunication')throw new BadRequestException('External communication was not found');
+    const p:any=this.externalEventPayload(event);
+    await this.scope.assertBookingAccess(user,String(p.bookingId||''));
+    const channel=String(body?.channel||'EMAIL').toUpperCase();
+    if(channel!=='EMAIL')throw new BadRequestException('Only EMAIL delivery currently requires resend/retry');
+    const result=await this.dispatchExternalEmail(event,'RESEND',user);
+    await this.audit.log({actorId:user.sub,action:'EXTERNAL_COMMUNICATION_RESEND',objectType:'ExternalCommunication',objectId:messageId,bookingId:String(p.bookingId||''),detail:{channel,status:result.deliveryStatus}});
+    return result;
+  }
+
+  async externalCommunicationHistory(user:ScopeUser){
+    this.scope.assertInternal(user);
+    const bookings=await this.prisma.booking.findMany({where:bookingScope(user),select:{id:true}});
+    const ids=new Set(bookings.map(x=>String(x.id)));
+    const rows=await this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION'},orderBy:{createdAt:'desc'},take:800});
+    return rows.filter(x=>{
+      const p:any=this.externalEventPayload(x),bookingId=String(p.bookingId||'');
+      if(x.objectType==='ExternalCommunicationPreference')return false;
+      return bookingId&&ids.has(bookingId);
+    }).map(x=>({id:x.id,eventType:x.eventType,objectType:x.objectType,objectId:x.objectId,status:x.status,createdAt:x.createdAt,payload:this.externalEventPayload(x)}));
   }
 
   async releaseSecurity(bookingId:string,user:ScopeUser){
