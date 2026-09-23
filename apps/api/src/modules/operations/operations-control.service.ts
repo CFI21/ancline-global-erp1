@@ -28,6 +28,9 @@ type ControlRow={
   taskStatus?:string;
   slaState?:string;
   queueMutable?:boolean;
+  escalationLevel?:string;
+  escalationStatus?:string;
+  escalationNotificationId?:string;
 };
 
 const TERMINAL=new Set(['CANCELLED','FINANCIALLY_CLOSED']);
@@ -103,11 +106,23 @@ export class OperationsControlService {
     const branches:any[]=branchIds.length?await this.db.branch.findMany({where:{id:{in:branchIds}}}):[];
     const branchMap=new Map(branches.map((b:any)=>[String(b.id),String(b.code||b.name||b.id)]));
 
-    const failedEvents:any[]=await this.db.integrationEvent.findMany({
-      where:{status:{in:['FAILED','RETRY_PENDING']}},
-      orderBy:{createdAt:'desc'},
-      take:250
-    });
+    const [failedEvents,slaEvents]:any[][]=await Promise.all([
+      this.db.integrationEvent.findMany({
+        where:{status:{in:['FAILED','RETRY_PENDING']}},
+        orderBy:{createdAt:'desc'},
+        take:250
+      }),
+      this.db.integrationEvent.findMany({
+        where:{sourceSystem:'ANCLINE_ORCHESTRATION',objectType:'TaskSlaAutomation',status:'COMPLETED'},
+        orderBy:{createdAt:'desc'},
+        take:500
+      })
+    ]);
+    const slaByTask=new Map<string,any>();
+    for(const e of slaEvents){
+      const p:any=e.payload&&typeof e.payload==='object'?e.payload:{};
+      if(p.taskId&&!slaByTask.has(String(p.taskId)))slaByTask.set(String(p.taskId),p);
+    }
 
     const out=new Map<string,ControlRow>();
     const add=(row:ControlRow)=>{if(!out.has(row.id))out.set(row.id,row);};
@@ -231,6 +246,12 @@ export class OperationsControlService {
           row.owner=this.text(t.ownerId)||row.owner;
           row.due=this.iso(t.dueAt)||row.due;
           row.queueMutable=true;
+          const escalation=slaByTask.get(String(t.id));
+          if(escalation){
+            row.escalationLevel=this.text(escalation.level);
+            row.escalationStatus=this.text(escalation.status);
+            row.escalationNotificationId=this.text(escalation.notificationId);
+          }
         }else if(row.bookingId){
           row.queueMutable=true;
         }
@@ -254,7 +275,11 @@ export class OperationsControlService {
         queueOpen:rows.filter(r=>r.taskId&&this.upper(r.taskStatus)!=='COMPLETED').length,
         queueOverdue:rows.filter(r=>this.upper(r.slaState)==='OVERDUE').length,
         queueAtRisk:rows.filter(r=>this.upper(r.slaState)==='AT RISK'||this.upper(r.slaState)==='AT_RISK').length,
-        queueUnassigned:rows.filter(r=>r.taskId&&(!r.owner||r.owner==='Unassigned')).length
+        queueUnassigned:rows.filter(r=>r.taskId&&(!r.owner||r.owner==='Unassigned')).length,
+        escalated:rows.filter(r=>Boolean(r.escalationLevel)).length,
+        level1:rows.filter(r=>r.escalationLevel==='LEVEL_1').length,
+        level2:rows.filter(r=>r.escalationLevel==='LEVEL_2').length,
+        level3:rows.filter(r=>r.escalationLevel==='LEVEL_3').length
       },
       rows,
       filters:{
