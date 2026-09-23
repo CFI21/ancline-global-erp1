@@ -1,7 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
-import { ScopeUser } from '../auth/scope';
+import { ScopeUser, bookingScope } from '../auth/scope';
+import { createHash } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { AlertEngineService } from './alert-engine.service';
 
@@ -36,6 +37,17 @@ export class OperationsService {
 
   private assertAdmin(user:ScopeUser){if(user.role!=='GLOBAL_ADMIN') throw new ForbiddenException('Global administrator access required');}
   private assertInternal(user:ScopeUser){this.scope.assertInternal(user);}
+  private get db():any{return this.prisma as any;}
+  private commId(prefix:string,key:string){return prefix+'_'+createHash('sha256').update(key).digest('hex').slice(0,32);}
+  private eventPayload(row:any){return row?.payload&&typeof row.payload==='object'?row.payload:{};}
+  private commActionHref(kind:string,bookingId?:string|null){
+    if(kind==='FAILED_INTEGRATION')return '/connectivity';
+    if(kind==='DOCUMENT_BLOCK')return bookingId?'/documents?bookingId='+encodeURIComponent(bookingId):'/documents';
+    if(kind==='PAYMENT_RELEASE_BLOCK')return bookingId?'/carrier-payment?bookingId='+encodeURIComponent(bookingId):'/carrier-payment';
+    if(kind==='MILESTONE')return bookingId?'/tracking?bookingId='+encodeURIComponent(bookingId):'/tracking';
+    if(kind==='ACTION_QUEUE')return bookingId?'/exceptions?bookingId='+encodeURIComponent(bookingId):'/exceptions';
+    return bookingId?'/bookings/'+encodeURIComponent(bookingId):'/notifications';
+  }
 
   private async normalizedUser(body:any,current?:any){
     const role=String(body?.role??current?.role??'').trim().toUpperCase();
@@ -151,6 +163,127 @@ export class OperationsService {
   }
   async markNotificationRead(id:string,user:ScopeUser){const row=await this.prisma.notification.findFirst({where:{id,userId:user.sub}});if(!row)throw new BadRequestException('Notification not found');if(row.status==='RESOLVED')return row;return this.prisma.notification.update({where:{id},data:{status:'READ',readAt:new Date()}});}
   async markAllRead(user:ScopeUser){return this.prisma.notification.updateMany({where:{userId:user.sub,status:'UNREAD'},data:{status:'READ',readAt:new Date()}});}
+
+  private async latestCommunicationPreference(user:ScopeUser){
+    const ids=[String(user.sub),String(user.role)];
+    const rows:any[]=await this.db.integrationEvent.findMany({
+      where:{sourceSystem:'ANCLINE_GOVERNANCE',objectType:'NotificationPreference',objectId:{in:ids},status:'COMPLETED'},
+      orderBy:{createdAt:'desc'},take:20
+    });
+    const userRow=rows.find(x=>String(x.objectId)===String(user.sub));
+    const roleRow=rows.find(x=>String(x.objectId)===String(user.role));
+    const defaults={channels:['IN_APP'],severities:['CRITICAL','WARNING','INFO'],categories:[],muteOptional:false};
+    return {...defaults,...this.eventPayload(roleRow),...this.eventPayload(userRow),mandatoryCritical:true};
+  }
+
+  async communicationPreferences(user:ScopeUser){
+    this.assertInternal(user);
+    return this.latestCommunicationPreference(user);
+  }
+
+  async updateCommunicationPreferences(body:any,user:ScopeUser){
+    this.assertInternal(user);
+    const allowedChannels=['IN_APP'];
+    const allowedSeverities=['CRITICAL','WARNING','INFO'];
+    const channels=(Array.isArray(body?.channels)?body.channels:['IN_APP']).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedChannels.includes(x));
+    const severities=(Array.isArray(body?.severities)?body.severities:allowedSeverities).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedSeverities.includes(x));
+    const categories=Array.isArray(body?.categories)?[...new Set(body.categories.map((x:any)=>String(x).trim().toUpperCase()).filter(Boolean))]:[];
+    const payload={channels:channels.length?channels:['IN_APP'],severities:[...new Set(['CRITICAL',...severities])],categories,muteOptional:Boolean(body?.muteOptional),mandatoryCritical:true,updatedBy:user.sub,updatedAt:new Date().toISOString()};
+    const id=this.commId('pref',String(user.sub));
+    const existing=await this.db.integrationEvent.findUnique({where:{id}});
+    if(existing)await this.db.integrationEvent.update({where:{id},data:{status:'COMPLETED',payload,completedAt:new Date()}});
+    else await this.db.integrationEvent.create({data:{id,sourceSystem:'ANCLINE_GOVERNANCE',eventType:'NOTIFICATION_PREFERENCE_UPDATED',objectType:'NotificationPreference',objectId:String(user.sub),status:'COMPLETED',payload,completedAt:new Date()}});
+    await this.audit.log({actorId:user.sub,action:'NOTIFICATION_PREFERENCE_UPDATE',objectType:'NotificationPreference',objectId:String(user.sub),detail:payload});
+    return payload;
+  }
+
+  async acknowledgeCommunication(itemId:string,user:ScopeUser){
+    this.assertInternal(user);
+    const feed=await this.communicationCenter(user);
+    const item=(feed.items||[]).find((x:any)=>String(x.id)===String(itemId));
+    if(!item)throw new BadRequestException('Communication item not found');
+    const id=this.commId('ack',String(user.sub)+':'+String(itemId));
+    const payload={itemId:String(itemId),bookingId:item.bookingId||null,source:item.source,kind:item.kind,acknowledgedBy:user.sub,acknowledgedAt:new Date().toISOString()};
+    const existing=await this.db.integrationEvent.findUnique({where:{id}});
+    if(existing)await this.db.integrationEvent.update({where:{id},data:{status:'COMPLETED',payload,completedAt:new Date()}});
+    else await this.db.integrationEvent.create({data:{id,sourceSystem:'ANCLINE_COMMUNICATION',eventType:'COMMUNICATION_ACKNOWLEDGED',objectType:'CommunicationAcknowledgement',objectId:String(user.sub)+':'+String(itemId),status:'COMPLETED',payload,completedAt:new Date()}});
+    await this.audit.log({actorId:user.sub,action:'COMMUNICATION_ACKNOWLEDGE',objectType:'CommunicationItem',objectId:String(itemId),bookingId:item.bookingId||undefined,detail:payload});
+    return payload;
+  }
+
+  async communicationCenter(user:ScopeUser){
+    this.assertInternal(user);
+    await this.alerts.scan(user);
+    const scope:any=bookingScope(user);
+    const bookings:any[]=await this.db.booking.findMany({where:scope,select:{id:true,bookingNo:true,owningBranchId:true}});
+    const bookingIds=new Set(bookings.map(x=>String(x.id)));
+    const bookingMap=new Map(bookings.map(x=>[String(x.id),x]));
+    const globalInternal=['GLOBAL_ADMIN','CONTROL_TOWER'].includes(user.role);
+    const [notes,events,audits,acks,prefs]=await Promise.all([
+      this.db.notification.findMany({where:{userId:user.sub},orderBy:{updatedAt:'desc'},take:300}),
+      this.db.integrationEvent.findMany({orderBy:{createdAt:'desc'},take:600}),
+      this.db.auditEvent.findMany({where:bookingIds.size?{bookingId:{in:[...bookingIds]}}:{bookingId:null},orderBy:{createdAt:'desc'},take:400}),
+      this.db.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_COMMUNICATION',objectType:'CommunicationAcknowledgement',status:'COMPLETED'},orderBy:{createdAt:'desc'},take:400}),
+      this.latestCommunicationPreference(user)
+    ]);
+    const ackSet=new Set(acks.filter((x:any)=>String(this.eventPayload(x).acknowledgedBy)===String(user.sub)).map((x:any)=>String(this.eventPayload(x).itemId)));
+    const items:any[]=[];
+    const push=(item:any)=>{
+      if(item.bookingId&&!bookingIds.has(String(item.bookingId)))return;
+      if(user.role==='FINANCE'&&!['FINANCE','PAYMENT_RELEASE_BLOCK','FAILED_INTEGRATION','SLA_ESCALATION'].includes(item.kind))return;
+      const severity=String(item.severity||'INFO').toUpperCase();
+      const category=String(item.category||item.kind||'GENERAL').toUpperCase();
+      const mandatory=severity==='CRITICAL'||String(item.escalationLevel||'').toUpperCase()==='LEVEL_3';
+      if(!mandatory){
+        if(prefs.muteOptional)return;
+        if(Array.isArray(prefs.severities)&&!prefs.severities.includes(severity))return;
+        if(Array.isArray(prefs.categories)&&prefs.categories.length&&!prefs.categories.includes(category))return;
+      }
+      items.push({...item,severity,category,acknowledged:ackSet.has(String(item.id)),mandatory});
+    };
+
+    for(const n of notes){
+      const match=String(n.message||'').match(/\[booking:([^\]]+)\]/);
+      const bid=match?.[1]||null;
+      const sev=String(n.category||'').split('·')[0].trim().toUpperCase()||'INFO';
+      const cat=String(n.category||'').split('·')[1]?.trim().toUpperCase()||'OPERATIONAL_RISK';
+      push({id:'note:'+n.id,source:'OPERATIONAL_RISK',kind:cat==='FINANCE'?'FINANCE':cat==='DOCUMENT'?'DOCUMENT_BLOCK':cat==='MILESTONE'?'MILESTONE':'OPERATIONAL_RISK',severity:sev,category:cat,title:n.title,message:String(n.message||'').replace(/\s*\[booking:[^\]]+\]\s*$/,''),bookingId:bid,status:n.status,readAt:n.readAt,updatedAt:n.updatedAt||n.createdAt,actionHref:this.commActionHref(cat==='FINANCE'?'PAYMENT_RELEASE_BLOCK':cat==='DOCUMENT'?'DOCUMENT_BLOCK':cat==='MILESTONE'?'MILESTONE':'OPERATIONAL_RISK',bid)});
+    }
+
+    for(const e of events){
+      const p=this.eventPayload(e); const bid=p.bookingId?String(p.bookingId):null;
+      if(bid&&!bookingIds.has(bid))continue;
+      if(!bid&&!globalInternal)continue;
+      if(e.sourceSystem==='ANCLINE_ORCHESTRATION'&&e.objectType==='AutomationNotification'&&e.status==='COMPLETED'){
+        push({id:'auto:'+e.id,source:'SLA_AUTOMATION',kind:'SLA_ESCALATION',severity:p.severity||'INFO',category:'SLA_ESCALATION',title:p.title||'SLA escalation',message:p.message||'',bookingId:bid,escalationLevel:p.level||null,status:p.status||'OPEN',updatedAt:e.createdAt,actionHref:this.commActionHref('ACTION_QUEUE',bid)});
+      }else if(['FAILED','RETRY_PENDING'].includes(String(e.status))&&e.sourceSystem!=='ANCLINE_ORCHESTRATION'){
+        push({id:'integration:'+e.id,source:'INTEGRATION',kind:'FAILED_INTEGRATION',severity:String(e.status)==='FAILED'?'CRITICAL':'WARNING',category:'FAILED_INTEGRATION',title:(e.sourceSystem||'Integration')+' · '+(e.eventType||'Event'),message:e.errorMessage||p.errorMessage||p.error||p.message||String(e.status),bookingId:bid,status:String(e.status),updatedAt:e.updatedAt||e.createdAt,actionHref:this.commActionHref('FAILED_INTEGRATION',bid)});
+      }
+    }
+
+    const auditActions=new Set(['OPERATIONS_CONTROL_CLAIM','TASK_ACTION_QUEUE_UPDATE','TASK_SLA_AUTOMATION']);
+    for(const a of audits){
+      if(!auditActions.has(String(a.action)))continue;
+      const d:any=a.detail&&typeof a.detail==='object'?a.detail:{};
+      const kind=String(a.action)==='TASK_SLA_AUTOMATION'?'SLA_ESCALATION':'ACTION_QUEUE';
+      const level=d.level||d.after?.slaState||null;
+      push({id:'audit:'+a.id,source:'AUDIT',kind,severity:String(level).toUpperCase()==='LEVEL_3'?'CRITICAL':String(level).toUpperCase()==='LEVEL_2'?'WARNING':'INFO',category:kind,title:String(a.action).replaceAll('_',' '),message:d.after?JSON.stringify(d.after):d.level?('Escalation '+d.level):'Operational action recorded',bookingId:a.bookingId||null,escalationLevel:d.level||null,status:'RECORDED',updatedAt:a.createdAt,actionHref:this.commActionHref('ACTION_QUEUE',a.bookingId)});
+    }
+
+    const rank:any={CRITICAL:0,WARNING:1,INFO:2};
+    const dedup=new Map<string,any>();
+    for(const item of items){
+      const key=[item.bookingId||'-',item.kind,item.source,item.title,item.message].join('|');
+      if(!dedup.has(key))dedup.set(key,item);
+    }
+    const out=[...dedup.values()].sort((a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)||new Date(b.updatedAt||0).getTime()-new Date(a.updatedAt||0).getTime());
+    return {
+      generatedAt:new Date().toISOString(),
+      summary:{total:out.length,unread:out.filter(x=>x.status==='UNREAD').length,acknowledged:out.filter(x=>x.acknowledged).length,critical:out.filter(x=>x.severity==='CRITICAL').length,level3:out.filter(x=>x.escalationLevel==='LEVEL_3').length},
+      preferences:prefs,
+      items:out.slice(0,400)
+    };
+  }
 
   async closeout(bookingId:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,bookingId);this.assertInternal(user);
