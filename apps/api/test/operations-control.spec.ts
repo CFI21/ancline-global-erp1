@@ -19,7 +19,11 @@ describe('Operations Control dashboard aggregation',()=>{
     const prisma:any={
       booking:{findMany:jest.fn().mockResolvedValue([booking])},
       branch:{findMany:jest.fn().mockResolvedValue([{id:'br1',code:'RTM'}])},
-      integrationEvent:{findMany:jest.fn().mockResolvedValue([{id:'e1',sourceSystem:'CARRIER_API',eventType:'BOOKING_SUBMIT',objectType:'Booking',objectId:'b1',externalId:null,status:'FAILED',payload:{bookingId:'b1',error:'provider timeout'},createdAt:new Date(now-1000),updatedAt:new Date(now-1000)}])},
+      integrationEvent:{findMany:jest.fn().mockImplementation(({where}:any)=>Promise.resolve(
+        where?.objectType==='TaskSlaAutomation'
+          ? [{id:'sla1',sourceSystem:'ANCLINE_ORCHESTRATION',eventType:'SLA_ESCALATION_CLAIMED',objectType:'TaskSlaAutomation',objectId:'t1',status:'COMPLETED',payload:{taskId:'t1',level:'LEVEL_2',status:'COMPLETED',notificationId:'NTF-1'},createdAt:new Date(now-500)}]
+          : [{id:'e1',sourceSystem:'CARRIER_API',eventType:'BOOKING_SUBMIT',objectType:'Booking',objectId:'b1',externalId:null,status:'FAILED',payload:{bookingId:'b1',error:'provider timeout'},createdAt:new Date(now-1000),updatedAt:new Date(now-1000)}]
+      ))},
       task:{findUnique:jest.fn(),findFirst:jest.fn(),create:jest.fn(),update:jest.fn()}
     };
     const scope:any={assertInternal:jest.fn(),assertBookingAccess:jest.fn()};
@@ -43,6 +47,9 @@ describe('Operations Control dashboard aggregation',()=>{
     const taskRow=result.rows.find((x:any)=>x.id==='action-task-t1');
     expect(taskRow.taskId).toBe('t1');
     expect(taskRow.queueMutable).toBe(true);
+    expect(taskRow.escalationLevel).toBe('LEVEL_2');
+    expect(taskRow.escalationNotificationId).toBe('NTF-1');
+    expect(result.summary.level2).toBeGreaterThanOrEqual(1);
   });
 
   it('claims a booking-bound exception into the existing Task model and audits the action',async()=>{
