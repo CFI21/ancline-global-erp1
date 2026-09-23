@@ -296,9 +296,14 @@ try{
     const row3=(dash.body?.rows||[]).find(x=>String(x.taskId)===String(l3.body.id));
     assert(row2?.escalationLevel==='LEVEL_2'&&row2?.escalationNotificationId,'LEVEL_2 queue escalation metadata missing');
     assert(row3?.escalationLevel==='LEVEL_3'&&row3?.escalationNotificationId,'LEVEL_3 queue escalation metadata missing');
-    await page.reload({waitUntil:'domcontentloaded',timeout:60000}); await page.waitForTimeout(900);
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+    await page.waitForFunction(
+      ()=>document.body.innerText.includes('LEVEL_2')&&document.body.innerText.includes('LEVEL_3'),
+      undefined,
+      {timeout:15000}
+    ).catch(()=>undefined);
     const body=await page.locator('body').innerText();
-    assert(body.includes('LEVEL_2')&&body.includes('LEVEL_3'),'Action Queue UI did not render persisted escalation levels');
+    assert(body.includes('LEVEL_2')&&body.includes('LEVEL_3'),'Action Queue UI did not render persisted escalation levels after dashboard refresh');
 
     // Create a dedicated near-due Level-1 timer, then race two run-due executions.
     const raceTask=await api(page,'/tasks',{method:'POST',body:JSON.stringify({
