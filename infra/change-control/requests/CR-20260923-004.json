@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-004",
-  "status": "DRAFT",
+  "status": "BUILD_APPROVED",
   "title": "Operations SLA Automation + Escalation Notifications",
   "businessRequirement": "Connect the staging-accepted Operations Action Queue/SLA controls to ANCLINE's existing workflow-automation and notification engine so operational tasks can generate deterministic at-risk/overdue escalation events, in-app notifications and controlled escalation tasks without changing booking, finance, payment, document or release lifecycle rules.",
   "objective": "Move from manually visible SLA state to governed proactive operational follow-up using the existing WorkflowAutomationService, NotificationRule, EscalationTimer, Task, AuditEvent and IntegrationEvent structures.",
@@ -114,9 +114,11 @@
     "No database schema migration.",
     "Full SHARED regression plus targeted SLA automation/notification E2E must pass before staging deployment can be approved."
   ],
-  "buildAllowed": false,
+  "buildAllowed": true,
   "deploymentAllowed": false,
   "promotionAllowed": false,
-  "approvalRequired": "Explicit user approval of CR-20260923-004 business requirement and scope before any implementation.",
-  "notes": "DRAFT ONLY. Preserve CR-003 staging-accepted runtime 82994ab813ed40e0aac799ff2fd119a7035f4b9a and the canonical JOB_DONE baseline. No build, staging deployment or production promotion is authorized."
+  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
+  "notes": "BUILD ONLY APPROVED. Implement Operations SLA Automation + Escalation Notifications using existing workflow-automation, Task, Audit and IntegrationEvent structures. Preserve CR-001/CR-002/CR-003, frozen UI/workflows, role/privacy/finance/release controls. No database migration. No staging deployment. No production promotion.",
+  "approvedAt": "2026-09-23T15:35:00+02:00",
+  "approvedBy": "User command: CR-20260923-004 approve business requirement + build only"
 }
