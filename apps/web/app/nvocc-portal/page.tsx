@@ -19,8 +19,10 @@ export default function NvoccPortal(){
   const [token,setToken]=useState(''),[parties,setParties]=useState<Party[]>([]),[rows,setRows]=useState<Booking[]>([]),[docs,setDocs]=useState<Doc[]>([]);
   const [form,setForm]=useState(emptyForm),[bookingId,setBookingId]=useState(''),[bookingNo,setBookingNo]=useState(''),[offers,setOffers]=useState<Offer[]>([]);
   const [selected,setSelected]=useState<any>(null),[search,setSearch]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const [jobQuick,setJobQuick]=useState<Booking|null>(null);
 
   useEffect(()=>{const t=requireToken();if(!t)return;if(!['AGENT','BRANCH_OPS','GLOBAL_ADMIN'].includes(role)){location.replace('/');return;}setToken(t);void load(t);},[role]);
+  useEffect(()=>{if(!jobQuick)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape')setJobQuick(null);};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[jobQuick]);
 
   async function load(t=token){
     try{
@@ -110,8 +112,18 @@ export default function NvoccPortal(){
 
     <div className="card" style={{marginBottom:12}}>
       <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:10}}><div><h3 style={{margin:0}}>NVOCC Booking Register</h3><div className="sub">Only NVOCC jobs visible here.</div></div><input style={{...field,maxWidth:420}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search booking, party, route, B/L, carrier"/></div>
-      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Party / Agent</th><th>Route</th><th>Carrier</th><th>ETD</th><th>Controls</th><th>Documents</th><th>Status</th></tr></thead><tbody>{visible.map(b=><tr key={b.id}><td><b>{b.bookingNo}</b><div className="sub">{b.bookingChannel}</div></td><td>{b.producingAgent?.name||b.customer?.name||'-'}</td><td>{b.origin} → {b.destination}</td><td>{b.carrier||'-'}<div className="sub">{b.vesselVoyage||''}</div></td><td>{fmtDate(b.etd)}</td><td><div className="sub">Credit {b.creditStatus||'-'} · Slot {b.slotStatus||'-'} · Equipment {b.equipmentStatus||'-'}</div></td><td>{b.documents?.length||0}</td><td><span className="status">{b.status}</span></td></tr>)}{visible.length===0&&<tr><td colSpan={8}>No NVOCC bookings found.</td></tr>}</tbody></table></div>
+      <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Party / Agent</th><th>Route</th><th>Carrier</th><th>ETD</th><th>Controls</th><th>Documents</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visible.map(b=><tr key={b.id}><td><b>{b.bookingNo}</b><div className="sub">{b.bookingChannel}</div></td><td>{b.producingAgent?.name||b.customer?.name||'-'}</td><td>{b.origin} → {b.destination}</td><td>{b.carrier||'-'}<div className="sub">{b.vesselVoyage||''}</div></td><td>{fmtDate(b.etd)}</td><td><div className="sub">Credit {b.creditStatus||'-'} · Slot {b.slotStatus||'-'} · Equipment {b.equipmentStatus||'-'}</div></td><td>{b.documents?.length||0}</td><td><span className="status">{b.status}</span></td><td><div style={{display:'flex',gap:5,flexWrap:'wrap',minWidth:150}}><a className="btn" href={'/bookings/'+b.id} style={{textDecoration:'none'}}>Open Job</a><button className="btn" type="button" onClick={()=>setJobQuick(b)}>Quick View</button></div></td></tr>)}{visible.length===0&&<tr><td colSpan={9}>No NVOCC bookings found.</td></tr>}</tbody></table></div>
     </div>
+
+    {jobQuick&&<div className="job-quick-overlay" role="dialog" aria-modal="true" aria-label={'Job '+jobQuick.bookingNo} onMouseDown={e=>{if(e.target===e.currentTarget)setJobQuick(null);}}>
+      <div className="job-quick-modal">
+        <div className="job-quick-head">
+          <div><span>NVOCC JOB QUICK VIEW</span><b>{jobQuick.bookingNo}</b></div>
+          <div className="job-quick-actions"><a href={'/bookings/'+jobQuick.id}>Open Full Job</a><button type="button" onClick={()=>setJobQuick(null)} aria-label="Close quick view">×</button></div>
+        </div>
+        <iframe src={'/bookings/'+jobQuick.id+'?embed=1'} title={'NVOCC job '+jobQuick.bookingNo+' quick view'} className="job-quick-frame"/>
+      </div>
+    </div>}
 
     <div className="card">
       <h3 style={{marginTop:0}}>All NVOCC Documents</h3><div className="sub" style={{marginBottom:10}}>Full NVOCC document visibility for authorized Agent, Branch Office and Global Admin users.</div>
