@@ -58,6 +58,7 @@ jobs:
             while IFS= read -r file; do
               case "$file" in
                 apps/web/*) web=true ;;
+                packages/bulk-release/*) ;;
                 packages/db/*) ;;
                 packages/*|package.json|package-lock.json|tsconfig.json)
                   web=true; api=true; shared=true ;;
@@ -66,6 +67,7 @@ jobs:
 
             while IFS= read -r file; do
               case "$file" in
+                packages/bulk-release/*) ;;
                 apps/api/*|packages/db/*) api=true ;;
                 packages/*|package.json|package-lock.json|tsconfig.json)
                   web=true; api=true; shared=true ;;
