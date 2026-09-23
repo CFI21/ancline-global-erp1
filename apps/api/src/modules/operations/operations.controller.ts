@@ -5,7 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('operations')
 @UseGuards(JwtAuthGuard)
-// CR-20260923-005 staging release trigger: governance-only retry; no runtime behavior change.
+// CR-20260923-005 staging release trigger v2: release-registry gate aligned; no runtime behavior change.
 export class OperationsController {
   constructor(private s:OperationsService,private control:OperationsControlService){}
   @Get('control-dashboard') controlDashboard(@Req() req:any){return this.control.dashboard(req.user);}
