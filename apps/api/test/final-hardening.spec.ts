@@ -27,3 +27,5 @@ describe('final resilience hardening contracts',()=>{
     for(const marker of ['CONCURRENCY_IDEMPOTENCY','DEAD_LETTER','balanceRaceBlocked','cspNoEval','BOUNDED_STAGING_MICRO_LOAD','rollbackDrillRequired'])expect(s).toContain(marker);
   });
 });
+
+// CR-20260923-002 rollback-drill marker: exact-image automatic recovery proof
