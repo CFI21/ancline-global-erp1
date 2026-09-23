@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-005",
-  "status": "STAGING_ACCEPTED_LOCKED",
+  "status": "APPROVED",
   "title": "Unified Operations Notification + Communication Center",
   "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
   "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
@@ -132,12 +132,12 @@
     "No database migration unless a later approved implementation review documents why existing governance/event storage is insufficient.",
     "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
   ],
-  "buildAllowed": false,
-  "deploymentAllowed": false,
+  "buildAllowed": true,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
   "activationBlocked": false,
   "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
-  "notes": "STAGING-ONLY CR-005 revalidation. CR-006 remains the frozen root baseline. Latest approved staging registry is CR-005 runtime 12ad25dcbb3533594c34c28e37a490d9d85aaf1a from successful Smart Release run 35914797225; baselineWebCommit/baselineApiCommit are aligned to that immediate approved runtime for the next revalidation. No CR-005 business logic/UI change. Full SHARED + notification center E2E + role/privacy + 50001-50005 UAT required. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
+  "notes": "REOPENED FOR ONE STAGING-ONLY FULL SHARED REVALIDATION BY EXPLICIT USER COMMAND. Immediate approved baseline is 12ad25dcbb3533594c34c28e37a490d9d85aaf1a; CR-006 remains the preserved frozen root. No CR-005 business logic/UI change. Full SHARED + notification center E2E + role/privacy + 50001-50005 UAT required. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
   "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
   "reconciledFromPr": 14,
@@ -191,5 +191,12 @@
     "productionPromotionAuthorized": false
   },
   "acceptedRuntimeCommit": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-  "lockedAt": "2026-09-23T22:29:45+02:00"
+  "lockedAt": "2026-09-23T22:29:45+02:00",
+  "revalidationAuthorization": {
+    "command": "ANCLINE CR-20260923-005 GATE REPAIR",
+    "authorizedAt": "2026-09-23T22:36:00+02:00",
+    "scope": "STAGING_FULL_SHARED_REVALIDATION_ONLY",
+    "productionPromotionAuthorized": false,
+    "reopenReason": "Prior staging acceptance locked CR-005; explicit user command authorizes one additional staging revalidation after gate metadata repair."
+  }
 }

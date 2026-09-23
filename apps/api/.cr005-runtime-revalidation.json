@@ -5,7 +5,8 @@
   "approvedBaseline": "CR-20260923-006",
   "approvedBaselineRuntime": "bc37709e9b888410136213bee477630c3956b78d",
   "productionPromotionAuthorized": false,
-  "attempt": 2,
+  "attempt": 3,
   "immediateApprovedBaseline": "12ad25dcbb3533594c34c28e37a490d9d85aaf1a",
-  "preservedRootBaseline": "CR-20260923-006 / bc37709e9b888410136213bee477630c3956b78d"
+  "preservedRootBaseline": "CR-20260923-006 / bc37709e9b888410136213bee477630c3956b78d",
+  "authorization": "Explicit user CR-005 gate repair command"
 }
