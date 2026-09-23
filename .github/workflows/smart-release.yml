@@ -566,6 +566,11 @@ jobs:
     if: always() && needs.remote-gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # All live acceptance tools reseed/mutate the same synthetic 50001-50005 staging fixture.
+    # Serialize the full regression job so a second release cannot delete a consol or reset auth mid-run.
+    concurrency:
+      group: ancline-shared-staging-mutation-uat
+      cancel-in-progress: false
     env:
       WEB_URL: https://ancline-web-live.onrender.com
       EXPECTED_API_COMMIT: ${{ needs.remote-gate.outputs.api_commit }}
