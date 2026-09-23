@@ -4,7 +4,8 @@ const read=(...parts:string[])=>readFileSync(resolve(__dirname,...parts),'utf8')
 describe('final resilience hardening contracts',()=>{
   it('claims workflow idempotency before side effects',()=>{
     const s=read('../src/modules/workflow-automation/workflow-automation.service.ts');
-    expect(s).toContain('AUTOMATION_IDEMPOTENCY_CLAIM');
+    expect(s).toContain("objectType:'AutomationIdempotency'");
+    expect(s).toContain("eventType:'IDEMPOTENCY_CLAIMED'");
     expect(s).toContain('automationClaimId');
     expect(s).toContain('duplicate:true');
   });
@@ -18,7 +19,7 @@ describe('final resilience hardening contracts',()=>{
     const s=read('../src/modules/accounting/accounting.service.ts');
     expect(s).toContain("isolationLevel:'Serializable'");
     expect(s).toContain('paymentEventId');
-    expect(s).toContain('Payment reference already exists with different payment details');
+    expect(s).toContain('Payment reference was already used with different amount or currency');
     expect(s).toContain("e?.code==='P2034'");
   });
   it('keeps all requested live hardening gates active',()=>{
