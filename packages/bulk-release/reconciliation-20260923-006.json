@@ -1,0 +1,25 @@
+{
+  "schema": "ANCLINE_RECONCILIATION_TRIGGER_V1",
+  "changeRequest": "CR-20260923-006",
+  "requestedAt": "2026-09-23T20:37:00+02:00",
+  "sourceApprovedRuntime": "edbe08745fa0fe32067170097e37e85699a6486a",
+  "mode": "SHARED_STAGING_RECONCILIATION",
+  "purpose": "Force a fresh Web+API hardened staging build and full SHARED regression with no business-logic change.",
+  "preserved": [
+    "JOB_DONE",
+    "CR-20260923-001",
+    "CR-20260923-002",
+    "CR-20260923-003",
+    "CR-20260923-004",
+    "frozen UI/workflows",
+    "role/privacy/finance/payment/release controls"
+  ],
+  "testJobs": [
+    "50001",
+    "50002",
+    "50003",
+    "50004",
+    "50005"
+  ],
+  "productionPromotionAllowed": false
+}

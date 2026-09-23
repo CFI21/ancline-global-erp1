@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ANCLINE Reconciled Baseline — CR-20260923-006</title>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#24333f;background:#eef2f2}body{margin:0}
+header{background:#dce8df;padding:18px 24px;border-bottom:1px solid #bccbc0;display:flex;justify-content:space-between;gap:16px;align-items:center}
+main{max-width:1180px;margin:24px auto;padding:0 18px}.card{background:white;border:1px solid #d4dcdd;border-radius:10px;padding:18px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.kpi{background:#f7f9f9;border:1px solid #dce3e4;border-radius:8px;padding:14px}
+.ok{font-weight:700}.small{font-size:12px;color:#62717a}.jobs{width:100%;border-collapse:collapse}.jobs th,.jobs td{padding:9px;border-bottom:1px solid #e3e8e8;text-align:left}
+a.btn{display:inline-block;padding:10px 14px;border:1px solid #8aa094;border-radius:7px;text-decoration:none;color:#183c2d;background:#edf5ef;margin-right:8px}
+code{font-size:12px;word-break:break-all}
+iframe{width:100%;height:620px;border:1px solid #ccd5d5;border-radius:8px;background:white}
+</style></head>
+<body>
+<header><div><strong>ANCLINE — Reconciled Staging Baseline</strong><div class="small">CR-20260923-006 · production promotion prohibited</div></div><div id="runtime">Runtime check: not loaded</div></header>
+<main>
+<div class="card"><h2>Canonical scope</h2><p>JOB_DONE baseline + CR-20260923-001 + CR-20260923-003 + staging-accepted CR-20260923-004. CR-20260923-005 is outside this freeze.</p>
+<div class="grid">
+<div class="kpi"><div class="small">Source accepted runtime</div><code>edbe08745fa0fe32067170097e37e85699a6486a</code></div>
+<div class="kpi"><div class="small">Regression scope</div><strong>SHARED</strong></div>
+<div class="kpi"><div class="small">Production</div><strong>NO PROMOTION</strong></div>
+<div class="kpi"><div class="small">Jobs</div><strong>50001–50005</strong></div>
+</div></div>
+<div class="card"><h2>Baseline transaction set</h2><table class="jobs"><thead><tr><th>Job</th><th>Model</th><th>Invoiced</th><th>Paid</th><th>Balance</th></tr></thead><tbody>
+<tr><td>50001</td><td>Forwarding</td><td>1,725</td><td>1,725</td><td>0</td></tr>
+<tr><td>50002</td><td>Forwarding</td><td>2,650</td><td>2,650</td><td>0</td></tr>
+<tr><td>50003</td><td>Forwarding</td><td>6,125</td><td>6,125</td><td>0</td></tr>
+<tr><td>50004</td><td>Forwarding</td><td>7,975</td><td>7,975</td><td>0</td></tr>
+<tr><td>50005</td><td>NVOCC</td><td>1,625</td><td>1,625</td><td>0</td></tr>
+</tbody></table><p><strong>Total:</strong> 20,100 invoiced · 20,100 paid · 0 balance.</p></div>
+<div class="card"><h2>Live review</h2>
+<p><a class="btn" target="_blank" href="https://ancline-web-live.onrender.com">Open ANCLINE staging review</a><a class="btn" target="_blank" href="https://ancline-api-staging.onrender.com/api/health">Open API health</a></p>
+<iframe src="https://ancline-web-live.onrender.com" title="ANCLINE staging"></iframe></div>
+<div class="card"><h2>Required acceptance</h2><p>Web/API builds, role/privacy browser UAT, responsive/failure/accessibility, 50001–50005 transaction lifecycle, concurrency/idempotency/provider/payment/security, Operations Control action links, reconciliation and CR-004 SLA behavior must all pass before this reconciliation is frozen.</p>
+<p class="small">This standalone review file is not the production application and does not authorize production deployment.</p></div>
+</main>
+<script>
+(async()=>{try{const r=await fetch('https://ancline-web-live.onrender.com/release-info',{cache:'no-store'});const j=await r.json();document.getElementById('runtime').textContent='Staging Web: '+(j.buildCommit||'online')}catch(e){document.getElementById('runtime').textContent='Runtime check unavailable (open live review)'}})();
+</script></body></html>

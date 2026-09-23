@@ -1,0 +1,27 @@
+{
+  "schema": "ANCLINE_RECONCILIATION_ACCEPTANCE_V1",
+  "changeRequest": "CR-20260923-006",
+  "status": "PENDING_FRESH_SHARED_REGRESSION",
+  "sourceApprovedRuntime": "edbe08745fa0fe32067170097e37e85699a6486a",
+  "priorAcceptedRunId": 35896773817,
+  "required": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "OPERATIONS_CONTROL_ACTION_LINKS",
+    "ROLE_PRIVACY",
+    "RECONCILIATION"
+  ],
+  "jobs": [
+    "50001",
+    "50002",
+    "50003",
+    "50004",
+    "50005"
+  ],
+  "productionPromotionAuthorized": false,
+  "note": "Updated to FINAL_ACCEPTED only after the fresh CR-20260923-006 SHARED smart-release run passes."
+}
