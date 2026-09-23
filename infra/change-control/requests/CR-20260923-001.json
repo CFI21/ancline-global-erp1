@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-001",
-  "status": "DRAFT",
+  "status": "BUILD_APPROVED",
   "title": "Operations Control + Exception Dashboard",
   "businessRequirement": "Build a consolidated Operations Control + Exception Dashboard using approved ANCLINE data to surface action-required jobs, cut-off risks, document gaps, payment/release blocks, failed integration events, milestone delays, and reconciliation exceptions, with direct links to the relevant job/action. Preserve current workflows and the frozen accepted runtime baseline.",
   "objective": "Give internal operations a single control-tower surface for prioritized exceptions and direct remediation without changing underlying booking, finance, document, payment, release, NVOCC, or Forwarding business rules.",
@@ -56,12 +56,12 @@
       "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
     ]
   },
-  "buildAllowed": false,
+  "buildAllowed": true,
   "deploymentAllowed": false,
   "promotionAllowed": false,
-  "approvedAt": null,
-  "approvedBy": null,
-  "notes": "Scope assessed as SHARED. Existing /exceptions page already covers credit/slot/equipment, overdue tasks, pending approvals and late milestones. New work should consolidate additional cut-off, document, payment/release, failed integration and reconciliation signals through read-only scoped API aggregation. No build/deploy/promotion until explicit approval.",
+  "approvedAt": "2026-09-23T09:46:00Z",
+  "approvedBy": "User command approving CR-20260923-001 build",
+  "notes": "User explicitly approved BUILD of CR-20260923-001. Implementation is isolated on the CR branch and remains read-only/additive. CR-20260923-002 stays the active hardening request on main. Deployment and promotion for this dashboard remain blocked pending required SHARED regression/UAT acceptance and separate promotion approval; frozen production runtime is untouched.",
   "designScope": {
     "primarySurface": "Operations Control + Exception Dashboard",
     "existingSurfaceToExtend": "/exceptions",
