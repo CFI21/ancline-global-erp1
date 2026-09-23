@@ -202,6 +202,8 @@ jobs:
       api_digest: ${{ steps.capture.outputs.api_digest }}
       web_commit: ${{ steps.capture.outputs.web_commit }}
       api_commit: ${{ steps.capture.outputs.api_commit }}
+      web_image: ${{ steps.capture.outputs.web_image }}
+      api_image: ${{ steps.capture.outputs.api_image }}
       registry_present: ${{ steps.capture.outputs.registry_present }}
       registry_sha256: ${{ steps.capture.outputs.registry_sha256 }}
     steps:
@@ -219,6 +221,8 @@ jobs:
           reg_api_digest=""
           reg_web_commit=""
           reg_api_commit=""
+          reg_web_image=""
+          reg_api_image=""
 
           if git fetch origin release-registry:refs/remotes/origin/release-registry >/dev/null 2>&1 &&
              git show origin/release-registry:approved-digests.json > /tmp/approved-digests.json 2>/dev/null; then
@@ -228,6 +232,8 @@ jobs:
             reg_api_digest="$(jq -r '.current.api.digest // empty' /tmp/approved-digests.json)"
             reg_web_commit="$(jq -r '.current.web.commit // empty' /tmp/approved-digests.json)"
             reg_api_commit="$(jq -r '.current.api.commit // empty' /tmp/approved-digests.json)"
+            reg_web_image="$(jq -r '.current.web.immutableTag // empty' /tmp/approved-digests.json)"
+            reg_api_image="$(jq -r '.current.api.immutableTag // empty' /tmp/approved-digests.json)"
           fi
 
           live_web_commit="unknown"
@@ -247,19 +253,37 @@ jobs:
           done
 
           if [[ "$registry_present" == "true" ]]; then
-            [[ -n "$reg_web_digest" && -n "$reg_api_digest" && -n "$reg_web_commit" && -n "$reg_api_commit" ]] || {
+            [[ -n "$reg_web_digest" && -n "$reg_api_digest" && -n "$reg_web_commit" && -n "$reg_api_commit" && -n "$reg_web_image" && -n "$reg_api_image" ]] || {
               echo "Approved registry is incomplete"; exit 1;
             }
-            [[ "$live_web_commit" == "$reg_web_commit" ]] || {
-              echo "Web runtime drift: live=$live_web_commit registry=$reg_web_commit"; exit 1;
+
+            # Post-acceptance Web may be intentionally pinned to the separately proven UI freeze.
+            expected_web_commit="$reg_web_commit"
+            web_digest="$reg_web_digest"
+            web_image="$reg_web_image"
+            if [[ -f infra/go-live/ui-final-freeze.json ]] &&
+               [[ "$(jq -r '.status // empty' infra/go-live/ui-final-freeze.json)" == "FROZEN_PASS" ]]; then
+              freeze_commit="$(jq -r '.web.commit // empty' infra/go-live/ui-final-freeze.json)"
+              freeze_digest="$(jq -r '.web.imageDigest // empty' infra/go-live/ui-final-freeze.json)"
+              freeze_image="$(jq -r '.web.image // empty' infra/go-live/ui-final-freeze.json)"
+              if [[ -n "$freeze_commit" && -n "$freeze_digest" && -n "$freeze_image" ]]; then
+                expected_web_commit="$freeze_commit"
+                web_digest="$freeze_digest"
+                web_image="$freeze_image"
+                echo "Using FROZEN_PASS Web baseline $expected_web_commit"
+              fi
+            fi
+
+            [[ "$live_web_commit" == "$expected_web_commit" ]] || {
+              echo "Web runtime drift: live=$live_web_commit approved=$expected_web_commit"; exit 1;
             }
             [[ "$live_api_commit" == "$reg_api_commit" ]] || {
               echo "API runtime drift: live=$live_api_commit registry=$reg_api_commit"; exit 1;
             }
-            web_digest="$reg_web_digest"
             api_digest="$reg_api_digest"
-            web_commit="$reg_web_commit"
+            web_commit="$expected_web_commit"
             api_commit="$reg_api_commit"
+            api_image="$reg_api_image"
           else
             echo "::error::Approved release registry is required for hardened release control."
             exit 1
@@ -269,6 +293,8 @@ jobs:
           echo "api_digest=$api_digest" >> "$GITHUB_OUTPUT"
           echo "web_commit=$web_commit" >> "$GITHUB_OUTPUT"
           echo "api_commit=$api_commit" >> "$GITHUB_OUTPUT"
+          echo "web_image=$web_image" >> "$GITHUB_OUTPUT"
+          echo "api_image=$api_image" >> "$GITHUB_OUTPUT"
           echo "registry_present=$registry_present" >> "$GITHUB_OUTPUT"
           echo "registry_sha256=$registry_sha256" >> "$GITHUB_OUTPUT"
           printf 'Trusted baseline web=%s (%s) api=%s (%s) registry=%s\n' "$web_digest" "$web_commit" "$api_digest" "$api_commit" "$registry_present"
@@ -721,6 +747,8 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           BASE_WEB_COMMIT: ${{ needs.baseline.outputs.web_commit }}
           BASE_API_COMMIT: ${{ needs.baseline.outputs.api_commit }}
+          BASE_WEB_IMAGE: ${{ needs.baseline.outputs.web_image }}
+          BASE_API_IMAGE: ${{ needs.baseline.outputs.api_image }}
         shell: bash
         run: |
           set -euo pipefail
@@ -748,10 +776,10 @@ jobs:
           }
 
           if [[ "${{ needs.changes.outputs.web }}" == "true" ]]; then
-            deploy_image "Web" "$RENDER_WEB_SERVICE_ID" "ghcr.io/cfi21/ancline-web:sha-$BASE_WEB_COMMIT"
+            deploy_image "Web" "$RENDER_WEB_SERVICE_ID" "$BASE_WEB_IMAGE"
           fi
           if [[ "${{ needs.changes.outputs.api }}" == "true" ]]; then
-            deploy_image "API" "$RENDER_API_SERVICE_ID" "ghcr.io/cfi21/ancline-api:sha-$BASE_API_COMMIT"
+            deploy_image "API" "$RENDER_API_SERVICE_ID" "$BASE_API_IMAGE"
           fi
 
       - id: verify
