@@ -189,7 +189,7 @@
   "estimatedChangeClass": "WEB_DOMINANT / NO_DB / NO_BUSINESS_LOGIC_CHANGE_PLANNED",
   "recommendedExecutionMode": "IMPACT_SCOPED_GOVERNED_BUILD_AFTER_APPROVAL_ONLY",
   "approvalRequiredBeforeBuild": true,
-  "note": "Approved for governed Web-only build, impact-scoped regression, jobs 50001-50005 UI/UAT, staging-only deployment and freeze on PASS. No production promotion.",
+  "note": "Approved for governed Web-only build, impact-scoped regression, jobs 50001-50005 UI/UAT, staging-only deployment and freeze on PASS. No production promotion. Gate metadata normalized: top-level regressionScopes mirrors the approved CR-009 impact plan.",
   "approvedAt": "2026-09-24T01:46:00+02:00",
   "approvedBy": "User command: ANCLINE CR-20260924-009 — APPROVE + GOVERNED BULK BUILD",
   "deploymentTarget": "STAGING_ONLY",
@@ -202,5 +202,15 @@
     "web"
   ],
   "autoRollbackOnFailure": true,
-  "freezeOnPass": true
+  "freezeOnPass": true,
+  "regressionScopes": [
+    "WEB_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "JOBS_REGISTER_UI",
+    "JOB_CONTEXT_RAIL_NAVIGATION",
+    "NVOCC_REGISTER_ACTIONS",
+    "CROSS_MODULE_NAVIGATION",
+    "CR008_SMOKE_REGRESSION"
+  ]
 }
