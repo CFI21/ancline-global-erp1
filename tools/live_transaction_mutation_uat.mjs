@@ -105,6 +105,8 @@ try{
     ok(await call('/shipment-control/consols/'+consol.id+'/assign/'+base.id,{token:admin.token,method:'POST',body:{}}),n+' assign consol');
     ok(await call('/shipment-control/consols/'+consol.id+'/confirm',{token:admin.token,method:'POST',body:{}}),n+' confirm consol');
     ok(await call('/shipment-control/consols/'+consol.id+'/depart',{token:admin.token,method:'POST',body:{}}),n+' depart consol');
+    const beforeArrival=ok(await call('/shipment-control/consols',{token:admin.token}),n+' pre-arrival consol read');
+    assert((Array.isArray(beforeArrival)?beforeArrival:[]).some(x=>String(x.id)===String(consol.id)&&String(x.status)==='DEPARTED'),n+': created consol disappeared before arrival; shared staging fixture was mutated concurrently');
     ok(await call('/shipment-control/consols/'+consol.id+'/arrive',{token:admin.token,method:'POST',body:{}}),n+' arrive consol');
     ok(await call('/shipment-control/consols/'+consol.id+'/close',{token:admin.token,method:'POST',body:{}}),n+' close consol');
     row.mutations.push('shipment-consol-confirm-depart-arrive-close');
