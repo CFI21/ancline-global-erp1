@@ -1,11 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { OperationsService } from './operations.service';
+import { OperationsControlService } from './operations-control.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('operations')
 @UseGuards(JwtAuthGuard)
 export class OperationsController {
-  constructor(private s:OperationsService){}
+  constructor(private s:OperationsService,private control:OperationsControlService){}
+  @Get('control-dashboard') controlDashboard(@Req() req:any){return this.control.dashboard(req.user);}
   @Get('access-catalog') accessCatalog(@Req() req:any){return this.s.accessCatalog(req.user);}
   @Get('branches') branches(@Req() req:any){return this.s.listBranches(req.user);}
   @Post('branches') createBranch(@Body() body:any,@Req() req:any){return this.s.createBranch(body,req.user);}
