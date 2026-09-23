@@ -115,8 +115,14 @@ jobs:
           cr_status="$(jq -r '.status // empty' infra/change-control/active-change-request.json)"
           test "$cr_status" = "APPROVED"
 
-          base_web="$(jq -r '.approvedRuntime.web.commit' infra/go-live/job-done-final-acceptance.json)"
-          base_api="$(jq -r '.approvedRuntime.api.commit' infra/go-live/job-done-final-acceptance.json)"
+          # Post-acceptance changes must be based on the latest approved staging
+          # runtime in the hardened release registry, not the historical JOB_DONE
+          # seed commits. JOB_DONE remains required as the root acceptance record.
+          git fetch origin release-registry:refs/remotes/origin/release-registry >/dev/null 2>&1
+          git show origin/release-registry:approved-digests.json > /tmp/approved-gate.json
+          base_web="$(jq -r '.current.web.commit // empty' /tmp/approved-gate.json)"
+          base_api="$(jq -r '.current.api.commit // empty' /tmp/approved-gate.json)"
+          test -n "$base_web"; test -n "$base_api"
           test "$(jq -r '.baselineWebCommit // empty' infra/change-control/active-change-request.json)" = "$base_web"
           test "$(jq -r '.baselineApiCommit // empty' infra/change-control/active-change-request.json)" = "$base_api"
 
