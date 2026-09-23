@@ -36,7 +36,7 @@ async function shot(page,name){await page.screenshot({path:OUT+'/'+name+'.png',f
 async function safeGoto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(1000);assert(r&&r.status()<500,path+': HTTP '+(r?.status()));}
 async function reseed(page){const r=await api(page,'/test-data/seed',{method:'POST',body:'{}'});assert(r.ok,'reseed HTTP '+r.status);return r.body;}
 
-const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],exceptions:[],status:'RUNNING'};
+const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],operationsControl:[],exceptions:[],status:'RUNNING'};
 const browser=await chromium.launch({headless:true});
 
 try{
@@ -103,6 +103,50 @@ try{
     await ctx.close();
   }
 
+
+  // OPERATIONS CONTROL — explicit CR-20260923-001 end-to-end dashboard acceptance.
+  {
+    const profiles=[
+      {name:'desktop',viewport:{width:1440,height:1000}},
+      {name:'tablet',viewport:{width:820,height:1180}},
+      {name:'mobile',viewport:{width:390,height:844}}
+    ];
+    const categoryLabels=['Action Required','Cut-off Risk','Document Gaps','Payment / Release','Failed Events','Milestone Delays','Reconciliation'];
+    const summaryKeys=['ACTION_REQUIRED','CUT_OFF_RISK','DOCUMENT_GAP','PAYMENT_RELEASE_BLOCK','FAILED_EVENT','LATE_MILESTONE','RECONCILIATION_EXCEPTION'];
+    for(const p of profiles){
+      const ctx=await browser.newContext({viewport:p.viewport}); const page=await ctx.newPage();
+      const user=await establish(page,'test.admin@ancline.invalid','GLOBAL_ADMIN'); assert(user.role==='GLOBAL_ADMIN',p.name+': operations-control admin role mismatch');
+      await safeGoto(page,'/exceptions');
+      const dash=await api(page,'/operations/control-dashboard');
+      assert(dash.status===200,p.name+': operations-control endpoint HTTP '+dash.status);
+      assert(dash.body&&Array.isArray(dash.body.rows)&&dash.body.summary,p.name+': malformed operations-control payload');
+      const rows=dash.body.rows;
+      assert(new Set(rows.map(x=>String(x.id))).size===rows.length,p.name+': duplicate operations-control row ids');
+      assert(Number(dash.body.summary.open)===rows.length,p.name+': operations-control summary/open mismatch');
+      for(const key of summaryKeys)assert(Number.isFinite(Number(dash.body.summary[key])),p.name+': missing summary '+key);
+
+      const body=await page.locator('body').innerText();
+      assert(body.includes('Operations Control + Exception Dashboard'),p.name+': operations-control title missing');
+      for(const label of categoryLabels)assert(body.includes(label),p.name+': operations-control surface missing '+label);
+      for(const label of ['Severity','Category','Owner','Business model'])assert(await page.locator('select[aria-label="'+label+'"]').count()===1,p.name+': filter missing '+label);
+
+      if(rows.length){
+        const first=String(rows[0].actionHref||'');
+        assert(first,p.name+': first operations-control row has no action link');
+        await page.waitForFunction(href=>Array.from(document.querySelectorAll('a[href]')).some(a=>a.getAttribute('href')===href),first,{timeout:10000});
+        const hrefs=await page.locator('a[href]').evaluateAll(as=>as.map(a=>a.getAttribute('href')));
+        for(const row of rows.slice(0,10))assert(hrefs.includes(String(row.actionHref)),p.name+': rendered action link missing '+row.actionHref);
+      }
+
+      const layout=await page.evaluate(()=>({innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth,bodyScrollWidth:document.body.scrollWidth}));
+      assert(Math.max(layout.scrollWidth,layout.bodyScrollWidth)<=layout.innerWidth+4,p.name+': operations-control horizontal page overflow '+JSON.stringify(layout));
+      if(p.name==='desktop')await shot(page,'operations-control-dashboard');
+      report.operationsControl.push({profile:p.name,rows:rows.length,summaryOpen:dash.body.summary.open,endpoint:'PASS',filters:'PASS',actions:rows.length?'PASS':'NO_ROWS_TO_ACTION',layout:'PASS',status:'PASS'});
+      await ctx.close();
+    }
+  }
+
+
   // OPS — NVOCC workspace + internal navigation + grid.
   {
     const ctx=await browser.newContext({viewport:{width:1440,height:1000}}); const page=await ctx.newPage();
@@ -152,6 +196,8 @@ try{
   {
     const ctx=await browser.newContext({viewport:{width:1440,height:1000}}); const page=await ctx.newPage();
     const user=await establish(page,'test.customer.nl@ancline.invalid','CUSTOMER'); assert(user.role==='CUSTOMER','customer role mismatch');
+    const internalControl=await api(page,'/operations/control-dashboard'); assert(internalControl.status===403,'CUSTOMER reached internal operations-control endpoint');
+    report.privacy.push({role:'CUSTOMER',case:'operations-control-denied',status:'PASS'});
     await safeGoto(page,'/customer-portal');
     assert(await page.locator('.menu-section').count()===0,'CUSTOMER exposed internal workflow menu');
     assert(await page.locator('#new-booking').count()===1,'customer new booking form missing');
@@ -178,6 +224,8 @@ try{
   {
     const ctx=await browser.newContext({viewport:{width:1440,height:1000}}); const page=await ctx.newPage();
     const user=await establish(page,'test.agent.sg@ancline.invalid','AGENT'); assert(user.role==='AGENT','agent role mismatch');
+    const internalControl=await api(page,'/operations/control-dashboard'); assert(internalControl.status===403,'AGENT reached internal operations-control endpoint');
+    report.privacy.push({role:'AGENT',case:'operations-control-denied',status:'PASS'});
     await safeGoto(page,'/agent-portal');
     assert(await page.locator('.menu-section').count()===0,'AGENT exposed internal workflow menu');
     const text=await page.locator('body').innerText();
@@ -196,6 +244,8 @@ try{
   {
     const ctx=await browser.newContext({viewport:{width:1440,height:1000}}); const page=await ctx.newPage();
     const user=await establish(page,'test.shipper.nl@ancline.invalid','SHIPPER'); assert(user.role==='SHIPPER','shipper role mismatch');
+    const internalControl=await api(page,'/operations/control-dashboard'); assert(internalControl.status===403,'SHIPPER reached internal operations-control endpoint');
+    report.privacy.push({role:'SHIPPER',case:'operations-control-denied',status:'PASS'});
     await safeGoto(page,'/customer-portal');
     assert(await page.locator('.menu-section').count()===0,'SHIPPER exposed internal menu');
     const bookings=await api(page,'/bookings'); assert(bookings.status===200,'shipper bookings unavailable');
