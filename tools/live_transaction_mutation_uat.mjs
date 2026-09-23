@@ -105,8 +105,14 @@ try{
     ok(await call('/shipment-control/consols/'+consol.id+'/assign/'+base.id,{token:admin.token,method:'POST',body:{}}),n+' assign consol');
     ok(await call('/shipment-control/consols/'+consol.id+'/confirm',{token:admin.token,method:'POST',body:{}}),n+' confirm consol');
     ok(await call('/shipment-control/consols/'+consol.id+'/depart',{token:admin.token,method:'POST',body:{}}),n+' depart consol');
-    ok(await call('/shipment-control/consols/'+consol.id+'/arrive',{token:admin.token,method:'POST',body:{}}),n+' arrive consol');
-    ok(await call('/shipment-control/consols/'+consol.id+'/close',{token:admin.token,method:'POST',body:{}}),n+' close consol');
+    // Resolve the consol again after departure. This makes the live UAT robust against
+    // stale create-response identifiers/proxy retries while still proving the persisted
+    // consol lifecycle end-to-end by its deterministic unique consol number.
+    const persistedConsols=ok(await call('/shipment-control/consols',{token:admin.token}),n+' refresh consol inventory');
+    const persistedConsol=(Array.isArray(persistedConsols)?persistedConsols:[]).find(x=>String(x.consolNo)===String(consol.consolNo));
+    assert(persistedConsol&&persistedConsol.id,n+': persisted consol not found after departure '+consol.consolNo);
+    ok(await call('/shipment-control/consols/'+persistedConsol.id+'/arrive',{token:admin.token,method:'POST',body:{}}),n+' arrive consol');
+    ok(await call('/shipment-control/consols/'+persistedConsol.id+'/close',{token:admin.token,method:'POST',body:{}}),n+' close consol');
     row.mutations.push('shipment-consol-confirm-depart-arrive-close');
 
     const ms=ok(await call('/tracking',{token:admin.token,method:'POST',body:{bookingId:base.id,code:'UAT_'+n,label:'ECOM UAT mutation milestone',location:booking.destination,status:'PLANNED',source:'ECOM_UAT'}}),n+' create milestone');
