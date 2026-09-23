@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ANCLINE CR-008 — Final Approved Staging Baseline</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f7;color:#182a36;margin:0}header{background:#e8f1ec;border-bottom:1px solid #bdcbc2;padding:20px 28px}
+main{max-width:1200px;margin:0 auto;padding:18px}.card{background:white;border:1px solid #d7dfe3;border-radius:8px;padding:16px;margin-bottom:14px}
+h1{font-size:22px;margin:0 0 5px}h2{font-size:16px;margin:0 0 10px}.sub{font-size:12px;color:#627482}.ok{font-weight:700;color:#245f3d}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.kpi{font-size:22px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid #e4eaed;padding:7px;text-align:left}th{background:#edf1f3}
+a{color:#1c5f82}.badge{display:inline-block;padding:4px 8px;border:1px solid #b9c9bf;border-radius:12px;background:#eef6f1;font-size:11px}
+iframe{width:100%;height:700px;border:1px solid #cad4da;border-radius:6px;background:white}
+</style></head><body>
+<header><h1>ANCLINE CR-008 — Final Approved Staging Baseline</h1><div class="sub">Frozen root CR-006 / BC37709E · Selectively adopted CR-005 + CR-007 · Runtime 1d4d7f38c8cd</div></header>
+<main>
+<div class="card"><span class="badge">FINAL ACCEPTED · STAGING ONLY</span><h2 style="margin-top:10px">Governed Bulk Build Result</h2>
+<p class="ok">Full Web/API/SHARED build, integration, regression, communication acceptance and realistic business-day UAT passed.</p>
+<div class="grid"><div><div class="sub">RUNTIME</div><div class="kpi">1d4d7f38</div></div><div><div class="sub">SMART RELEASE</div><div class="kpi">PASS</div></div><div><div class="sub">BUSINESS DAY</div><div class="kpi">5/5 PASS</div></div><div><div class="sub">BALANCE</div><div class="kpi">0</div></div></div>
+</div>
+<div class="card"><h2>Acceptance coverage</h2><p>Quality/API tests · Web/API build · release coherence · frozen sidebar guard · NVOCC · Global Forwarding · Booking/Job/Documents/Finance/Payment/Release · Operations Control · Action Queue · SLA Automation · Control Tower · role/privacy · concurrency/idempotency · resilience/security · responsive/accessibility · internal Notification Center · external Customer/Agent Communication Center.</p></div>
+<div class="card"><h2>Jobs 50001–50005 — realistic ECOM business day</h2><table><thead><tr><th>Job</th><th>Model</th><th>Invoiced</th><th>Paid</th><th>Balance</th><th>Release control</th><th>Status</th></tr></thead><tbody><tr><td>50001</td><td>FORWARDING</td><td>1,725</td><td>1,725</td><td>0</td><td>CREDIT</td><td>PASS</td></tr><tr><td>50002</td><td>FORWARDING</td><td>2,650</td><td>2,650</td><td>0</td><td>CREDIT</td><td>PASS</td></tr><tr><td>50003</td><td>FORWARDING</td><td>6,125</td><td>6,125</td><td>0</td><td>CREDIT</td><td>PASS</td></tr><tr><td>50004</td><td>FORWARDING</td><td>7,975</td><td>7,975</td><td>0</td><td>PREPAID</td><td>PASS</td></tr><tr><td>50005</td><td>NVOCC</td><td>1,625</td><td>1,625</td><td>0</td><td>NVOCC_SEPARATE_CONTROL</td><td>PASS</td></tr></tbody></table>
+<p><b>Portfolio:</b> Invoiced 20,100 · Paid 20,100 · Balance 0 · PASS.</p></div>
+<div class="card"><h2>Release evidence</h2><p>Smart Release <a href="https://github.com/CFI21/ancline-global-erp1/actions/runs/35931174958">35931174958</a> · Communication acceptance <a href="https://github.com/CFI21/ancline-global-erp1/actions/runs/35932370456">35932370456</a> · Business-day UAT <a href="https://github.com/CFI21/ancline-global-erp1/actions/runs/35932683780">35932683780</a>.</p>
+<p class="sub">Web digest: sha256:ee13f10dbb5a6f6148a83192197594ecc6a54f3123236db79c9b60be5128084c<br>API digest: sha256:29e2296f53bda74fa8dea58c5a5e5a41ce766a08edecc00401df72742bbc48ea</p></div>
+<div class="card"><h2>Current staging review</h2><p><a href="https://ancline-web-live.onrender.com">Open ANCLINE staging</a></p><iframe src="https://ancline-web-live.onrender.com" title="ANCLINE current staging"></iframe></div>
+<div class="card"><h2>Freeze rule</h2><p>CR-008 is now the approved frozen staging baseline. CR-006 remains the preserved frozen root. Any future Web/API/shared runtime change requires a new explicitly approved change request and impact-scoped regression. Production was not promoted.</p></div>
+</main></body></html>

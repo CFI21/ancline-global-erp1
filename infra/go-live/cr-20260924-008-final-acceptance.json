@@ -1,0 +1,173 @@
+{
+  "schema": "ANCLINE_CR008_FINAL_ACCEPTANCE_V1",
+  "changeRequest": "CR-20260924-008",
+  "status": "FINAL_ACCEPTED",
+  "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+  "acceptedAt": "2026-09-24T01:16:14+02:00",
+  "frozenRoot": {
+    "changeRequest": "CR-20260923-006",
+    "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "lockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a"
+  },
+  "approvedRuntime": {
+    "commit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "web": {
+      "image": "ghcr.io/cfi21/ancline-web:sha-1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-1d4d7f38c8cd",
+      "digest": "sha256:ee13f10dbb5a6f6148a83192197594ecc6a54f3123236db79c9b60be5128084c",
+      "url": "https://ancline-web-live.onrender.com"
+    },
+    "api": {
+      "image": "ghcr.io/cfi21/ancline-api:sha-1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+      "approvedTag": "ghcr.io/cfi21/ancline-api:staging-approved-1d4d7f38c8cd",
+      "digest": "sha256:29e2296f53bda74fa8dea58c5a5e5a41ce766a08edecc00401df72742bbc48ea",
+      "url": "https://ancline-api-staging.onrender.com"
+    }
+  },
+  "selectivelyAdopted": {
+    "cr005": "Unified internal Operations Notification + Communication Center; read/ack/resolve; preferences; mandatory CRITICAL/LEVEL_3 protection; direct remediation links; internal privacy.",
+    "cr007": "Customer/shipper/consignee/authorized-agent external communications; customer-safe templates; scoped publish/read/ack/preferences/history; provider-ready email state; retry/resend/idempotency; portal UI."
+  },
+  "evidence": {
+    "smartRelease": {
+      "runId": 35931174958,
+      "status": "PASS",
+      "uatRunId": "UAT-20260923230330-XVXHI"
+    },
+    "targetedCommunication": {
+      "runId": 35932370456,
+      "status": "PASS"
+    },
+    "realisticBusinessDay": {
+      "runId": 35932683780,
+      "status": "PASS",
+      "artifactId": 10781975701,
+      "artifactSha256": "4024ab6dad2db981d531a93bb95283158b196537c7c16afad746579238ee5913"
+    },
+    "backupSha256": "fd5288e6a32001900ca96d02ccd50238c8c297c2fa1d5129ef83c8a0c3d33608",
+    "offPlatformArtifactSha256": "9ffa85feeb6ec5d8fec87f8a679d247e678e11245b39bca547a6e7ebee6e59c8"
+  },
+  "acceptanceMatrix": {
+    "baselineProof": "PASS",
+    "quality": "PASS",
+    "apiTests": "PASS",
+    "apiBuild": "PASS",
+    "webBuild": "PASS",
+    "releaseCoherence": "PASS",
+    "frozenSidebarGuard": "PASS",
+    "stagingPromotion": "PASS",
+    "remoteGate": "PASS",
+    "transactionLifecycle50001To50005": "PASS",
+    "resilienceSecurity": "PASS",
+    "rolePrivacyBrowser": "PASS",
+    "responsiveFailureAccessibility": "PASS",
+    "finalizeRegistry": "PASS",
+    "evidence": "PASS",
+    "unifiedNotificationCenter": "PASS",
+    "externalCommunication": "PASS",
+    "externalPrivacyNegative": "PASS",
+    "realisticBusinessDay50001To50005": "PASS"
+  },
+  "businessDay": {
+    "roles": [
+      "GLOBAL_ADMIN",
+      "BRANCH_OPS",
+      "FINANCE",
+      "CUSTOMER",
+      "AGENT",
+      "SHIPPER"
+    ],
+    "jobs": [
+      {
+        "bookingNo": "50001",
+        "businessModel": "FORWARDING",
+        "total": 1725,
+        "paid": 1725,
+        "balance": 0,
+        "releaseMode": "CREDIT",
+        "preReleaseBlocked": false,
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50002",
+        "businessModel": "FORWARDING",
+        "total": 2650,
+        "paid": 2650,
+        "balance": 0,
+        "releaseMode": "CREDIT",
+        "preReleaseBlocked": false,
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50003",
+        "businessModel": "FORWARDING",
+        "total": 6125,
+        "paid": 6125,
+        "balance": 0,
+        "releaseMode": "CREDIT",
+        "preReleaseBlocked": false,
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50004",
+        "businessModel": "FORWARDING",
+        "total": 7975,
+        "paid": 7975,
+        "balance": 0,
+        "releaseMode": "PREPAID",
+        "preReleaseBlocked": true,
+        "hblReleased": true,
+        "status": "PASS"
+      },
+      {
+        "bookingNo": "50005",
+        "businessModel": "NVOCC",
+        "total": 1625,
+        "paid": 1625,
+        "balance": 0,
+        "releaseMode": "NVOCC_SEPARATE_CONTROL",
+        "preReleaseBlocked": false,
+        "hblReleased": true,
+        "status": "PASS"
+      }
+    ],
+    "reconciliation": {
+      "jobs": 5,
+      "totalInvoiced": 20100,
+      "totalPaid": 20100,
+      "totalBalance": 0,
+      "status": "PASS"
+    },
+    "roleScopeBoundaries": "PASS",
+    "protectiveReseed": "PASS"
+  },
+  "verifiedFixes": [
+    {
+      "issue": "CR-007 runtime/registry drift after GHCR finalize transient failure",
+      "resolution": "Recovered exact approved e427 staging baseline before CR-008 rebuild.",
+      "status": "PASS"
+    },
+    {
+      "issue": "Finalize could fail after successful staging deployment without automatic rollback",
+      "resolution": "Added GHCR digest/tag retries and included finalize failure in recovery/rollback condition.",
+      "status": "PASS"
+    }
+  ],
+  "production": {
+    "promoted": false,
+    "modified": false,
+    "webImage": "ghcr.io/cfi21/ancline-web:sha-5cf743afbeb2ab10b386b9f2ef53b94aa6fbdc31",
+    "apiImage": "ghcr.io/cfi21/ancline-api:sha-f57462950fe1f8c6420806a25436a4685dc7f54d"
+  },
+  "controls": {
+    "buildAllowed": false,
+    "deploymentAllowed": false,
+    "productionPromotionAuthorized": false,
+    "databaseMigration": false,
+    "secretCredentialChange": false,
+    "newApprovedCRRequiredForRuntimeChange": true
+  }
+}
