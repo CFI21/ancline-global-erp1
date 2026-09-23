@@ -1,10 +1,10 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-005",
-  "status": "BUILD_APPROVED",
-  "title": "Unified Operations Notification + Communication Center",
-  "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
-  "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
+  "status": "DRAFT_READY_FOR_APPROVAL",
+  "title": "Operations Control + Exception Dashboard",
+  "businessRequirement": "Build an Operations Control + Exception Dashboard using existing approved ANCLINE data. Show action-required jobs, cut-off risks, document gaps, payment/release blocks, failed integration events, milestone delays and reconciliation exceptions, with direct links to job actions. Preserve current workflows and the frozen UI baseline.",
+  "objective": "Provide one internal operational control surface that aggregates existing approved ANCLINE signals without changing the underlying booking, finance, document, release, NVOCC or forwarding workflows.",
   "baselineDependency": {
     "changeRequest": "CR-20260923-004",
     "requiredState": "STAGING_ACCEPTED",
@@ -21,17 +21,11 @@
     "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — acceptance pending"
   ],
   "impactedModules": [
-    "apps/web/app/notifications",
     "apps/web/app/exceptions",
-    "apps/api/src/modules/operations notification APIs",
-    "apps/api/src/modules/workflow-automation",
-    "existing Notification records",
-    "existing AutomationNotification / EscalationTimer IntegrationEvent records",
-    "existing Task / AuditEvent / failed IntegrationEvent data",
-    "existing user/role governance event data for notification preferences",
-    "tools/live_ui_final_acceptance.mjs",
-    "tools/live_role_uat_v2.mjs",
-    "tools/live_transaction_mutation_uat.mjs"
+    "apps/api/src/modules/operations",
+    "apps/api/src/modules/documents/release-security",
+    "apps/api/src/modules/integrations/operations signals",
+    "booking/task/approval/tracking/finance read models"
   ],
   "components": [
     "shared"
@@ -80,41 +74,25 @@
     "ROLE_BROWSER_UAT",
     "RESPONSIVE_FAILURE_ACCESSIBILITY",
     "TRANSACTION_LIFECYCLE",
-    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-    "OPERATIONS_ACTION_QUEUE_E2E",
-    "SLA_AUTOMATION_NOTIFICATION_E2E",
-    "UNIFIED_NOTIFICATION_CENTER_E2E",
-    "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
   ],
   "regressionPlan": {
-    "rule": "Planning only. After CR-004 staging acceptance and explicit CR-005 build approval, classify as SHARED and require full Web/API regression plus Action Queue, SLA Automation, unified notification-center, preference-scope and direct-remediation-link E2E before staging approval.",
-    "web": [
-      "WEB_BUILD",
-      "ROLE_BROWSER_UAT",
-      "RESPONSIVE_FAILURE_ACCESSIBILITY",
-      "UNIFIED_NOTIFICATION_CENTER_E2E",
-      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
-    ],
-    "api": [
-      "API_TEST_BUILD",
-      "TRANSACTION_LIFECYCLE",
-      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-      "OPERATIONS_ACTION_QUEUE_E2E",
-      "SLA_AUTOMATION_NOTIFICATION_E2E",
-      "UNIFIED_NOTIFICATION_CENTER_E2E",
-      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
-    ],
-    "shared": [
+    "scope": "SHARED",
+    "required": [
       "WEB_BUILD",
       "API_TEST_BUILD",
       "ROLE_BROWSER_UAT",
       "RESPONSIVE_FAILURE_ACCESSIBILITY",
       "TRANSACTION_LIFECYCLE",
-      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-      "OPERATIONS_ACTION_QUEUE_E2E",
-      "SLA_AUTOMATION_NOTIFICATION_E2E",
-      "UNIFIED_NOTIFICATION_CENTER_E2E",
-      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    ],
+    "acceptance": [
+      "Dashboard loads all approved exception categories from scoped API data.",
+      "Action-required rows link to the correct booking/job action surface.",
+      "Customer/Agent/Shipper users cannot access internal operations-control data.",
+      "No regression to Quote → Booking → Job → BL → Invoice → Payment → Release → Close.",
+      "No overflow/cutoff on desktop/tablet/mobile.",
+      "Existing frozen workflows and runtime baseline remain recoverable until promotion succeeds."
     ]
   },
   "acceptanceCriteria": [
@@ -130,12 +108,27 @@
     "No database migration unless a later approved implementation review documents why existing governance/event storage is insufficient.",
     "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
   ],
-  "buildAllowed": true,
+  "buildAllowed": false,
   "deploymentAllowed": false,
   "promotionAllowed": false,
   "activationBlocked": false,
   "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
-  "notes": "BUILD ONLY APPROVED. CR-004 staging acceptance PASS at edbe08745fa0fe32067170097e37e85699a6486a. Build Unified Operations Notification + Communication Center using existing Notification/Automation/Task/Audit/Governance data. Preserve CR-001/002/003/004 and frozen UI/workflows/privacy/finance/release controls. No database migration. No staging deployment. No production promotion.",
-  "approvedAt": "2026-09-23T19:57:00+02:00",
-  "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only"
+  "notes": "Impact assessment complete. SHARED scope. No build/deploy/promotion authorized until explicit approval changes status to APPROVED.",
+  "approvedAt": null,
+  "approvedBy": null,
+  "impactAssessment": {
+    "web": "REQUIRED — extend existing Exceptions & Action Board into Operations Control dashboard with grouped queues, KPI summaries, filters and direct job actions.",
+    "api": "REQUIRED — add/extend read-only aggregated operations-control endpoint(s) so exception classification is centralized and privacy/scoping rules remain server-side.",
+    "shared": "REQUIRED",
+    "dataMigration": "NOT_REQUIRED — use existing approved data/models only.",
+    "securityPrivacy": "REQUIRED — internal-role scoped only; must preserve customer/agent/shipper isolation and KYC/privacy boundaries.",
+    "financeReleaseControls": "READ_ONLY_VISIBILITY_ONLY — expose blockers/reconciliation status; do not alter payment, credit or release decision logic."
+  },
+  "designConstraints": [
+    "Preserve frozen UI baseline and existing navigation/workflows.",
+    "No new paid infrastructure or provider.",
+    "No database schema migration unless a genuine implementation blocker is proven and separately approved.",
+    "Dashboard must be read/route oriented; job actions remain in existing authoritative job/workflow screens.",
+    "Do not duplicate finance or release-control business logic in the Web client."
+  ]
 }
