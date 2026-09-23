@@ -1,19 +1,15 @@
 name: ANCLINE UI Candidate Build + Hardening + Freeze
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/live_ui_hardening.mjs'
-      - 'apps/web/**'
-      - '.github/workflows/ui-candidate-freeze.yml'
 permissions:
   contents: read
   packages: write
 
+# Manual-only: automatic staging deploy/regression is owned by smart-release.yml.
+# Keeping this manual prevents parallel Render promotion and destructive regression against shared staging data.
 concurrency:
   group: ancline-ui-candidate-freeze
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   API_URL: https://ancline-api-staging.onrender.com
