@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-001",
-  "status": "BUILD_APPROVED",
+  "status": "APPROVED",
   "title": "Operations Control + Exception Dashboard",
   "businessRequirement": "Build a consolidated Operations Control + Exception Dashboard using approved ANCLINE data to surface action-required jobs, cut-off risks, document gaps, payment/release blocks, failed integration events, milestone delays, and reconciliation exceptions, with direct links to the relevant job/action. Preserve current workflows and the frozen accepted runtime baseline.",
   "objective": "Give internal operations a single control-tower surface for prioritized exceptions and direct remediation without changing underlying booking, finance, document, payment, release, NVOCC, or Forwarding business rules.",
@@ -36,7 +36,7 @@
     "financeReleaseControls": "READ_ONLY — surface existing payment/release/reconciliation blockers only; do not alter release-security or payment rules."
   },
   "regressionPlan": {
-    "rule": "Populate automatically from approved component scope before build.",
+    "rule": "SHARED staging gate approved by user. Require Web/API build, role/privacy browser UAT, responsive/failure/accessibility checks, full transaction lifecycle, and concurrency/idempotency/provider/payment/security regression before any later production decision.",
     "web": [
       "WEB_BUILD",
       "ROLE_BROWSER_UAT",
@@ -57,11 +57,11 @@
     ]
   },
   "buildAllowed": true,
-  "deploymentAllowed": false,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
-  "approvedAt": "2026-09-23T09:46:00Z",
-  "approvedBy": "User command approving CR-20260923-001 build",
-  "notes": "User explicitly approved BUILD of CR-20260923-001. Implementation is isolated on the CR branch and remains read-only/additive. CR-20260923-002 stays the active hardening request on main. Deployment and promotion for this dashboard remain blocked pending required SHARED regression/UAT acceptance and separate promotion approval; frozen production runtime is untouched.",
+  "approvedAt": "2026-09-23T10:07:30Z",
+  "approvedBy": "User command: CR-20260923-001 staging-only deployment + full shared regression UAT",
+  "notes": "Staging-only deployment approved after PR #6 merge. Production promotion remains explicitly disallowed. Preserve frozen UI/workflows, deploy only ancline-web-live and ancline-api-staging candidate runtimes, and require automatic rollback on failure. CR-20260923-002 is preserved unchanged in request history and may resume after this CR-001 staging gate.",
   "designScope": {
     "primarySurface": "Operations Control + Exception Dashboard",
     "existingSurfaceToExtend": "/exceptions",
