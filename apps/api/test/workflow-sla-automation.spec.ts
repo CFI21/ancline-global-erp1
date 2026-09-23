@@ -18,6 +18,26 @@ describe('CR-20260923-004 SLA automation',()=>{
         if(events.some(x=>x.id===id)){const e:any=new Error('duplicate');e.code='P2002';throw e;}
         const row={createdAt:new Date(),...data,id};events.push(row);return row;
       }),
+      createMany:jest.fn(async ({data,skipDuplicates}:any)=>{
+        let count=0;
+        for(const item of data||[]){
+          const id=item.id||'evt-'+(events.length+1);
+          if(events.some(x=>x.id===id)){if(skipDuplicates)continue;const e:any=new Error('duplicate');e.code='P2002';throw e;}
+          events.push({createdAt:new Date(),...item,id});count++;
+        }
+        return {count};
+      }),
+      updateMany:jest.fn(async ({where,data}:any)=>{
+        let count=0;
+        for(const row of events){
+          if(where?.id&&row.id!==where.id)continue;
+          if(where?.status&&row.status!==where.status)continue;
+          const next:any={...data};
+          if(next.attemptCount&&typeof next.attemptCount==='object'&&next.attemptCount.increment!=null)next.attemptCount=Number(row.attemptCount||0)+Number(next.attemptCount.increment);
+          Object.assign(row,next);count++;
+        }
+        return {count};
+      }),
       update:jest.fn(async ({where,data}:any)=>{
         const row=events.find(x=>x.id===where.id);if(!row)throw new Error('missing '+where.id);
         Object.assign(row,data);return row;
@@ -68,6 +88,19 @@ describe('CR-20260923-004 SLA automation',()=>{
     const result:any=await service.processTaskSla({id:'done',bookingId:'b1',title:'Done',dueAt:new Date(Date.now()-3600000),status:'Completed',slaState:'Met'},admin);
     expect(result.status).toBe('NO_ESCALATION');
     expect(events).toHaveLength(0);
+  });
+
+  it('allows only one winner when two run-due calls race for the same timer',async()=>{
+    const {service,prisma,events}=make();
+    events.push({
+      id:'timer-race',sourceSystem:'ANCLINE_ORCHESTRATION',objectType:'EscalationTimer',objectId:'timer-race',
+      eventType:'ESCALATION_TIMER_CREATED',status:'COMPLETED',createdAt:new Date(),
+      payload:{timerId:'timer-race',process:'OPERATIONS_ACTION_QUEUE',trigger:'TASK_SLA_ESCALATION',bookingId:'b1',objectType:'Task',objectId:'t1',ownerRole:'CONTROL_TOWER',dueAt:new Date(Date.now()-1000).toISOString(),status:'PENDING'}
+    });
+    const [a,b]:any[]=await Promise.all([service.runDue(admin),service.runDue(admin)]);
+    expect(a.executed+b.executed).toBe(1);
+    expect(a.duplicates+b.duplicates).toBeGreaterThanOrEqual(1);
+    expect(prisma.task.create).toHaveBeenCalledTimes(1);
   });
 
   it('claims due timer execution idempotently before creating escalation task',async()=>{
