@@ -9,18 +9,26 @@ const assert=(x,m)=>{if(!x)throw new Error(m)};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 async function establish(page,email,requestedRole){
-  await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
-  const auth=await page.evaluate(async ({email,requestedRole})=>{
-    const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role:requestedRole})});
-    const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
-    if(r.ok&&body?.accessToken){
-      localStorage.setItem('ancline_token',body.accessToken);
-      localStorage.setItem('ancline_user',JSON.stringify(body.user));
-    }
-    return {ok:r.ok,status:r.status,user:body?.user||null,body:body?.accessToken?{...body,accessToken:'[redacted]'}:body};
-  },{email,requestedRole});
-  assert(auth.ok&&auth.user, email+': auth failed '+auth.status+' '+JSON.stringify(auth.body));
-  return auth.user;
+  let last=null;
+  for(let attempt=1;attempt<=4;attempt++){
+    await page.goto(WEB_URL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
+    try{
+      const auth=await page.evaluate(async ({email,requestedRole})=>{
+        const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role:requestedRole})});
+        const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
+        if(r.ok&&body?.accessToken){
+          localStorage.setItem('ancline_token',body.accessToken);
+          localStorage.setItem('ancline_user',JSON.stringify(body.user));
+        }
+        return {ok:r.ok,status:r.status,user:body?.user||null,body:body?.accessToken?{...body,accessToken:'[redacted]'}:body};
+      },{email,requestedRole});
+      last=auth;
+      if(auth.ok&&auth.user)return auth.user;
+      if(auth.status<500&&auth.status!==429)break;
+    }catch(e){last={ok:false,status:0,body:String(e?.message||e)};}
+    if(attempt<4)await sleep(1500*attempt);
+  }
+  assert(false,email+': auth failed after retry '+JSON.stringify(last));
 }
 async function api(page,path,init={}){
   return page.evaluate(async ({path,init})=>{
