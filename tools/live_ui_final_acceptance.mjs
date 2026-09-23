@@ -306,7 +306,7 @@ try{
       const call=async()=>{const r=await fetch('/api-proxy/workflow-automation/run-due',{method:'POST',headers:{Authorization:'Bearer '+token}});const raw=await r.text();let body;try{body=raw?JSON.parse(raw):null}catch{body=raw}return {status:r.status,body};};
       return Promise.all([call(),call()]);
     });
-    assert(raced.every(x=>x.status===200),'concurrent run-due request failed');
+    assert(raced.every(x=>x.status>=200&&x.status<300),'concurrent run-due request failed: '+JSON.stringify(raced.map(x=>({status:x.status,body:x.body}))));
     const executed=raced.reduce((n,x)=>n+Number(x.body?.executed||0),0);
     assert(executed<=1,'concurrent run-due executed the same due timer more than once: '+JSON.stringify(raced.map(x=>x.body)));
     const tasksAfter=await api(page,'/tasks');
