@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260924-007",
-  "status": "BUILD_APPROVED",
+  "status": "BUILD_ACCEPTED",
   "title": "External Customer / Agent Communication & Notification Delivery",
   "businessRequirement": "Deliver approved operational communications to CUSTOMER, SHIPPER, CONSIGNEE and authorized AGENT portal users without exposing internal operations, SLA, control-tower, finance, carrier-confidential or KYC data.",
   "objective": "Create one governed external communication layer over the frozen CR-005 internal Notification Center and existing portal booking scopes, supporting in-app delivery, provider-ready email delivery state, retry/resend, templates, preferences, acknowledgements and audit history.",
@@ -111,11 +111,28 @@
     "CUSTOMER, SHIPPER, CONSIGNEE and AGENT cannot use internal publish/history administration endpoints.",
     "Full Web/API/shared regression passes with no database migration."
   ],
-  "buildAllowed": true,
+  "buildAllowed": false,
   "deploymentAllowed": false,
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
   "approvedAt": "2026-09-24T00:15:00+02:00",
   "approvedBy": "User command: ANCLINE BULK DEVELOPMENT MODE — START CR-20260924-007 ... DEFINE + APPROVE + BULK BUILD",
-  "notes": "BULK DEVELOPMENT MODE. Build/test/fix on isolated branch. Preserve CR-005 frozen staging baseline and CR-006 root governance. No production promotion."
+  "notes": "BULK DEVELOPMENT COMPLETE / BUILD_ACCEPTED. Candidate c11a9eb10f263941b118a0fd993e71d946688321 passed 16/16 API suites, 78/78 tests, API build, frozen-sidebar guard and Web build. No database migration. No staging deployment. No production promotion.",
+  "buildAcceptance": {
+    "status": "PASS",
+    "acceptedAt": "2026-09-24T00:28:55+02:00",
+    "candidateCommit": "c11a9eb10f263941b118a0fd993e71d946688321",
+    "pullRequest": 16,
+    "buildCheckRunId": 35928445412,
+    "apiTestSuites": "16/16 PASS",
+    "apiTests": "78/78 PASS",
+    "targetedExternalCommunications": "PASS",
+    "apiBuild": "PASS",
+    "frozenSidebarGuard": "PASS",
+    "webBuild": "PASS",
+    "databaseMigration": false,
+    "stagingDeployment": false,
+    "productionPromotion": false
+  },
+  "approvalRequired": "Separate explicit approval required to merge PR #16 and deploy CR-007 to staging. Production promotion remains prohibited."
 }
