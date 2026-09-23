@@ -454,10 +454,10 @@ export class PortalService {
   async updateExternalCommunicationPreferences(body:any,user:ScopeUser){
     this.allowedExternalCommunicationRole(user);
     const allowedChannels=['IN_APP','EMAIL'];
-    const channels=(Array.isArray(body?.channels)?body.channels:['IN_APP','EMAIL']).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedChannels.includes(x));
+    const channels:string[]=(Array.isArray(body?.channels)?body.channels:['IN_APP','EMAIL']).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedChannels.includes(x));
     const allowedCategories=this.externalCategories();
-    const categories=(Array.isArray(body?.categories)?body.categories:[]).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedCategories.includes(x));
-    const payload={channels:[...new Set(channels.length?channels:['IN_APP'])],categories:[...new Set(categories)],muteOptional:Boolean(body?.muteOptional),mandatoryOperational:true,updatedBy:user.sub,updatedAt:new Date().toISOString()};
+    const categories:string[]=(Array.isArray(body?.categories)?body.categories:[]).map((x:any)=>String(x).toUpperCase()).filter((x:string)=>allowedCategories.includes(x));
+    const payload:any={channels:[...new Set<string>(channels.length?channels:['IN_APP'])],categories:[...new Set<string>(categories)],muteOptional:Boolean(body?.muteOptional),mandatoryOperational:true,updatedBy:user.sub,updatedAt:new Date().toISOString()};
     const id=this.externalPreferenceId(user);
     const existing=await this.prisma.integrationEvent.findUnique({where:{id}});
     if(existing)await this.prisma.integrationEvent.update({where:{id},data:{status:'COMPLETED',payload,completedAt:new Date()}});
@@ -526,7 +526,7 @@ export class PortalService {
     const basePayload={messageId:messageEvent.id,bookingId:p.bookingId,bookingNo:p.bookingNo||null,category:p.category,title:p.title,message:p.message,audienceRoles:p.audienceRoles,channel:'EMAIL',attemptReason,requestedBy:user.sub,attemptedAt:new Date().toISOString()};
     if(!endpoint){
       const payload={...basePayload,deliveryStatus:'PENDING_CONFIGURATION',reason:'Approved external email provider endpoint is not configured'};
-      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'RETRY_PENDING',payload,errorMessage:payload.reason}});
+      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'RETRY_PENDING',payload}});
       return payload;
     }
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
@@ -540,7 +540,7 @@ export class PortalService {
     }catch(e:any){
       const reason=e?.name==='AbortError'?'External email provider timed out':String(e?.message||'External email delivery failed');
       const payload={...basePayload,deliveryStatus:'FAILED',reason};
-      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'FAILED',payload,errorMessage:reason}});
+      await this.prisma.integrationEvent.create({data:{id:deliveryId,sourceSystem:'ANCLINE_EXTERNAL_COMMUNICATION',eventType:'EXTERNAL_EMAIL_DELIVERY_ATTEMPT',objectType:'ExternalCommunicationDelivery',objectId:messageEvent.id,status:'FAILED',payload}});
       return payload;
     }finally{clearTimeout(timer);}
   }
