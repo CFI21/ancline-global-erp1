@@ -57,11 +57,11 @@
     ]
   },
   "buildAllowed": true,
-  "deploymentAllowed": true,
+  "deploymentAllowed": false,
   "promotionAllowed": false,
   "approvedAt": "2026-09-23T10:07:30Z",
   "approvedBy": "User command: CR-20260923-001 staging-only deployment + full shared regression UAT",
-  "notes": "Staging-only deployment approved after PR #6 merge. Production promotion remains explicitly disallowed. Preserve frozen UI/workflows, deploy only ancline-web-live and ancline-api-staging candidate runtimes, and require automatic rollback on failure. CR-20260923-002 is preserved unchanged in request history and may resume after this CR-001 staging gate.",
+  "notes": "STAGING ACCEPTANCE PASS. PR #6 merged and candidate Web/API commit 5c9247b6a7352411a36a1b846f21b3e6957bd2a7 validated on ancline-web-live + ancline-api-staging. Smart Release run 35847244621 PASS across full SHARED regression; targeted Operations Control browser E2E run 35848245392 PASS on desktop/tablet/mobile with action links and external-role denial. Production promotion remains explicitly disallowed. Further deployment requires a new explicit approval. CR-20260923-002 remains preserved in request history.",
   "designScope": {
     "primarySurface": "Operations Control + Exception Dashboard",
     "existingSurfaceToExtend": "/exceptions",
@@ -110,5 +110,16 @@
     "Existing booking/document/finance/payment/release workflows remain unchanged.",
     "Desktop, tablet, and mobile show no uncontrolled overflow/cutoff.",
     "All mandatory SHARED regression scopes pass before promotion."
-  ]
+  ],
+  "stagingAcceptance": {
+    "status": "PASS",
+    "acceptedAt": "2026-09-23T10:22:07Z",
+    "candidateCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7",
+    "smartReleaseRunId": 35847244621,
+    "operationsControlE2ERunId": 35848245392,
+    "sharedRegression": "PASS",
+    "targetedDashboardE2E": "PASS",
+    "autoRollbackTriggered": false,
+    "productionPromotionAuthorized": false
+  }
 }
