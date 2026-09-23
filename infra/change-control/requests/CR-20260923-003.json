@@ -1,0 +1,109 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260923-003",
+  "status": "DRAFT",
+  "title": "Operations Action Queue + SLA Escalation",
+  "businessRequirement": "Extend the staging-accepted Operations Control + Exception Dashboard into a governed internal action queue that lets authorized operations users take ownership of existing exceptions, acknowledge work, assign or reassign an owner, set/adjust due dates, complete linked operational tasks, and surface SLA/escalation state using existing approved Task, Approval, Booking, AuditEvent and exception data. Preserve all existing booking, document, finance, payment, release, NVOCC and Forwarding workflow rules.",
+  "objective": "Move from exception visibility to controlled operational follow-through without creating a second workflow engine or changing the frozen transactional baseline.",
+  "repositoryPlanningBaseCommit": "cf872c42ed098901ed957a89dd69aeb6b344370f",
+  "baselineWebCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7",
+  "baselineApiCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7",
+  "baselineDecision": "CR-20260923-001_STAGING_ACCEPTED",
+  "baselineStatus": "STAGING_ACCEPTED_FROZEN",
+  "preservedChangeRequests": [
+    "CR-20260923-001 — Operations Control + Exception Dashboard — staging acceptance PASS",
+    "CR-20260923-002 — ECOM final resilience hardening — preserve approved API hardening behavior"
+  ],
+  "impactedModules": [
+    "apps/web/app/exceptions",
+    "apps/web/app/bookings/[id] task surface",
+    "apps/api/src/modules/operations",
+    "apps/api task endpoints/service",
+    "existing Task, Approval, Booking and AuditEvent data",
+    "tools/live_ui_final_acceptance.mjs",
+    "tools/live_role_uat_v2.mjs",
+    "tools/live_transaction_mutation_uat.mjs"
+  ],
+  "components": [
+    "shared"
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "OPERATIONS_ACTION_QUEUE_E2E"
+  ],
+  "impactAssessment": {
+    "web": "REQUIRED — add an Action Queue view/controls inside the accepted Operations Control surface and keep the frozen WorkspaceShell/navigation conventions.",
+    "api": "REQUIRED — add narrowly scoped internal mutations for task ownership/acknowledgement/due-date/completion where existing APIs are insufficient; retain bookingScope and internal-role enforcement.",
+    "shared": "REQUIRED — UI controls and API authorization/audit behavior must evolve together.",
+    "dataMigration": "NOT_REQUIRED — reuse existing Task fields (ownerId, dueAt, status, slaState) and existing AuditEvent/booking relations; no new schema planned.",
+    "securityPrivacy": "REQUIRED — mutations remain internal-only, branch scoped, fail closed, and must never expose customer/shipper/agent private data beyond existing permissions.",
+    "financeReleaseControls": "NO_RULE_CHANGE — queue may link to payment/release blockers but must not override or mutate finance/release-security decisions.",
+    "workflowCompatibility": "REQUIRED — task actions are additive operational coordination only; they must not introduce or change booking lifecycle states."
+  },
+  "proposedBehavior": {
+    "queueFunctions": [
+      "Claim/assign an exception-backed task to an authorized internal owner",
+      "Reassign task owner within permitted scope",
+      "Acknowledge work using approved Task.status values",
+      "Set or adjust operational due date",
+      "Complete the linked operational task",
+      "Derive ON_TRACK / AT_RISK / OVERDUE escalation presentation from dueAt and slaState",
+      "Open the existing job/document/payment/tracking/integration remediation surface"
+    ],
+    "escalation": [
+      "Highlight overdue or critical items in the Operations Control queue",
+      "Expose CONTROL_TOWER visibility for unresolved cross-branch critical items without broadening mutation rights",
+      "Do not auto-change booking, payment, document or release state"
+    ],
+    "audit": [
+      "Record actor, action, linked booking/task, previous value and new value using existing audit facilities where available",
+      "Keep action history visible from the job/control context"
+    ]
+  },
+  "regressionPlan": {
+    "rule": "Planning only. If later BUILD_APPROVED, classify as SHARED and require all Web/API build gates plus role/privacy browser UAT, responsive/failure/accessibility, full transaction lifecycle, resilience/security regression, and targeted action-queue E2E before any staging deployment approval.",
+    "web": [
+      "WEB_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "OPERATIONS_ACTION_QUEUE_E2E"
+    ],
+    "api": [
+      "API_TEST_BUILD",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+      "OPERATIONS_ACTION_QUEUE_E2E"
+    ],
+    "shared": [
+      "WEB_BUILD",
+      "API_TEST_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+      "OPERATIONS_ACTION_QUEUE_E2E"
+    ]
+  },
+  "acceptanceCriteria": [
+    "Accepted CR-001 dashboard categories, counts, filters and direct links remain intact.",
+    "Authorized internal users can claim/assign, acknowledge, reassign, adjust due date and complete an existing linked task from the control workflow.",
+    "Task action changes are reflected consistently on the job Task surface and Operations Control queue.",
+    "External CUSTOMER, SHIPPER and AGENT roles cannot read or mutate internal action-queue controls.",
+    "BRANCH_OPS mutations remain limited to bookings in the permitted branch; global visibility does not imply global mutation permission.",
+    "SLA/escalation status is deterministic from approved task/due-date data and does not create duplicate tasks or exception rows.",
+    "Every mutation is auditable with actor and before/after context using existing audit facilities.",
+    "No booking lifecycle, finance, payment, document release, NVOCC/Forwarding or carrier privacy rule changes.",
+    "No database schema migration.",
+    "Full SHARED regression and targeted action-queue E2E must pass before any staging deployment can be approved."
+  ],
+  "buildAllowed": false,
+  "deploymentAllowed": false,
+  "promotionAllowed": false,
+  "approvalRequired": "Explicit user approval of CR-20260923-003 business requirement and scope before any implementation.",
+  "notes": "DRAFT ONLY. Current staging-accepted runtime baseline remains frozen at candidate commit 5c9247b6a7352411a36a1b846f21b3e6957bd2a7. CR-001 Operations Control and CR-002 hardening behavior must be preserved. No build, deployment or production promotion is authorized by this change request."
+}
