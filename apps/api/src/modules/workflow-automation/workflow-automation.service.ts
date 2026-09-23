@@ -180,13 +180,22 @@ export class WorkflowAutomationService {
       const executionId=this.deterministicId('timerexec',String(timer.timerId));
       try{
         if(timer.bookingId)await this.scope.assertBookingAccess(user,String(timer.bookingId));
-        const prior=await this.db.integrationEvent.findUnique({where:{id:executionId}});
-        if(prior?.status==='COMPLETED'){results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED',taskId:this.payload(prior).taskId||null});continue;}
-        try{
-          if(!prior)await this.db.integrationEvent.create({data:{id:executionId,sourceSystem:SOURCE,eventType:'ESCALATION_EXECUTION_CLAIMED',externalId:String(timer.timerId),objectType:'EscalationExecution',objectId:String(timer.timerId),status:'PROCESSING',payload:{timerId:timer.timerId,startedAt:new Date().toISOString()},attemptCount:0}});
-        }catch(e:any){
-          if(!this.uniqueError(e))throw e;
-          results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED'});continue;
+        const claimData={id:executionId,sourceSystem:SOURCE,eventType:'ESCALATION_EXECUTION_CLAIMED',externalId:String(timer.timerId),objectType:'EscalationExecution',objectId:String(timer.timerId),status:'PROCESSING',payload:{timerId:timer.timerId,startedAt:new Date().toISOString()},attemptCount:0};
+        const created=await this.db.integrationEvent.createMany({data:[claimData],skipDuplicates:true});
+        let acquired=Number(created?.count||0)===1;
+        if(!acquired){
+          const prior=await this.db.integrationEvent.findUnique({where:{id:executionId}});
+          if(prior?.status==='FAILED'){
+            const reclaimed=await this.db.integrationEvent.updateMany({
+              where:{id:executionId,status:'FAILED'},
+              data:{status:'PROCESSING',attemptCount:{increment:1},completedAt:null,errorMessage:null,payload:{timerId:timer.timerId,retryAt:new Date().toISOString()}}
+            });
+            acquired=Number(reclaimed?.count||0)===1;
+          }
+          if(!acquired){
+            results.push({timerId:timer.timerId,status:'DUPLICATE_SKIPPED',taskId:prior?.status==='COMPLETED'?this.payload(prior).taskId||null:null});
+            continue;
+          }
         }
         const task=await this.db.task.create({data:{bookingId:timer.bookingId||null,title:`Escalation: ${timer.process} · ${timer.trigger}`,ownerId:timer.ownerRole||'Operations Manager',dueAt:new Date(),status:'Open',slaState:'Breached'}});
         await this.notify('WORKFLOW_ESCALATION',{process:timer.process,bookingId:timer.bookingId,objectType:timer.objectType,objectId:timer.objectId,message:`Workflow escalation due for ${timer.trigger}`},{severity:'WARNING',channels:['IN_APP'],recipients:timer.ownerRole?[timer.ownerRole]:[]},user,{timerId:timer.timerId,taskId:task.id});
