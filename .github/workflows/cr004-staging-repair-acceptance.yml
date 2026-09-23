@@ -1,0 +1,131 @@
+name: CR-004 Staging Repair Acceptance
+
+on:
+  push:
+    branches:
+      - cr-20260923-004-staging-repair-v2
+    paths:
+      - '.github/workflows/cr004-staging-repair-acceptance.yml'
+      - '.github/workflows/ui-final-acceptance.yml'
+      - '.github/workflows/ui-hardening.yml'
+      - 'tools/live_ui_final_acceptance.mjs'
+      - 'tools/live_ui_hardening.mjs'
+      - 'tools/live_transaction_mutation_uat.mjs'
+      - 'tools/live_final_hardening_uat.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ancline-staging-uat
+  cancel-in-progress: false
+
+env:
+  WEB_URL: https://ancline-web-live.onrender.com
+  API_URL: https://ancline-api-staging.onrender.com
+  RENDER_WEB_SERVICE_ID: srv-dajbrh3m8hqs73fmdk30
+  RENDER_API_SERVICE_ID: srv-daisqstg1s2s738kklb0
+  CR003_WEB_IMAGE: ghcr.io/cfi21/ancline-web:sha-82994ab813ed40e0aac799ff2fd119a7035f4b9a
+  CR003_API_IMAGE: ghcr.io/cfi21/ancline-api:sha-82994ab813ed40e0aac799ff2fd119a7035f4b9a
+  CR003_COMMIT: 82994ab813ed40e0aac799ff2fd119a7035f4b9a
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve currently approved staging runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved.json
+          echo "EXPECTED_WEB_COMMIT=$(jq -r '.current.web.commit' /tmp/approved.json)" >> "$GITHUB_ENV"
+          echo "EXPECTED_API_COMMIT=$(jq -r '.current.api.commit' /tmp/approved.json)" >> "$GITHUB_ENV"
+
+      - name: Wait for stable staging runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            web=""; api=""
+            if curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/release-info" -o /tmp/web.json 2>/dev/null; then web="$(jq -r '.buildCommit // empty' /tmp/web.json)"; fi
+            if curl -L -fsS --connect-timeout 10 --max-time 25 "$API_URL/api/health" -o /tmp/api.json 2>/dev/null; then api="$(jq -r '.buildCommit // empty' /tmp/api.json)"; fi
+            if [[ "$web" == "$EXPECTED_WEB_COMMIT" && "$api" == "$EXPECTED_API_COMMIT" ]]; then
+              curl -L -fsS --connect-timeout 10 --max-time 25 "$WEB_URL/api-proxy/health" >/tmp/proxy.json
+              jq -e '.status=="online"' /tmp/proxy.json >/dev/null
+              echo "Stable staging runtime web=$web api=$api"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Staging runtime did not stabilize to approved registry."
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser and accessibility runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+
+      - name: Clean 50001-50005 transaction lifecycle regression
+        run: node tools/live_transaction_mutation_uat.mjs
+
+      - name: Concurrency idempotency retry provider payment security regression
+        run: node tools/live_final_hardening_uat.mjs
+
+      - name: Role privacy Action Queue and CR-004 SLA automation acceptance
+        run: node tools/live_ui_final_acceptance.mjs
+
+      - name: Responsive failure accessibility acceptance
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Write CR-004 repair acceptance evidence
+        if: success()
+        run: |
+          mkdir -p cr004-repair-artifacts
+          jq -n             --arg web "$EXPECTED_WEB_COMMIT"             --arg api "$EXPECTED_API_COMMIT"             --arg run "$GITHUB_RUN_ID"             '{schema:"ANCLINE_CR004_STAGING_REPAIR_ACCEPTANCE_V1",status:"PASS",runId:$run,webCommit:$web,apiCommit:$api,transactionLifecycle:"PASS",resilienceSecurity:"PASS",rolePrivacy:"PASS",slaAutomation:"PASS",responsiveAccessibility:"PASS",productionPromotionAuthorized:false}'             > cr004-repair-artifacts/CR004_STAGING_REPAIR_ACCEPTANCE.json
+
+      - name: Auto-rollback staging to CR-003 on failure
+        if: failure()
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy() {
+            local service="$1" image="$2" out="$3"
+            payload="$(jq -nc --arg image "$image" '{imageUrl:$image}')"
+            code="$(curl -sS -o "$out" -w '%{http_code}' -X POST               --connect-timeout 10 --max-time 60               -H "Accept: application/json"               -H "Content-Type: application/json"               -H "Authorization: Bearer $RENDER_API_KEY"               --data "$payload"               "https://api.render.com/v1/services/$service/deploys" || true)"
+            [[ "$code" == "201" || "$code" == "202" ]]
+          }
+          deploy "$RENDER_WEB_SERVICE_ID" "$CR003_WEB_IMAGE" /tmp/web-rollback.json
+          deploy "$RENDER_API_SERVICE_ID" "$CR003_API_IMAGE" /tmp/api-rollback.json
+          for i in $(seq 1 60); do
+            web=""; api=""
+            curl -L -fsS "$WEB_URL/release-info" -o /tmp/web.json 2>/dev/null && web="$(jq -r '.buildCommit // empty' /tmp/web.json)"
+            curl -L -fsS "$API_URL/api/health" -o /tmp/api.json 2>/dev/null && api="$(jq -r '.buildCommit // empty' /tmp/api.json)"
+            if [[ "$web" == "$CR003_COMMIT" && "$api" == "$CR003_COMMIT" ]]; then echo "CR-003 rollback verified."; exit 0; fi
+            sleep 10
+          done
+          echo "::error::CR-003 rollback did not converge."
+          exit 1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cr004-staging-repair-${{ github.run_id }}
+          path: |
+            cr004-repair-artifacts/
+            ui-acceptance-artifacts/
+            ui-hardening-artifacts/
+            ANCLINE_FINAL_HARDENING_REPORT.json
+          retention-days: 90
