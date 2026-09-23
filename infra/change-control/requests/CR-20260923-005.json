@@ -1,24 +1,25 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-005",
-  "status": "BUILD_APPROVED",
+  "status": "APPROVED",
   "title": "Unified Operations Notification + Communication Center",
   "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
   "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
   "baselineDependency": {
-    "changeRequest": "CR-20260923-004",
-    "requiredState": "STAGING_ACCEPTED",
-    "currentState": "STAGING_ACCEPTED",
-    "currentCandidateCommit": "41ba5fd0fb3d12d6e7708507380ddf75be452664",
-    "gate": "SATISFIED",
-    "acceptedRuntimeCommit": "edbe08745fa0fe32067170097e37e85699a6486a"
+    "changeRequest": "CR-20260923-006",
+    "requiredState": "STAGING_ACCEPTED_LOCKED",
+    "currentState": "STAGING_ACCEPTED_LOCKED",
+    "acceptedRuntimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "repositoryBaselineCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+    "gate": "SATISFIED"
   },
-  "repositoryPlanningBaseCommit": "9b3f2bcd56d2db16e9ff33da4ba79af9355a48dc",
+  "repositoryPlanningBaseCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
   "preservedChangeRequests": [
-    "CR-20260923-001 — Operations Control + Exception Dashboard",
-    "CR-20260923-002 — ECOM resilience hardening",
-    "CR-20260923-003 — Operations Action Queue + SLA Escalation — staging acceptance PASS",
-    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — acceptance pending"
+    "CR-20260923-001 — Operations Control + Exception Dashboard — preserved by CR-006",
+    "CR-20260923-002 — ECOM resilience hardening — preserved by CR-006",
+    "CR-20260923-003 — Operations Action Queue + SLA Escalation — preserved by CR-006",
+    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — preserved by CR-006",
+    "CR-20260923-006 — Latest State Reconciliation + Final Staging Freeze — STAGING_ACCEPTED_LOCKED"
   ],
   "impactedModules": [
     "apps/web/app/notifications",
@@ -131,11 +132,16 @@
     "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
   ],
   "buildAllowed": true,
-  "deploymentAllowed": false,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
   "activationBlocked": false,
-  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
-  "notes": "BUILD ONLY APPROVED. CR-004 staging acceptance PASS at edbe08745fa0fe32067170097e37e85699a6486a. Build Unified Operations Notification + Communication Center using existing Notification/Automation/Task/Audit/Governance data. Preserve CR-001/002/003/004 and frozen UI/workflows/privacy/finance/release controls. No database migration. No staging deployment. No production promotion.",
+  "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
+  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Merge PR #15, deploy exact candidate to staging, run full SHARED regression + unified notification center E2E, auto-rollback on failure. Preserve CR-006 baseline and CR-001/002/003/004. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
-  "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only"
+  "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
+  "reconciledFromPr": 14,
+  "reconciledBranch": "cr-20260923-005-reconciled-on-cr006",
+  "reconciledAt": "2026-09-23T21:50:00+02:00",
+  "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
+  "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline"
 }
