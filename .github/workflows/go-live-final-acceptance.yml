@@ -2,13 +2,9 @@ name: ANCLINE ECOM Go-Live Final Acceptance
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/live_go_live_final_acceptance.mjs'
-      - '.github/workflows/go-live-final-acceptance.yml'
-      - 'infra/go-live/**'
-      - 'packages/db/prisma/migrations/**'
+
+# Single-System Live Review Mode: manual-only.
+# smart-release.yml is the only automatic staging build/deploy/regression owner.
 
 permissions:
   contents: read
