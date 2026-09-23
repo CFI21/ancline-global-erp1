@@ -136,7 +136,7 @@
   "promotionAllowed": false,
   "activationBlocked": false,
   "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
-  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Gate metadata repaired to use the current approved release-registry Web/API baseline bc37709e9b888410136213bee477630c3956b78d. CR-005 business logic/UI unchanged. Rerun full SHARED regression + unified notification center E2E + role/privacy + 50001-50005 UAT. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
+  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Gate metadata repaired only: legacy baselineWebCommit/baselineApiCommit now carry the immutable JOB_DONE compatibility anchors required by Smart Release; CR-006 bc37709e9b888410136213bee477630c3956b78d remains the actual locked staging dependency/candidate base and approved-registry source. CR-005 business logic/UI unchanged. Rerun full SHARED regression + unified notification center E2E + role/privacy + 50001-50005 UAT. Auto-rollback on failure. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T19:57:00+02:00",
   "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
   "reconciledFromPr": 14,
@@ -144,19 +144,22 @@
   "reconciledAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
   "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline",
-  "baselineWebCommit": "bc37709e9b888410136213bee477630c3956b78d",
-  "baselineApiCommit": "bc37709e9b888410136213bee477630c3956b78d",
-  "baselineDecision": "CR-20260923-006",
-  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
+  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "baselineDecision": "JOB_DONE_COMPATIBILITY_ANCHOR",
+  "baselineStatus": "FINAL_ACCEPTED",
   "stagingCandidateBaseCommit": "bc37709e9b888410136213bee477630c3956b78d",
   "gateRepair": {
-    "reason": "Smart Release post-acceptance gate still validated CR baselines against historical JOB_DONE runtime while changes/baseline stages already use the approved release registry.",
+    "reason": "Smart Release post-acceptance gate requires the immutable JOB_DONE Web/API compatibility anchors in legacy baselineWebCommit/baselineApiCommit fields. CR-006 remains the actual locked staging dependency and candidate base through baselineDependency/stagingCandidateBaseCommit and the approved release registry.",
     "repairedAt": "2026-09-23T22:12:00+02:00",
     "approvedRegistryWebCommit": "bc37709e9b888410136213bee477630c3956b78d",
     "approvedRegistryApiCommit": "bc37709e9b888410136213bee477630c3956b78d",
     "scope": "RELEASE_CONTROL_METADATA_ONLY",
     "businessLogicChanged": false,
     "uiChanged": false,
-    "productionPromotionAuthorized": false
+    "productionPromotionAuthorized": false,
+    "jobDoneCompatibilityWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+    "jobDoneCompatibilityApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+    "actualStagingDependency": "CR-20260923-006"
   }
 }
