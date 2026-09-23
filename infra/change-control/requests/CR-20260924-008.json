@@ -1,0 +1,115 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260924-008",
+  "status": "APPROVED",
+  "title": "Governed Bulk Consolidation — CR-006 Root + Verified CR-005/CR-007 Adoption",
+  "businessRequirement": "Use CR-20260923-006 / bc37709e as the frozen root baseline; preserve all approved UI, workflows, data structures, roles, privacy rules, NVOCC, Global Forwarding, booking, job, documents, finance, payment, release, Operations Control, Action Queue, SLA Automation and Control Tower; selectively re-adopt verified compatible CR-005 Unified Notification Center and CR-007 External Communication functionality; bulk build, integrate, validate and test end-to-end; deploy staging only on PASS; never promote production.",
+  "objective": "Create one governed current staging baseline that retains CR-006 invariants and incorporates only already-verified compatible CR-005/CR-007 functionality, with full SHARED regression and realistic jobs 50001–50005 business-day UAT.",
+  "frozenRootBaseline": {
+    "changeRequest": "CR-20260923-006",
+    "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "lockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+    "rule": "Root business/UI/workflow invariants must not regress."
+  },
+  "releaseGateBaseline": {
+    "changeRequest": "CR-20260923-005",
+    "webCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+    "apiCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+    "reason": "Latest approved staging registry required by hardened release gate."
+  },
+  "selectiveReadoption": {
+    "CR-20260923-005": [
+      "Unified internal Operations Notification + Communication Center",
+      "Read/acknowledge/resolve presentation state",
+      "Notification preferences with mandatory CRITICAL/LEVEL_3 protection",
+      "Direct remediation links",
+      "Internal role/privacy boundaries"
+    ],
+    "CR-20260924-007": [
+      "Customer/shipper/consignee/authorized-agent external communications",
+      "Customer-safe templates and visibility sanitization",
+      "In-app communication delivery state",
+      "Provider-ready email state with PENDING_CONFIGURATION when unconfigured",
+      "Retry/resend/idempotency and acknowledgement audit",
+      "Internal publish/history governance"
+    ]
+  },
+  "preservedChangeRequests": [
+    "CR-20260923-001",
+    "CR-20260923-002",
+    "CR-20260923-003",
+    "CR-20260923-004",
+    "CR-20260923-005",
+    "CR-20260923-006",
+    "CR-20260924-007"
+  ],
+  "components": [
+    "shared"
+  ],
+  "scope": {
+    "web": [
+      "Preserve frozen WorkspaceShell/menu/search/navigation architecture",
+      "Preserve NVOCC and Global Forwarding portals",
+      "Preserve Booking/Job/Document/Finance/Payment/Release/Control Tower workflows",
+      "Adopt CR-005 internal notification center",
+      "Adopt CR-007 external communication UI only where existing privacy scope allows",
+      "Verify popups, right-side summary/action panels and cross-module links"
+    ],
+    "api": [
+      "Preserve transactional lifecycle and release/payment security",
+      "Preserve Operations Control/Action Queue/SLA automation",
+      "Adopt verified CR-005 notification aggregation/governance",
+      "Adopt verified CR-007 external communication endpoints/privacy/idempotency",
+      "No database migration"
+    ],
+    "shared": [
+      "Role/privacy boundaries",
+      "No customer/KYC/carrier-confidential leakage",
+      "No workflow regression",
+      "No production promotion"
+    ]
+  },
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "UNIFIED_NOTIFICATION_CENTER_E2E",
+    "EXTERNAL_COMMUNICATION_API_E2E",
+    "EXTERNAL_COMMUNICATION_BROWSER_E2E",
+    "EXTERNAL_PRIVACY_NEGATIVE_E2E"
+  ],
+  "acceptanceCriteria": [
+    "All CR-006 frozen UI/workflow/role/privacy invariants remain intact.",
+    "NVOCC and Global Forwarding portals, booking/job/documents/finance/payment/release and Control Tower remain linked end-to-end.",
+    "Operations Control, Action Queue and SLA Automation remain operational and auditable.",
+    "CR-005 internal notification center remains internal-only and preserves direct remediation links.",
+    "CR-007 external communications expose only customer-safe scoped data.",
+    "No KYC, internal notes, SLA/control-tower routing, carrier buy rates/credentials, internal finance margin/cost or internal audit assignment data leak externally.",
+    "Jobs 50001–50005 complete realistic business-day transaction UAT with zero unreconciled balance.",
+    "Duplicate payment/idempotency, document release security, concurrency, provider failure/retry and role/privacy negative tests pass.",
+    "Responsive/accessibility/browser regression passes.",
+    "No destructive database migration and no secret/credential change.",
+    "On PASS deploy staging only, update approved staging registry, freeze new baseline and create acceptance evidence.",
+    "On failure auto-rollback staging and do not freeze.",
+    "Production remains unchanged."
+  ],
+  "buildAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "databaseMigration": false,
+  "secretCredentialChange": false,
+  "approvedAt": "2026-09-24T00:40:00+02:00",
+  "approvedBy": "User command: ANCLINE GOVERNED BULK BUILD ALL",
+  "baselineWebCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+  "baselineApiCommit": "e427e9fed6b219c097852cea98ad55fd411e8769",
+  "baselineDecision": "LATEST_APPROVED_STAGING_REGISTRY_WITH_CR006_FROZEN_ROOT",
+  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
+  "notes": "Single-command governed bulk execution authorized. Full Web/API/SHARED build, regression, staging-only deploy and freeze on PASS. Production prohibited."
+}
