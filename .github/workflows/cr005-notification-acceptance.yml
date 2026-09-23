@@ -44,3 +44,5 @@ jobs:
           name: ancline-cr005-notification-center-acceptance-${{ github.run_id }}
           path: cr005-notification-acceptance-artifacts/
           retention-days: 90
+
+# CR-005 post-gate revalidation trigger: e427e9fed6b2
