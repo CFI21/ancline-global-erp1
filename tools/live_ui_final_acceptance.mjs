@@ -36,7 +36,7 @@ async function shot(page,name){await page.screenshot({path:OUT+'/'+name+'.png',f
 async function safeGoto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(1000);assert(r&&r.status()<500,path+': HTTP '+(r?.status()));}
 async function reseed(page){const r=await api(page,'/test-data/seed',{method:'POST',body:'{}'});assert(r.ok,'reseed HTTP '+r.status);return r.body;}
 
-const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],operationsControl:[],exceptions:[],status:'RUNNING'};
+const report={schema:'ANCLINE_SIMPLE_SECURE_UI_FINAL_ACCEPTANCE_V1',startedAt:new Date().toISOString(),webUrl:WEB_URL,roles:[],jobs:[],navigation:[],forms:[],grids:[],popups:[],privacy:[],operationsControl:[],actionQueue:[],exceptions:[],status:'RUNNING'};
 const browser=await chromium.launch({headless:true});
 
 try{
@@ -142,6 +142,82 @@ try{
       assert(Math.max(layout.scrollWidth,layout.bodyScrollWidth)<=layout.innerWidth+4,p.name+': operations-control horizontal page overflow '+JSON.stringify(layout));
       if(p.name==='desktop')await shot(page,'operations-control-dashboard');
       report.operationsControl.push({profile:p.name,rows:rows.length,summaryOpen:dash.body.summary.open,endpoint:'PASS',filters:'PASS',actions:rows.length?'PASS':'NO_ROWS_TO_ACTION',layout:'PASS',status:'PASS'});
+      await ctx.close();
+    }
+  }
+
+
+  // OPERATIONS ACTION QUEUE — explicit CR-20260923-003 end-to-end acceptance.
+  {
+    const ctx=await browser.newContext({viewport:{width:1440,height:1000}}); const page=await ctx.newPage();
+    const user=await establish(page,'test.admin@ancline.invalid','GLOBAL_ADMIN'); assert(user.role==='GLOBAL_ADMIN','action-queue admin role mismatch');
+    await safeGoto(page,'/exceptions');
+    await reseed(page);
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000}); await page.waitForTimeout(800);
+
+    let dash=await api(page,'/operations/control-dashboard');
+    assert(dash.status===200&&Array.isArray(dash.body?.rows),'action queue dashboard unavailable');
+    let candidate=dash.body.rows.find(x=>x.bookingId&&x.queueMutable);
+    assert(candidate,'no booking-bound queue candidate available');
+
+    const firstClaim=await api(page,'/operations/control-dashboard/'+encodeURIComponent(candidate.id)+'/claim',{method:'POST',body:'{}'});
+    assert(firstClaim.ok&&firstClaim.body?.id,'first queue claim failed '+firstClaim.status);
+    const secondClaim=await api(page,'/operations/control-dashboard/'+encodeURIComponent(candidate.id)+'/claim',{method:'POST',body:'{}'});
+    assert(secondClaim.ok&&secondClaim.body?.id===firstClaim.body.id,'duplicate claim created a different task');
+    const taskId=String(firstClaim.body.id);
+
+    const reassigned='test.reassigned@ancline.invalid';
+    let upd=await api(page,'/tasks/'+encodeURIComponent(taskId),{method:'PATCH',body:JSON.stringify({ownerId:reassigned,status:'Acknowledged'})});
+    assert(upd.ok&&upd.body?.ownerId===reassigned&&upd.body?.status==='Acknowledged','assign/acknowledge failed');
+
+    const overdue=new Date(Date.now()-24*3600000).toISOString().slice(0,10);
+    upd=await api(page,'/tasks/'+encodeURIComponent(taskId),{method:'PATCH',body:JSON.stringify({status:'In Progress',dueAt:overdue})});
+    assert(upd.ok&&upd.body?.status==='In Progress'&&String(upd.body?.slaState).toUpperCase()==='OVERDUE','in-progress/overdue SLA failed');
+
+    dash=await api(page,'/operations/control-dashboard');
+    let persisted=dash.body.rows.find(x=>String(x.id)===String(candidate.id));
+    assert(persisted&&String(persisted.taskId)===taskId,'queue task linkage did not persist');
+    assert(persisted.owner===reassigned,'queue owner did not persist');
+    assert(String(persisted.slaState).toUpperCase()==='OVERDUE','queue SLA did not persist');
+
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000}); await page.waitForTimeout(900);
+    const ownerInput=page.locator('input[aria-label="Owner '+candidate.bookingNo+'"]').first();
+    assert(await ownerInput.count()===1,'queue owner input missing after refresh');
+    assert(await ownerInput.inputValue()===reassigned,'queue owner UI lost persistence after refresh');
+    const statusSelect=page.locator('select[aria-label="Task status '+candidate.bookingNo+'"]').first();
+    assert(await statusSelect.count()===1,'queue status control missing after refresh');
+    assert(await statusSelect.inputValue()==='In Progress','queue status UI lost persistence after refresh');
+
+    upd=await api(page,'/tasks/'+encodeURIComponent(taskId),{method:'PATCH',body:JSON.stringify({status:'Completed'})});
+    assert(upd.ok&&upd.body?.status==='Completed'&&String(upd.body?.slaState).toUpperCase()==='MET','complete/Met SLA failed');
+
+    const booking=await api(page,'/bookings/'+encodeURIComponent(candidate.bookingId));
+    assert(booking.ok&&Array.isArray(booking.body?.auditEvents),'booking audit history unavailable');
+    const actions=booking.body.auditEvents.map(x=>String(x.action));
+    assert(actions.includes('OPERATIONS_CONTROL_CLAIM'),'claim audit missing');
+    assert(actions.includes('TASK_ACTION_QUEUE_UPDATE'),'queue update audit missing');
+
+    await shot(page,'operations-action-queue');
+    report.actionQueue.push({role:'GLOBAL_ADMIN',case:'claim-reassign-acknowledge-in-progress-due-sla-complete-audit-refresh-duplicate-claim',taskId,status:'PASS'});
+    await ctx.close();
+  }
+
+  // CR-003 role boundaries: internal visibility and external denial.
+  {
+    for(const profile of [
+      {email:'test.control@ancline.invalid',role:'CONTROL_TOWER',expect:200},
+      {email:'test.ops@ancline.invalid',role:'BRANCH_OPS',expect:200},
+      {email:'test.finance@ancline.invalid',role:'FINANCE',expect:200},
+      {email:'test.customer.nl@ancline.invalid',role:'CUSTOMER',expect:403},
+      {email:'test.agent.sg@ancline.invalid',role:'AGENT',expect:403},
+      {email:'test.shipper.nl@ancline.invalid',role:'SHIPPER',expect:403}
+    ]){
+      const ctx=await browser.newContext(); const page=await ctx.newPage();
+      const user=await establish(page,profile.email,profile.role); assert(user.role===profile.role,profile.role+': managed role mismatch');
+      const r=await api(page,'/operations/control-dashboard');
+      assert(r.status===profile.expect,profile.role+': operations-control boundary expected '+profile.expect+' got '+r.status);
+      if(profile.expect===200)assert(Array.isArray(r.body?.rows),profile.role+': internal queue payload malformed');
+      report.actionQueue.push({role:profile.role,case:profile.expect===200?'internal-queue-access':'external-queue-denial',status:'PASS'});
       await ctx.close();
     }
   }
