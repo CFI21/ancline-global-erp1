@@ -1,18 +1,19 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-005",
-  "status": "DRAFT",
+  "status": "BUILD_APPROVED",
   "title": "Unified Operations Notification + Communication Center",
   "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
   "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
   "baselineDependency": {
     "changeRequest": "CR-20260923-004",
     "requiredState": "STAGING_ACCEPTED",
-    "currentState": "PENDING_ACCEPTANCE",
+    "currentState": "STAGING_ACCEPTED",
     "currentCandidateCommit": "41ba5fd0fb3d12d6e7708507380ddf75be452664",
-    "gate": "Do not activate CR-005 for build until CR-004 staging acceptance is PASS and locked."
+    "gate": "SATISFIED",
+    "acceptedRuntimeCommit": "edbe08745fa0fe32067170097e37e85699a6486a"
   },
-  "repositoryPlanningBaseCommit": "41ba5fd0fb3d12d6e7708507380ddf75be452664",
+  "repositoryPlanningBaseCommit": "9b3f2bcd56d2db16e9ff33da4ba79af9355a48dc",
   "preservedChangeRequests": [
     "CR-20260923-001 — Operations Control + Exception Dashboard",
     "CR-20260923-002 — ECOM resilience hardening",
@@ -129,11 +130,12 @@
     "No database migration unless a later approved implementation review documents why existing governance/event storage is insufficient.",
     "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
   ],
-  "buildAllowed": false,
+  "buildAllowed": true,
   "deploymentAllowed": false,
   "promotionAllowed": false,
-  "activationBlocked": true,
-  "activationBlockReason": "CR-20260923-004 staging acceptance is not yet PASS/locked; its impact_regression is still in progress.",
-  "approvalRequired": "After CR-004 staging acceptance is PASS, explicitly activate and approve CR-005 before any implementation.",
-  "notes": "PLANNING DRAFT ONLY. CR-005 has been prepared but is intentionally not the active change request because CR-004 is still completing staging acceptance. No build, staging deployment or production promotion is authorized."
+  "activationBlocked": false,
+  "approvalRequired": "Staging deployment requires a separate explicit user approval after build/test acceptance.",
+  "notes": "BUILD ONLY APPROVED. CR-004 staging acceptance PASS at edbe08745fa0fe32067170097e37e85699a6486a. Build Unified Operations Notification + Communication Center using existing Notification/Automation/Task/Audit/Governance data. Preserve CR-001/002/003/004 and frozen UI/workflows/privacy/finance/release controls. No database migration. No staging deployment. No production promotion.",
+  "approvedAt": "2026-09-23T19:57:00+02:00",
+  "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only"
 }
