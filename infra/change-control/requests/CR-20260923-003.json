@@ -1,15 +1,15 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260923-003",
-  "status": "STAGING_APPROVED",
+  "status": "APPROVED",
   "title": "Operations Action Queue + SLA Escalation",
   "businessRequirement": "Extend the staging-accepted Operations Control + Exception Dashboard into a governed internal action queue that lets authorized operations users take ownership of existing exceptions, acknowledge work, assign or reassign an owner, set/adjust due dates, complete linked operational tasks, and surface SLA/escalation state using existing approved Task, Approval, Booking, AuditEvent and exception data. Preserve all existing booking, document, finance, payment, release, NVOCC and Forwarding workflow rules.",
   "objective": "Move from exception visibility to controlled operational follow-through without creating a second workflow engine or changing the frozen transactional baseline.",
   "repositoryPlanningBaseCommit": "cf872c42ed098901ed957a89dd69aeb6b344370f",
-  "baselineWebCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7",
-  "baselineApiCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7",
-  "baselineDecision": "CR-20260923-001_STAGING_ACCEPTED",
-  "baselineStatus": "STAGING_ACCEPTED_FROZEN",
+  "baselineWebCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
+  "baselineApiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a",
+  "baselineDecision": "JOB_DONE",
+  "baselineStatus": "FINAL_ACCEPTED",
   "preservedChangeRequests": [
     "CR-20260923-001 — Operations Control + Exception Dashboard — staging acceptance PASS",
     "CR-20260923-002 — ECOM final resilience hardening — preserve approved API hardening behavior"
@@ -105,9 +105,10 @@
   "deploymentAllowed": true,
   "promotionAllowed": false,
   "approvalRequired": "Production promotion remains prohibited; a separate explicit user approval is required after staging acceptance.",
-  "notes": "STAGING-ONLY APPROVED. Merge PR #7, deploy the candidate to staging, run full SHARED regression plus targeted Operations Action Queue E2E, and auto-rollback on failure. Preserve CR-001/CR-002, frozen UI/workflows, privacy and transactional rules. NO PRODUCTION PROMOTION.",
+  "notes": "STAGING-ONLY APPROVED. Merge PR #7 and validate its merged candidate against the canonical JOB_DONE baseline while preserving the previously staging-accepted CR-001/CR-002 candidate lineage. Deploy staging only, run full SHARED regression plus targeted Operations Action Queue E2E, auto-rollback on failure. NO PRODUCTION PROMOTION.",
   "approvedAt": "2026-09-23T13:00:00+02:00",
   "approvedBy": "User command: CR-20260923-003 approve business requirement + build only",
   "stagingApprovedAt": "2026-09-23T13:45:00+02:00",
-  "stagingApprovedBy": "User command: CR-20260923-003 approve merge PR #7 + staging-only deployment + full SHARED UAT"
+  "stagingApprovedBy": "User command: CR-20260923-003 approve merge PR #7 + staging-only deployment + full SHARED UAT",
+  "stagingCandidateBaseCommit": "5c9247b6a7352411a36a1b846f21b3e6957bd2a7"
 }
