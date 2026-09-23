@@ -1,73 +1,147 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260923-006",
-  "status": "STAGING_ACCEPTED_LOCKED",
-  "title": "Latest State Reconciliation + Final Staging Freeze",
-  "businessRequirement": "Recover and reconcile the JOB_DONE final accepted baseline with CR-20260923-001, CR-20260923-003 and the staging-accepted CR-20260923-004 runtime; preserve frozen UI/workflows/data/roles; rerun full SHARED regression and jobs 50001-50005 end-to-end UAT; fix only verified gaps; verify Operations Control action links, role/privacy and reconciliation; do not promote production; produce current standalone HTML and acceptance evidence; freeze the new approved staging baseline.",
-  "objective": "One canonical evidenced staging baseline with no new business behavior.",
-  "baselineDecision": "JOB_DONE",
-  "baselineStatus": "FINAL_ACCEPTED",
-  "originalJobDoneRuntime": {
-    "webCommit": "86872d0bf546a63ae9c19af4d62f0a3fdd464086",
-    "apiCommit": "07bdc8d181a6a6fcec62d111d0cc88572cf5da2a"
+  "id": "CR-20260923-005",
+  "status": "APPROVED",
+  "title": "Unified Operations Notification + Communication Center",
+  "businessRequirement": "Consolidate operational risk alerts, CR-003 Action Queue events, CR-004 SLA Level-1/2/3 escalations, assignment/reassignment events, failed integration alerts, document/payment/release-block notifications and acknowledgement/read/resolve state into one governed internal Operations Notification + Communication Center with direct links to the existing remediation surfaces.",
+  "objective": "Provide one operational inbox for action, escalation and communication without creating a second workflow engine, duplicating source-of-truth records, or changing booking/finance/payment/document/release lifecycle rules.",
+  "baselineDependency": {
+    "changeRequest": "CR-20260923-006",
+    "requiredState": "STAGING_ACCEPTED_LOCKED",
+    "currentState": "STAGING_ACCEPTED_LOCKED",
+    "acceptedRuntimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
+    "repositoryBaselineCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
+    "gate": "SATISFIED"
   },
-  "reconciledRuntime": {
-    "commit": "bc37709e9b888410136213bee477630c3956b78d",
-    "webImage": "ghcr.io/cfi21/ancline-web:sha-bc37709e9b888410136213bee477630c3956b78d",
-    "webDigest": "sha256:40328b6ef1d0e087f3f5a18413ec7c483d94b1e3aba6092ab5b51fab6558b790",
-    "apiImage": "ghcr.io/cfi21/ancline-api:sha-bc37709e9b888410136213bee477630c3956b78d",
-    "apiDigest": "sha256:7ab5cc9bd3855c4bc8345620ff5af17604e02ca76e1230a2ba6777825d08061b"
-  },
-  "sourceAcceptedRuntime": {
-    "changeRequest": "CR-20260923-004",
-    "runtimeCommit": "edbe08745fa0fe32067170097e37e85699a6486a",
-    "smartReleaseRunId": 35896773817
-  },
+  "repositoryPlanningBaseCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a",
   "preservedChangeRequests": [
-    "CR-20260923-001 — Operations Control + Exception Dashboard — PASS",
-    "CR-20260923-002 — ECOM resilience hardening — PASS/preserved",
-    "CR-20260923-003 — Operations Action Queue + SLA Escalation — PASS",
-    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — PASS"
+    "CR-20260923-001 — Operations Control + Exception Dashboard — preserved by CR-006",
+    "CR-20260923-002 — ECOM resilience hardening — preserved by CR-006",
+    "CR-20260923-003 — Operations Action Queue + SLA Escalation — preserved by CR-006",
+    "CR-20260923-004 — Operations SLA Automation + Escalation Notifications — preserved by CR-006",
+    "CR-20260923-006 — Latest State Reconciliation + Final Staging Freeze — STAGING_ACCEPTED_LOCKED"
   ],
-  "deferredChangeRequests": [
-    "CR-20260923-005 — excluded from this reconciled freeze; requires a new explicit approval before any future runtime change"
+  "impactedModules": [
+    "apps/web/app/notifications",
+    "apps/web/app/exceptions",
+    "apps/api/src/modules/operations notification APIs",
+    "apps/api/src/modules/workflow-automation",
+    "existing Notification records",
+    "existing AutomationNotification / EscalationTimer IntegrationEvent records",
+    "existing Task / AuditEvent / failed IntegrationEvent data",
+    "existing user/role governance event data for notification preferences",
+    "tools/live_ui_final_acceptance.mjs",
+    "tools/live_role_uat_v2.mjs",
+    "tools/live_transaction_mutation_uat.mjs"
   ],
   "components": [
     "shared"
   ],
-  "acceptance": {
-    "status": "PASS",
-    "acceptedAt": "2026-09-23T20:55:04+02:00",
-    "smartReleaseRunId": 35904455636,
-    "uatRunId": "UAT-20260923184756-YJT67",
-    "fullSharedRegression": "PASS",
-    "webBuild": "PASS",
-    "apiTestBuild": "PASS",
-    "transactionLifecycle50001To50005": "PASS",
-    "concurrencyIdempotencyProviderPaymentSecurity": "PASS",
-    "rolePrivacyBrowserUat": "PASS",
-    "operationsControlActionLinks": "PASS",
-    "responsiveFailureAccessibility": "PASS",
-    "remoteHealthAndReleaseEvidence": "PASS",
-    "encryptedBackup": "PASS",
-    "backupSha256": "f3999da966238ba8b0f461148cf62016684c62191c14a17d19fd284dbe7a05fb",
-    "offPlatformArtifactSha256": "466917be2afac55302d8a25897467fb65b48a223f1e372e647313750c31331e2",
-    "autoRollbackTriggered": false
+  "scope": {
+    "web": "REQUIRED — evolve the existing Operational Risk Center into a unified internal notification/communication workspace while preserving WorkspaceShell, compact table/card conventions and existing navigation.",
+    "api": "REQUIRED — provide a scoped aggregated notification feed and governed acknowledge/read/resolve/preference endpoints over existing Notification, Task, Audit and automation event data.",
+    "shared": "REQUIRED — feed semantics, source links, acknowledgement state, role visibility and preferences must remain consistent between API and UI.",
+    "databaseMigration": "NOT_PLANNED — preference state should use existing governance/IntegrationEvent-backed data unless implementation proves an existing durable field is already available.",
+    "lifecycleImpact": "NONE — no automatic booking/document/payment/release state changes."
   },
-  "reconciliation": {
-    "jobs": 5,
-    "totalInvoiced": 20100,
-    "totalPaid": 20100,
-    "totalBalance": 0,
-    "status": "PASS"
+  "proposedBehavior": {
+    "sources": [
+      "Operational Risk Center notifications",
+      "CR-003 Action Queue claim/assign/reassign/acknowledge/complete events",
+      "CR-004 SLA LEVEL_1 / LEVEL_2 / LEVEL_3 automation notifications",
+      "failed/retry-pending integration events",
+      "document gaps and release blocks",
+      "payment/release security blocks",
+      "late milestone and reconciliation exceptions"
+    ],
+    "communicationCenter": [
+      "Single prioritized feed with source, severity, booking/job, owner, branch, timestamp and direct action link",
+      "UNREAD / READ / ACKNOWLEDGED / RESOLVED presentation without mutating the underlying transactional source",
+      "Bulk mark-read and scoped acknowledgement actions",
+      "Resolution reflected automatically when the underlying source clears where existing source supports auto-resolution",
+      "Direct links to Job, Documents, Payment, Tracking, Integration or Action Queue remediation surface",
+      "Conversation-style history derived from AuditEvent and automation/assignment events; no free-form external messaging in this CR"
+    ],
+    "preferences": [
+      "Per-user severity/category/channel preferences for internal in-app notifications",
+      "Role-default notification preferences for GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE",
+      "Preferences may suppress presentation/delivery of optional internal notifications but must never suppress mandatory CRITICAL/LEVEL_3 control-tower safety alerts",
+      "Preferences must not broaden booking/branch/customer data visibility"
+    ],
+    "privacy": [
+      "GLOBAL_ADMIN and CONTROL_TOWER may view global internal alerts consistent with existing scopes",
+      "BRANCH_OPS remains branch scoped",
+      "FINANCE receives only finance/release-relevant operational notifications unless existing role scope grants more",
+      "CUSTOMER, SHIPPER, CONSIGNEE and AGENT remain denied from internal operational communication-center data unless a separate external-notification CR is approved"
+    ]
   },
-  "deploymentTarget": "STAGING_ONLY",
-  "buildAllowed": false,
-  "deploymentAllowed": false,
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "OPERATIONS_ACTION_QUEUE_E2E",
+    "SLA_AUTOMATION_NOTIFICATION_E2E",
+    "UNIFIED_NOTIFICATION_CENTER_E2E",
+    "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+  ],
+  "regressionPlan": {
+    "rule": "Planning only. After CR-004 staging acceptance and explicit CR-005 build approval, classify as SHARED and require full Web/API regression plus Action Queue, SLA Automation, unified notification-center, preference-scope and direct-remediation-link E2E before staging approval.",
+    "web": [
+      "WEB_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "UNIFIED_NOTIFICATION_CENTER_E2E",
+      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+    ],
+    "api": [
+      "API_TEST_BUILD",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E",
+      "UNIFIED_NOTIFICATION_CENTER_E2E",
+      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+    ],
+    "shared": [
+      "WEB_BUILD",
+      "API_TEST_BUILD",
+      "ROLE_BROWSER_UAT",
+      "RESPONSIVE_FAILURE_ACCESSIBILITY",
+      "TRANSACTION_LIFECYCLE",
+      "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+      "OPERATIONS_ACTION_QUEUE_E2E",
+      "SLA_AUTOMATION_NOTIFICATION_E2E",
+      "UNIFIED_NOTIFICATION_CENTER_E2E",
+      "NOTIFICATION_PREFERENCE_SCOPE_E2E"
+    ]
+  },
+  "acceptanceCriteria": [
+    "CR-001 Operations Control and CR-003 Action Queue behavior remain unchanged.",
+    "CR-004 SLA Level-1/2/3 escalation semantics and idempotency remain unchanged.",
+    "One internal feed consolidates operational risk, action-queue, SLA automation, failed integration, document/payment/release, milestone and reconciliation notifications without duplicate logical items.",
+    "Read, acknowledge and resolved presentation state is scoped to the authorized user/role and does not alter underlying transactional lifecycle state.",
+    "Direct job/remediation links resolve to the existing approved action surfaces.",
+    "User/role preferences cannot broaden data access and cannot suppress mandatory critical/LEVEL_3 alerts.",
+    "GLOBAL_ADMIN, CONTROL_TOWER, BRANCH_OPS and FINANCE permissions follow current internal scope rules.",
+    "CUSTOMER, SHIPPER, CONSIGNEE and AGENT cannot access internal notification-center content.",
+    "Every acknowledgement/preference change is auditable.",
+    "No database migration unless a later approved implementation review documents why existing governance/event storage is insufficient.",
+    "Full SHARED regression and targeted unified notification-center E2E must pass before staging deployment can be approved."
+  ],
+  "buildAllowed": true,
+  "deploymentAllowed": true,
   "promotionAllowed": false,
-  "productionPromotionAuthorized": false,
-  "frozen": true,
-  "frozenAt": "2026-09-23T20:55:04+02:00",
-  "approvedBy": "User command: ANCLINE LATEST STATE RECONCILIATION",
-  "notes": "FINAL RECONCILIATION PASS. Reconciled staging runtime bc37709e9b888410136213bee477630c3956b78d is locked as the current approved staging baseline. No verified functional regression required a business-logic fix. Production was not promoted or modified."
+  "activationBlocked": false,
+  "approvalRequired": "Production promotion remains prohibited; separate explicit approval required after staging acceptance.",
+  "notes": "STAGING-ONLY APPROVED FROM CR-006 LOCKED BASELINE. Merge PR #15, deploy exact candidate to staging, run full SHARED regression + unified notification center E2E, auto-rollback on failure. Preserve CR-006 baseline and CR-001/002/003/004. NO PRODUCTION PROMOTION.",
+  "approvedAt": "2026-09-23T19:57:00+02:00",
+  "approvedBy": "User command: CR-20260923-005 activate from CR-004 staging-accepted baseline + approve business requirement + build only",
+  "reconciledFromPr": 14,
+  "reconciledBranch": "cr-20260923-005-reconciled-on-cr006",
+  "reconciledAt": "2026-09-23T21:50:00+02:00",
+  "stagingApprovedAt": "2026-09-23T21:50:00+02:00",
+  "stagingApprovedBy": "User command: CR-20260923-005 approve merge PR #15 + staging-only deployment from CR-006 locked baseline"
 }
