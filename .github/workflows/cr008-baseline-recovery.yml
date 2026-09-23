@@ -1,0 +1,66 @@
+name: CR-008 Recover Approved Staging Baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cr008-baseline-recovery.yml'
+
+permissions:
+  contents: read
+
+env:
+  WEB_URL: https://ancline-web-live.onrender.com
+  API_URL: https://ancline-api-staging.onrender.com
+  RENDER_WEB_SERVICE_ID: srv-dajbrh3m8hqs73fmdk30
+  RENDER_API_SERVICE_ID: srv-daisqstg1s2s738kklb0
+  APPROVED_COMMIT: e427e9fed6b219c097852cea98ad55fd411e8769
+  APPROVED_WEB_IMAGE: ghcr.io/cfi21/ancline-web:sha-e427e9fed6b219c097852cea98ad55fd411e8769
+  APPROVED_API_IMAGE: ghcr.io/cfi21/ancline-api:sha-e427e9fed6b219c097852cea98ad55fd411e8769
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy exact approved staging images only
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_image() {
+            local service_id="$1"
+            local image="$2"
+            local out="/tmp/deploy-$service_id.json"
+            local payload code
+            payload="$(jq -nc --arg image "$image" '{imageUrl:$image}')"
+            code="$(curl -sS -o "$out" -w '%{http_code}' -X POST               --connect-timeout 10 --max-time 60               -H "Accept: application/json"               -H "Content-Type: application/json"               -H "Authorization: Bearer $RENDER_API_KEY"               --data "$payload"               "https://api.render.com/v1/services/$service_id/deploys" || true)"
+            if [[ "$code" != "201" && "$code" != "202" ]]; then
+              cat "$out" || true
+              exit 1
+            fi
+          }
+          deploy_image "$RENDER_WEB_SERVICE_ID" "$APPROVED_WEB_IMAGE"
+          deploy_image "$RENDER_API_SERVICE_ID" "$APPROVED_API_IMAGE"
+
+      - name: Verify approved staging baseline restored
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            web="unknown"; api="unknown"
+            if curl -L -fsS "$WEB_URL/release-info" -o /tmp/web.json; then
+              web="$(jq -r '.buildCommit // "unknown"' /tmp/web.json)"
+            fi
+            if curl -L -fsS "$API_URL/api/health" -o /tmp/api.json; then
+              api="$(jq -r '.buildCommit // "unknown"' /tmp/api.json)"
+            fi
+            if [[ "$web" == "$APPROVED_COMMIT" && "$api" == "$APPROVED_COMMIT" ]] &&
+               curl -L -fsS "$WEB_URL/api-proxy/health" -o /tmp/proxy.json &&
+               jq -e '.status == "online" and .service == "ANCLINE API"' /tmp/proxy.json >/dev/null; then
+              echo "CR-008 baseline recovery PASS"
+              exit 0
+            fi
+            [[ "$i" == "60" ]] && { echo "Approved baseline did not converge"; exit 1; }
+            sleep 10
+          done
