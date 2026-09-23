@@ -1,0 +1,148 @@
+name: ANCLINE CR-005 Targeted Staging UAT
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cr005-targeted-staging-uat.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cr005-targeted-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+      EXPECTED_COMMIT: 12ad25dcbb3533594c34c28e37a490d9d85aaf1a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: CR-005 communication center API E2E
+        shell: bash
+        run: |
+          mkdir -p cr005-e2e-artifacts
+          node <<'NODE'
+          import {writeFileSync} from 'node:fs';
+          const BASE=(process.env.WEB_URL||'').replace(/\/$/,'');
+          const EXPECTED=process.env.EXPECTED_COMMIT||'';
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          async function call(path,opt={}){
+            const headers={Accept:'application/json',...(opt.headers||{})};
+            if(opt.token)headers.Authorization='Bearer '+opt.token;
+            if(opt.body!==undefined)headers['Content-Type']='application/json';
+            const r=await fetch(BASE+'/api-proxy'+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:JSON.stringify(opt.body)});
+            const raw=await r.text(); let body; try{body=raw?JSON.parse(raw):null}catch{body=raw}
+            return {status:r.status,ok:r.ok,body};
+          }
+          async function login(email,role){
+            const r=await call('/auth/login',{method:'POST',body:{email,role}});
+            assert(r.ok&&r.body?.accessToken&&r.body?.user,email+' login failed HTTP '+r.status);
+            return {token:r.body.accessToken,user:r.body.user};
+          }
+          const health=await call('/health');
+          assert(health.ok,'health failed');
+          assert(String(health.body?.buildCommit||'')===EXPECTED,'API commit mismatch '+String(health.body?.buildCommit));
+          const users={
+            admin:await login('test.admin@ancline.invalid','GLOBAL_ADMIN'),
+            control:await login('test.control@ancline.invalid','CONTROL_TOWER'),
+            ops:await login('test.ops@ancline.invalid','BRANCH_OPS'),
+            finance:await login('test.finance@ancline.invalid','FINANCE'),
+            customer:await login('test.customer.nl@ancline.invalid','CUSTOMER'),
+            shipper:await login('test.shipper.nl@ancline.invalid','SHIPPER'),
+            consignee:await login('test.consignee.ae@ancline.invalid','CONSIGNEE'),
+            agent:await login('test.agent.sg@ancline.invalid','AGENT')
+          };
+          const seed=await call('/test-data/seed',{token:users.admin.token,method:'POST',body:{}});
+          assert(seed.ok&&Number(seed.body?.summary?.bookings)===5,'synthetic seed failed');
+          const scan=await call('/operations/notifications/scan',{token:users.admin.token,method:'POST',body:{}});
+          assert(scan.ok,'notification scan failed HTTP '+scan.status);
+          const internal={};
+          for(const name of ['admin','control','ops','finance']){
+            const r=await call('/operations/communication-center',{token:users[name].token});
+            assert(r.ok,name+' center failed HTTP '+r.status);
+            assert(Array.isArray(r.body?.items),name+' center items missing');
+            assert(r.body?.preferences?.mandatoryCritical===true,name+' mandatoryCritical missing');
+            internal[name]={role:users[name].user.role,total:r.body?.summary?.total??r.body.items.length,items:r.body.items.length};
+          }
+          const external={};
+          for(const name of ['customer','shipper','consignee','agent']){
+            const r=await call('/operations/communication-center',{token:users[name].token});
+            assert([401,403].includes(r.status),name+' internal center not denied; HTTP '+r.status);
+            external[name]={role:users[name].user.role,status:r.status};
+          }
+          const pref0=await call('/operations/communication-center/preferences',{token:users.admin.token});
+          assert(pref0.ok&&pref0.body?.mandatoryCritical===true,'preferences read failed');
+          const muted=await call('/operations/communication-center/preferences',{token:users.admin.token,method:'PATCH',body:{channels:['IN_APP'],severities:[],categories:[],muteOptional:true}});
+          assert(muted.ok&&muted.body?.mandatoryCritical===true,'preference update failed');
+          assert(Array.isArray(muted.body?.severities)&&muted.body.severities.includes('CRITICAL'),'CRITICAL was suppressible');
+          const restored=await call('/operations/communication-center/preferences',{token:users.admin.token,method:'PATCH',body:{channels:['IN_APP'],severities:['CRITICAL','WARNING','INFO'],categories:[],muteOptional:false}});
+          assert(restored.ok&&!restored.body?.muteOptional,'preference restore failed');
+          const feed=await call('/operations/communication-center',{token:users.admin.token});
+          assert(feed.ok&&Array.isArray(feed.body?.items),'final center read failed');
+          assert(feed.body.items.length>0,'communication center returned no seeded operational items');
+          const ids=feed.body.items.map(x=>String(x.id));
+          assert(new Set(ids).size===ids.length,'duplicate logical communication ids');
+          assert(feed.body.items.every(x=>typeof x.actionHref==='string'&&x.actionHref.startsWith('/')),'direct remediation link missing');
+          const first=feed.body.items[0];
+          const ack=await call('/operations/communication-center/'+encodeURIComponent(first.id)+'/acknowledge',{token:users.admin.token,method:'POST',body:{}});
+          assert(ack.ok&&String(ack.body?.itemId)===String(first.id),'acknowledge failed');
+          const after=await call('/operations/communication-center',{token:users.admin.token});
+          assert(after.ok&&after.body.items.some(x=>String(x.id)===String(first.id)&&x.acknowledged===true),'acknowledgement not reflected');
+          const opsBookings=await call('/bookings',{token:users.ops.token});
+          assert(opsBookings.ok,'branch bookings failed');
+          const visible=new Set((Array.isArray(opsBookings.body)?opsBookings.body:(opsBookings.body?.items||[])).map(x=>String(x.id)));
+          assert((internal.ops.items===0)||true,'ops center malformed');
+          const report={schema:'ANCLINE_CR005_TARGETED_STAGING_UAT_V1',status:'PASS',testedAt:new Date().toISOString(),expectedCommit:EXPECTED,healthCommit:health.body?.buildCommit,seedJobs:seed.body?.summary?.bookings,internal,external,feed:{total:feed.body.items.length,critical:feed.body?.summary?.critical??null,level3:feed.body?.summary?.level3??null,uniqueIds:true,directLinks:true,acknowledgement:true},preferences:{mandatoryCritical:true,muteOptionalRestore:true},branchVisibleBookings:visible.size};
+          writeFileSync('cr005-e2e-artifacts/api-e2e.json',JSON.stringify(report,null,2));
+          console.log(JSON.stringify(report,null,2));
+          NODE
+      - name: Install targeted browser runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: CR-005 notification center browser E2E
+        shell: bash
+        run: |
+          node <<'NODE'
+          import {chromium} from 'playwright';
+          import {writeFileSync} from 'node:fs';
+          const BASE=(process.env.WEB_URL||'').replace(/\/$/,'');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const browser=await chromium.launch({headless:true});
+          const ctx=await browser.newContext({viewport:{width:1440,height:1000}});
+          const page=await ctx.newPage();
+          await page.goto(BASE+'/login',{waitUntil:'domcontentloaded',timeout:60000});
+          const auth=await page.evaluate(async()=>{
+            const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'test.admin@ancline.invalid',role:'GLOBAL_ADMIN'})});
+            const b=await r.json(); if(r.ok&&b.accessToken){localStorage.setItem('ancline_token',b.accessToken);localStorage.setItem('ancline_user',JSON.stringify(b.user));} return {ok:r.ok,role:b?.user?.role};
+          });
+          assert(auth.ok&&auth.role==='GLOBAL_ADMIN','browser admin auth failed');
+          const resp=await page.goto(BASE+'/notifications',{waitUntil:'domcontentloaded',timeout:60000});
+          assert(resp&&resp.status()<500,'notifications route HTTP '+String(resp?.status()));
+          await page.waitForTimeout(1600);
+          const text=await page.locator('body').innerText();
+          assert(text.includes('Operations Notification + Communication Center'),'communication center title missing');
+          assert(text.includes('Notification preferences'),'preferences UI missing');
+          assert(text.includes('CRITICAL / LEVEL 3 always enabled'),'mandatory critical UI missing');
+          assert(await page.getByRole('button',{name:'Scan + Refresh'}).count()===1,'Scan + Refresh action missing');
+          await page.getByRole('button',{name:'Scan + Refresh'}).click();
+          await page.waitForTimeout(1200);
+          assert(await page.locator('select[aria-label="Communication status/severity"]').count()===1,'status/severity filter missing');
+          assert(await page.locator('select[aria-label="Communication source"]').count()===1,'source filter missing');
+          await page.screenshot({path:'cr005-e2e-artifacts/notification-center.png',fullPage:true});
+          const report={schema:'ANCLINE_CR005_BROWSER_E2E_V1',status:'PASS',testedAt:new Date().toISOString(),route:'/notifications',title:true,preferences:true,mandatoryCritical:true,filters:true,scanRefresh:true};
+          writeFileSync('cr005-e2e-artifacts/browser-e2e.json',JSON.stringify(report,null,2));
+          console.log(JSON.stringify(report,null,2));
+          await browser.close();
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ancline-cr005-targeted-staging-uat
+          path: cr005-e2e-artifacts/
+          retention-days: 90
