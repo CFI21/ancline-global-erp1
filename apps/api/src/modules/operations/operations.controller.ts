@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class OperationsController {
   constructor(private s:OperationsService,private control:OperationsControlService){}
   @Get('control-dashboard') controlDashboard(@Req() req:any){return this.control.dashboard(req.user);}
+  @Post('control-dashboard/:rowId/claim') claimControlItem(@Param('rowId') rowId:string,@Req() req:any){return this.control.claim(rowId,req.user);}
   @Get('access-catalog') accessCatalog(@Req() req:any){return this.s.accessCatalog(req.user);}
   @Get('branches') branches(@Req() req:any){return this.s.listBranches(req.user);}
   @Post('branches') createBranch(@Body() body:any,@Req() req:any){return this.s.createBranch(body,req.user);}

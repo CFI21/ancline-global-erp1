@@ -27,6 +27,10 @@ type ControlRow={
   actionLabel:string;
   actionHref:string;
   updatedAt?:string;
+  taskId?:string;
+  taskStatus?:string;
+  slaState?:string;
+  queueMutable?:boolean;
 };
 
 type Dashboard={
@@ -60,6 +64,18 @@ export default function ExceptionsPage(){
   const [contextBookingId,setContextBookingId]=useState('');
 
   useEffect(()=>{const t=requireToken();if(!t)return;setToken(t);void load(t);},[]);
+
+  async function mutate(path:string,init:RequestInit){
+    setBusy(true);setMessage('');
+    try{await api(path,token,init);await load(token);}
+    catch(e:any){setMessage(e?.message||'Unable to update action queue.');setBusy(false);}
+  }
+
+  function claim(r:ControlRow){return mutate('/operations/control-dashboard/'+encodeURIComponent(r.id)+'/claim',{method:'POST'});}
+  function updateTask(r:ControlRow,patch:any){
+    if(!r.taskId)return;
+    return mutate('/tasks/'+encodeURIComponent(r.taskId),{method:'PATCH',body:JSON.stringify(patch)});
+  }
 
   async function load(t=token){
     setBusy(true);setMessage('');
@@ -98,7 +114,10 @@ export default function ExceptionsPage(){
     ['Payment / Release',s.PAYMENT_RELEASE_BLOCK||0],
     ['Failed Events',s.FAILED_EVENT||0],
     ['Milestone Delays',s.LATE_MILESTONE||0],
-    ['Reconciliation',s.RECONCILIATION_EXCEPTION||0]
+    ['Reconciliation',s.RECONCILIATION_EXCEPTION||0],
+    ['Queue Open',s.queueOpen||0],
+    ['Queue At Risk',s.queueAtRisk||0],
+    ['Queue Overdue',s.queueOverdue||0]
   ];
   const contextRow=contextBookingId?rows.find(r=>r.bookingId===contextBookingId):undefined;
 
@@ -131,7 +150,7 @@ export default function ExceptionsPage(){
         </select>}
         <span className="status">{visible.length} visible</span>
       </div>
-      <div className="sub" style={{marginTop:8}}>Read-only control view · no booking, payment, release, finance or document workflow is changed here.</div>
+      <div className="sub" style={{marginTop:8}}>Governed action queue · task ownership/SLA updates are audited. Booking, payment, release, finance and document workflow rules remain unchanged.</div>
     </div>
 
     <div className="card">
@@ -145,10 +164,24 @@ export default function ExceptionsPage(){
               <td>{r.businessModel||'—'}<div className="sub">{r.branch||'—'}</div></td>
               <td>{categoryLabels[r.category]}</td>
               <td style={{whiteSpace:'normal',minWidth:260}}>{r.message}</td>
-              <td>{r.owner}</td>
-              <td>{fmtDate(r.due)}</td>
-              <td>{r.source}</td>
-              <td><a className="btn" style={{textDecoration:'none',display:'inline-block',whiteSpace:'nowrap'}} href={r.actionHref}>{r.actionLabel}</a></td>
+              <td>
+                {r.taskId?<input aria-label={'Owner '+r.bookingNo} defaultValue={r.owner==='Unassigned'?'':r.owner} placeholder="Unassigned" style={{...fieldStyle,minWidth:150}} onBlur={e=>{if(e.target.value!==r.owner)void updateTask(r,{ownerId:e.target.value});}}/>:r.owner}
+                {r.taskId&&<div className="sub">{r.slaState||'On Track'}</div>}
+              </td>
+              <td>{r.taskId?<input aria-label={'Due '+r.bookingNo} type="date" defaultValue={r.due?String(r.due).slice(0,10):''} style={{...fieldStyle,minWidth:140}} onChange={e=>void updateTask(r,{dueAt:e.target.value||null})}/>:fmtDate(r.due)}</td>
+              <td>{r.source}{r.taskId&&<div className="sub">Queue task</div>}</td>
+              <td>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',minWidth:220}}>
+                  <a className="btn" style={{textDecoration:'none',display:'inline-block',whiteSpace:'nowrap'}} href={r.actionHref}>{r.actionLabel}</a>
+                  {!r.taskId&&r.bookingId&&r.queueMutable&&<button className="btn" disabled={busy} onClick={()=>void claim(r)}>Claim</button>}
+                  {r.taskId&&<>
+                    <select aria-label={'Task status '+r.bookingNo} style={{...fieldStyle,minWidth:130}} value={r.taskStatus||'Open'} disabled={busy} onChange={e=>void updateTask(r,{status:e.target.value})}>
+                      <option>Open</option><option>Acknowledged</option><option>In Progress</option><option>Completed</option>
+                    </select>
+                    {String(r.taskStatus||'').toUpperCase()!=='COMPLETED'&&<button className="btn" disabled={busy} onClick={()=>void updateTask(r,{status:'Completed'})}>Complete</button>}
+                  </>}
+                </div>
+              </td>
             </tr>)}
             {visible.length===0&&<tr><td colSpan={9}>No matching operational exceptions.</td></tr>}
           </tbody>

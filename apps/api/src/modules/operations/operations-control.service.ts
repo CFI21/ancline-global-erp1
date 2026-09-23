@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
 import { ScopeUser, bookingScope } from '../auth/scope';
 import { evaluateReleaseSecurity } from '../documents/release-security';
+import { AuditService } from '../audit/audit.service';
 
 type Severity='CRITICAL'|'HIGH'|'MEDIUM';
 type Category='ACTION_REQUIRED'|'CUT_OFF_RISK'|'DOCUMENT_GAP'|'PAYMENT_RELEASE_BLOCK'|'FAILED_EVENT'|'LATE_MILESTONE'|'RECONCILIATION_EXCEPTION';
@@ -23,6 +24,10 @@ type ControlRow={
   actionLabel:string;
   actionHref:string;
   updatedAt?:string;
+  taskId?:string;
+  taskStatus?:string;
+  slaState?:string;
+  queueMutable?:boolean;
 };
 
 const TERMINAL=new Set(['CANCELLED','FINANCIALLY_CLOSED']);
@@ -32,7 +37,7 @@ const CRITICAL_DOC=new Set(['REJECTED','HOLD','BLOCKED','MISSING']);
 
 @Injectable()
 export class OperationsControlService {
-  constructor(private prisma:PrismaService,private scope:ScopeService){}
+  constructor(private prisma:PrismaService,private scope:ScopeService,private audit:AuditService){}
 
   private get db():any{return this.prisma as any;}
   private text(v:any){return String(v??'').trim();}
@@ -40,6 +45,43 @@ export class OperationsControlService {
   private iso(v:any){const d=v?new Date(v):null;return d&&!Number.isNaN(d.getTime())?d.toISOString():undefined;}
   private hours(ms:number){return Math.round(ms/3600000);}
   private internalGlobal(user:ScopeUser){return ['GLOBAL_ADMIN','CONTROL_TOWER'].includes(user.role);}
+  private taskSla(due:any,status:any){
+    if(this.upper(status)==='COMPLETED')return 'Met';
+    if(!due)return 'On Track';
+    const ms=new Date(due).getTime()-Date.now();
+    if(Number.isNaN(ms))return 'On Track';
+    if(ms<0)return 'Overdue';
+    if(ms<=24*3600000)return 'At Risk';
+    return 'On Track';
+  }
+
+  async claim(rowId:string,user:ScopeUser){
+    this.scope.assertInternal(user);
+    const result:any=await this.dashboard(user);
+    const row:ControlRow|undefined=(result.rows||[]).find((x:ControlRow)=>x.id===rowId);
+    if(!row)throw new Error('Operations control item not found');
+    if(!row.bookingId)throw new Error('This platform-level exception has no booking task context');
+    await this.scope.assertBookingAccess(user,row.bookingId);
+
+    let task:any=row.taskId?await this.db.task.findUnique({where:{id:row.taskId}}):null;
+    const title='[OC:'+row.id+'] '+row.message;
+    if(!task)task=await this.db.task.findFirst({where:{bookingId:row.bookingId,title}});
+    const ownerId=this.text(user.email||user.sub)||user.sub;
+    const dueAt=row.due?new Date(row.due):null;
+    const before=task?{ownerId:task.ownerId,dueAt:task.dueAt,status:task.status,slaState:task.slaState}:null;
+    const slaState=this.taskSla(dueAt,'Acknowledged');
+
+    if(task){
+      task=await this.db.task.update({where:{id:task.id},data:{ownerId,status:'Acknowledged',dueAt:dueAt||task.dueAt,slaState:this.taskSla(dueAt||task.dueAt,'Acknowledged')}});
+    }else{
+      task=await this.db.task.create({data:{bookingId:row.bookingId,title,ownerId,dueAt,status:'Acknowledged',slaState}});
+    }
+    await this.audit.log({
+      actorId:user.sub,action:'OPERATIONS_CONTROL_CLAIM',objectType:'Task',objectId:String(task.id),bookingId:row.bookingId,
+      detail:{controlRowId:row.id,category:row.category,before,after:{ownerId:task.ownerId,dueAt:task.dueAt,status:task.status,slaState:task.slaState}}
+    });
+    return task;
+  }
 
   async dashboard(user:ScopeUser){
     this.scope.assertInternal(user);
@@ -96,7 +138,7 @@ export class OperationsControlService {
         if(this.upper(t.status)==='COMPLETED'||!t.dueAt)continue;
         const due=new Date(t.dueAt).getTime();
         if(Number.isNaN(due)||due>=now)continue;
-        add({...ctx,id:`action-task-${t.id}`,severity:now-due>86400000?'HIGH':'MEDIUM',category:'ACTION_REQUIRED',owner:this.text(t.ownerId)||'Unassigned',message:this.text(t.title)||'Overdue task',due:this.iso(t.dueAt),source:'Task',actionLabel:'Open Job',actionHref:`/bookings/${b.id}`,updatedAt:this.iso(t.updatedAt)});
+        add({...ctx,id:`action-task-${t.id}`,severity:now-due>86400000?'HIGH':'MEDIUM',category:'ACTION_REQUIRED',owner:this.text(t.ownerId)||'Unassigned',message:this.text(t.title)||'Overdue task',due:this.iso(t.dueAt),source:'Task',actionLabel:'Open Job',actionHref:`/bookings/${b.id}`,updatedAt:this.iso(t.updatedAt),taskId:String(t.id),taskStatus:this.text(t.status)||'Open',slaState:this.text(t.slaState)||this.taskSla(t.dueAt,t.status),queueMutable:true});
       }
 
       for(const a of (b.approvals||[])){
@@ -172,6 +214,29 @@ export class OperationsControlService {
       add({...ctx,id:`event-${e.id}`,severity:this.upper(e.status)==='FAILED'?'CRITICAL':'HIGH',category:'FAILED_EVENT',owner:'Integration / Platform',message:`${this.text(e.sourceSystem)||'Integration'} · ${this.text(e.eventType)||'Event'} · ${this.upper(e.status)}${detail?` — ${detail}`:''}`,source:'Integration Event',actionLabel:'Open Integration',actionHref:'/connectivity',updatedAt:this.iso(e.updatedAt||e.createdAt)});
     }
 
+    const controlTasks=new Map<string,any>();
+    for(const b of bookings){
+      for(const t of (b.tasks||[])){
+        const match=String(t.title||'').match(/^\[OC:([^\]]+)\]/);
+        if(match)controlTasks.set(match[1],t);
+      }
+    }
+    for(const row of out.values()){
+      if(!row.taskId){
+        const t=controlTasks.get(row.id);
+        if(t){
+          row.taskId=String(t.id);
+          row.taskStatus=this.text(t.status)||'Open';
+          row.slaState=this.text(t.slaState)||this.taskSla(t.dueAt,t.status);
+          row.owner=this.text(t.ownerId)||row.owner;
+          row.due=this.iso(t.dueAt)||row.due;
+          row.queueMutable=true;
+        }else if(row.bookingId){
+          row.queueMutable=true;
+        }
+      }
+    }
+
     const rank:Record<Severity,number>={CRITICAL:0,HIGH:1,MEDIUM:2};
     const rows=[...out.values()].sort((a,b)=>rank[a.severity]-rank[b.severity]||((a.due?new Date(a.due).getTime():Number.MAX_SAFE_INTEGER)-(b.due?new Date(b.due).getTime():Number.MAX_SAFE_INTEGER))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
     const categoryCounts:Record<Category,number>={
@@ -185,7 +250,11 @@ export class OperationsControlService {
         open:rows.length,
         critical:rows.filter(r=>r.severity==='CRITICAL').length,
         high:rows.filter(r=>r.severity==='HIGH').length,
-        ...categoryCounts
+        ...categoryCounts,
+        queueOpen:rows.filter(r=>r.taskId&&this.upper(r.taskStatus)!=='COMPLETED').length,
+        queueOverdue:rows.filter(r=>this.upper(r.slaState)==='OVERDUE').length,
+        queueAtRisk:rows.filter(r=>this.upper(r.slaState)==='AT RISK'||this.upper(r.slaState)==='AT_RISK').length,
+        queueUnassigned:rows.filter(r=>r.taskId&&(!r.owner||r.owner==='Unassigned')).length
       },
       rows,
       filters:{
