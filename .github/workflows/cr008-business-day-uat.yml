@@ -1,0 +1,42 @@
+name: ANCLINE CR-008 Realistic Business Day UAT
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cr008-business-day-uat.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  business-day-uat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      WEB_URL: https://ancline-web-live.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve approved CR-008 API runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release-registry:refs/remotes/origin/release-registry
+          git show origin/release-registry:approved-digests.json > /tmp/approved.json
+          expected="$(jq -r '.current.api.commit' /tmp/approved.json)"
+          [[ "$expected" == "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6" ]] || { echo "Unexpected approved runtime $expected"; exit 1; }
+          echo "EXPECTED_API_COMMIT=$expected" >> "$GITHUB_ENV"
+      - name: Run complete jobs 50001-50005 realistic ECOM business day
+        run: node tools/job_done_final_business_day.mjs
+      - name: Upload realistic business-day evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ancline-cr008-business-day-uat
+          path: job-done-final-artifacts/
+          retention-days: 90
