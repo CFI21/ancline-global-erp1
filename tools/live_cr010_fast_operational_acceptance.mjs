@@ -74,6 +74,7 @@ try{
   // Global Admin forwarding portal gets internal job actions.
   await page.goto(WEB+'/customer-portal',{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForSelector('text=TOTAL SHIPMENTS',{timeout:15000});
+  await page.getByRole('link',{name:'Open Job'}).first().waitFor({state:'visible',timeout:15000});
   assert(await page.getByRole('link',{name:'Open Job'}).count()>0,'Global Admin Forwarding Open Job missing');
   assert(await page.getByRole('button',{name:'Quick View'}).count()>0,'Global Admin Forwarding Quick View missing');
   await page.getByRole('button',{name:'Quick View'}).first().click();
