@@ -1,0 +1,5 @@
+{
+  "changeRequest": "CR-20260924-010",
+  "reason": "Force revalidation after targeted Jobs Register async wait hardening",
+  "runtimeBusinessLogicChanged": false
+}
