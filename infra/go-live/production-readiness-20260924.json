@@ -1,0 +1,58 @@
+{
+  "schema": "ANCLINE_PRODUCTION_READINESS_V1",
+  "date": "2026-09-24",
+  "frozenBaseline": {
+    "crId": "CR-20260924-010",
+    "webCommit": "88e88e9c639fc205d7d83195f8c40822614cfe60",
+    "apiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "smartReleaseRunId": "36002995520",
+    "status": "FINAL_ACCEPTED_LOCKED"
+  },
+  "productionServices": {
+    "web": {
+      "service": "ancline-web-prod",
+      "status": "LIVE_EXISTING_BASELINE",
+      "autoDeploy": false
+    },
+    "api": {
+      "service": "ancline-api-prod",
+      "status": "NOT_OPERATIONAL",
+      "autoDeploy": false,
+      "reason": "DATABASE_URL missing; recent deploy/update attempts failed"
+    },
+    "trafficOpened": false
+  },
+  "infrastructure": {
+    "separateProductionPostgres": {
+      "status": "BLOCKED",
+      "reason": "Render free tier permits only one active free Postgres database; staging already uses it"
+    },
+    "separateProductionRedis": {
+      "status": "BLOCKED",
+      "reason": "Render free tier permits only one active free Key Value instance; staging already uses it"
+    },
+    "stagingDatabaseReuseProhibited": true,
+    "stagingRedisReuseProhibited": true,
+    "buildPipeline": {
+      "status": "BLOCKED_OR_LIMITED",
+      "reason": "Recent Render production logs show workspace build pipeline minutes exhausted"
+    }
+  },
+  "productionOnlyRequirements": {
+    "productionDatabase": "BLOCKED_PAID_RESOURCE_REQUIRED",
+    "productionRedis": "BLOCKED_PAID_RESOURCE_REQUIRED",
+    "databaseMigrationConnectivity": "NOT_RUN_NO_PRODUCTION_DATABASE",
+    "productionApiStartup": "FAIL_DATABASE_URL_MISSING",
+    "webApiProxy": "BLOCKED_API_NOT_OPERATIONAL",
+    "oidcSso": "NOT_PROVEN",
+    "objectStorage": "NOT_PROVEN",
+    "carrierProviderCredentials": "NOT_PROVEN",
+    "paymentBanking": "NOT_PROVEN_WHERE_REQUIRED",
+    "securityVulnerabilityReview": "NOT_PROVEN",
+    "backupRestoreDr": "NOT_PROVEN_ON_PRODUCTION_TIER",
+    "operationalHandover": "PENDING_FINAL_GO_LIVE_AUTHORIZATION"
+  },
+  "decision": "NOT_READY_FOR_FINAL_PRODUCTION_PROMOTION",
+  "productionPromotionAuthorized": false,
+  "nextRequiredDecision": "Explicit approval for paid separate production Postgres and Key Value resources, plus any external provider credentials/configuration required for production."
+}
