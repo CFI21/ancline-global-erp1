@@ -1,0 +1,5 @@
+{
+  "changeRequest": "CR-20260924-010",
+  "reason": "Force Web revalidation after verified role-browser timing hardening",
+  "runtimeBusinessLogicChanged": false
+}
