@@ -83,13 +83,13 @@ export default function JobsPage(){
     <div className="card" style={{marginBottom:12}}>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8}}>
         <input style={{...fieldStyle,minWidth:240}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search job ref, route, vessel…"/>
-        <select style={fieldStyle} value={model} onChange={e=>setModel(e.target.value)}><option value="ALL">All models</option><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></select>
-        <select style={fieldStyle} value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option>{statuses.map(x=><option key={x}>{x}</option>)}</select>
-        <select style={fieldStyle} value={party} onChange={e=>setParty(e.target.value)}><option value="ALL">All customers / parties</option>{parties.map(x=><option key={x}>{x}</option>)}</select>
-        <select style={fieldStyle} value={origin} onChange={e=>setOrigin(e.target.value)}><option value="ALL">All origins</option>{origins.map(x=><option key={x}>{x}</option>)}</select>
-        <select style={fieldStyle} value={destination} onChange={e=>setDestination(e.target.value)}><option value="ALL">All destinations</option>{destinations.map(x=><option key={x}>{x}</option>)}</select>
-        <select style={fieldStyle} value={carrier} onChange={e=>setCarrier(e.target.value)}><option value="ALL">All carriers</option>{carriers.map(x=><option key={x}>{x}</option>)}</select>
-        <select style={fieldStyle} value={attention} onChange={e=>setAttention(e.target.value)}><option value="ALL">All attention</option><option value="ACTION">Needs action</option><option value="CLEAR">Clear</option></select>
+        <select aria-label="Business Model" style={fieldStyle} value={model} onChange={e=>setModel(e.target.value)}><option value="ALL">All models</option><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></select>
+        <select aria-label="Status" style={fieldStyle} value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option>{statuses.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Customer / Party" style={fieldStyle} value={party} onChange={e=>setParty(e.target.value)}><option value="ALL">All customers / parties</option>{parties.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Origin" style={fieldStyle} value={origin} onChange={e=>setOrigin(e.target.value)}><option value="ALL">All origins</option>{origins.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Destination" style={fieldStyle} value={destination} onChange={e=>setDestination(e.target.value)}><option value="ALL">All destinations</option>{destinations.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Carrier" style={fieldStyle} value={carrier} onChange={e=>setCarrier(e.target.value)}><option value="ALL">All carriers</option>{carriers.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Attention" style={fieldStyle} value={attention} onChange={e=>setAttention(e.target.value)}><option value="ALL">All attention</option><option value="ACTION">Needs action</option><option value="CLEAR">Clear</option></select>
       </div>
     </div>
     <div className="card">
