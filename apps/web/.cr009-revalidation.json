@@ -1,0 +1,7 @@
+{
+  "schema": "ANCLINE_CR009_REVALIDATION_V1",
+  "changeRequest": "CR-20260924-009",
+  "reason": "Force Web rebuild after verified acceptance-test timing fix; no runtime business logic change.",
+  "baseline": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "productionPromotionAuthorized": false
+}
