@@ -188,11 +188,13 @@ try{
     assert(persisted.owner===reassigned,'queue owner did not persist');
     assert(String(persisted.slaState).toUpperCase()==='OVERDUE','queue SLA did not persist');
 
-    await page.reload({waitUntil:'domcontentloaded',timeout:60000}); await page.waitForTimeout(900);
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000});
     const ownerInput=page.locator('input[aria-label="Owner '+candidate.bookingNo+'"]').first();
+    await ownerInput.waitFor({state:'visible',timeout:15000});
     assert(await ownerInput.count()===1,'queue owner input missing after refresh');
     assert(await ownerInput.inputValue()===reassigned,'queue owner UI lost persistence after refresh');
     const statusSelect=page.locator('select[aria-label="Task status '+candidate.bookingNo+'"]').first();
+    await statusSelect.waitFor({state:'visible',timeout:15000});
     assert(await statusSelect.count()===1,'queue status control missing after refresh');
     assert(await statusSelect.inputValue()==='In Progress','queue status UI lost persistence after refresh');
 
