@@ -1,0 +1,36 @@
+{
+  "schema": "ANCLINE_FREE_PRODUCTION_DATA_LAYER_V1",
+  "project": "ANCLINE ERP1",
+  "repository": "CFI21/ancline-global-erp1",
+  "frozenBaseline": {
+    "cr": "CR-20260924-010",
+    "web": "88e88e9c639fc205d7d83195f8c40822614cfe60",
+    "api": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6"
+  },
+  "supabase": {
+    "projectName": "ANCLINE Production",
+    "projectRef": "wgxbvbcttxkdqmtdngmq",
+    "region": "eu-central-1",
+    "status": "ACTIVE_HEALTHY",
+    "baselineMigration": "20260924162531_ancline_production_baseline_20260922",
+    "applicationTables": 22,
+    "applicationRowsAtReadiness": 0
+  },
+  "redis": {
+    "requiredForCoreRuntime": false,
+    "decision": "NOT_ADDED",
+    "note": "REDIS_URL is optional for durable background-job readiness; core API database runtime does not require Redis."
+  },
+  "blocker": {
+    "id": "PRODUCTION_DATABASE_URL_SECRET",
+    "status": "MANUAL_SECRET_BINDING_REQUIRED",
+    "reason": "Supabase connector does not expose the database password/connection URI secret. Render production API cannot start without DATABASE_URL."
+  },
+  "securityGate": {
+    "id": "SUPABASE_PUBLIC_TABLE_RLS",
+    "status": "REVIEW_REQUIRED_BEFORE_EXTERNAL_DATA_API_USE",
+    "note": "Public tables currently have RLS disabled. Do not auto-enable without matching policies because that could block intended application access."
+  },
+  "productionTrafficOpened": false,
+  "finalPromotionAuthorized": false
+}
