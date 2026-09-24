@@ -422,9 +422,10 @@ try{
     assert(await page.locator('#new-booking').count()===1,'customer new booking form missing');
     assert(await page.locator('#new-booking input, #new-booking select, #new-booking button').count()>4,'customer forwarding form controls missing');
     const search=page.locator('input[placeholder*="Search booking"]'); assert(await search.count()===1,'customer shipment search missing');
-    await search.fill('50001'); await page.waitForTimeout(250);
-    const shipmentTable=page.locator('table.table').filter({hasText:'50001'}).last();
-    assert(await shipmentTable.count()===1,'customer shipment table not uniquely resolved');
+    await search.fill('50001');
+    const shipmentTable=page.locator('table.table').filter({hasText:'50001'}).first();
+    await shipmentTable.waitFor({state:'visible',timeout:15000});
+    assert(await shipmentTable.count()===1,'customer shipment table not resolved after scoped wait');
     assert((await shipmentTable.locator('tbody').innerText()).includes('50001'),'customer grid missing 50001');
     const track=page.getByRole('button',{name:'Track'}).first(); assert(await track.count()===1,'customer Track action missing');
     await track.click(); await page.waitForTimeout(250);
