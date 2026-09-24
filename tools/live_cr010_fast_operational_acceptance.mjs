@@ -39,6 +39,7 @@ try{
   // Dedicated Jobs filters + canonical records.
   await page.goto(WEB+'/jobs',{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForSelector('text=Jobs Register',{timeout:15000});
+  await page.getByText('50001',{exact:true}).first().waitFor({state:'visible',timeout:15000});
   for(const label of ['Business Model','Status','Customer / Party','Origin','Destination','Carrier','Attention']){
     assert(await page.getByLabel(label).count()===1,'missing dedicated filter '+label);
   }
