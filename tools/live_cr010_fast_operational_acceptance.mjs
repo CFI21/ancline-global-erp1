@@ -89,6 +89,7 @@ try{
   await session(cp,'test.customer.nl@ancline.invalid','CUSTOMER');
   await cp.goto(WEB+'/customer-portal',{waitUntil:'domcontentloaded',timeout:60000});
   await cp.waitForSelector('text=TOTAL SHIPMENTS',{timeout:15000});
+  await cp.getByText('50001',{exact:true}).first().waitFor({state:'visible',timeout:15000});
   assert(await cp.getByRole('link',{name:'Open Job'}).count()===0,'Customer exposed internal Open Job');
   assert(await cp.getByRole('button',{name:'Quick View'}).count()===0,'Customer exposed internal Job Quick View');
   await cctx.close();

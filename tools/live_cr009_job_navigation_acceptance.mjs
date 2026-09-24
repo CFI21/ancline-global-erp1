@@ -35,7 +35,8 @@ try{
   await establish(page,'test.admin@ancline.invalid','GLOBAL_ADMIN');
 
   await page.goto(WEB+'/jobs',{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForTimeout(900);
+  await page.getByText('50001',{exact:true}).first().waitFor({state:'visible',timeout:15000});
+  await page.getByText('50005',{exact:true}).first().waitFor({state:'visible',timeout:15000});
   let text=await page.locator('body').innerText();
   assert(text.includes('Jobs Register'),'Jobs Register heading missing');
   assert(text.includes('Single operational register across NVOCC + Global Forwarding'),'single-model statement missing');
@@ -53,19 +54,21 @@ try{
   assert(await qv.count()===1,'Carrier Payment quick-view button missing');
   await qv.click();
   const paymentFrame=page.locator('iframe.job-quick-frame');
+  await paymentFrame.waitFor({state:'visible',timeout:10000});
   assert(await paymentFrame.count()===1,'Carrier Payment quick-view frame missing');
   const src=await paymentFrame.getAttribute('src');
   assert(String(src).includes('/carrier-payment?bookingId='+encodeURIComponent(fwd.id)),'Carrier Payment quick-view route mismatch: '+src);
   await page.getByRole('button',{name:'Close quick view'}).click();
 
   await page.goto(WEB+'/nvocc-portal',{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForTimeout(900);
+  await page.getByText('50005',{exact:true}).first().waitFor({state:'visible',timeout:15000});
   text=await page.locator('body').innerText();
   assert(text.includes('50005'),'NVOCC register missing job 50005');
   assert(await page.getByRole('link',{name:'Open Job'}).count()>0,'NVOCC Open Job action missing');
   assert(await page.getByRole('button',{name:'Quick View'}).count()>0,'NVOCC Quick View action missing');
   await page.getByRole('button',{name:'Quick View'}).last().click();
   const nvFrame=page.locator('iframe.job-quick-frame');
+  await nvFrame.waitFor({state:'visible',timeout:10000});
   assert(await nvFrame.count()===1,'NVOCC quick-view frame missing');
   const nvSrc=await nvFrame.getAttribute('src');
   assert(String(nvSrc).includes('/bookings/')&&String(nvSrc).includes('embed=1'),'NVOCC Quick View does not reuse job workspace: '+nvSrc);
