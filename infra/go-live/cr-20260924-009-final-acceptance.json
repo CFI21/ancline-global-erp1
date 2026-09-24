@@ -1,0 +1,44 @@
+{
+  "schema": "ANCLINE_CR009_FINAL_ACCEPTANCE_V1",
+  "changeRequest": "CR-20260924-009",
+  "status": "FINAL_ACCEPTED",
+  "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+  "acceptedAt": "2026-09-24T00:26:49.321298+00:00",
+  "parentBaseline": {
+    "changeRequest": "CR-20260924-008",
+    "runtimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6"
+  },
+  "runtime": {
+    "webCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
+    "apiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "webDigest": "sha256:d9d5bb2c88ddcd406780102e33201b20d70925670455ce7d37131785da184faa",
+    "apiDigest": "sha256:29e2296f53bda74fa8dea58c5a5e5a41ce766a08edecc00401df72742bbc48ea"
+  },
+  "evidence": {
+    "smartReleaseRunId": 35937838770,
+    "uatRunId": "UAT-20260923235435-XWJOW",
+    "backupSha256": "282b57653def9fb7013fab275f9d17ece6449b8d5852445901e4d7d4de2e3b40",
+    "offPlatformArtifactSha256": "a38ec8776db4776c03bd501cc5167d5d197e11fcf5d50c1fc63a8578e53e7bb7"
+  },
+  "acceptanceMatrix": {
+    "baseline": "PASS",
+    "quality": "PASS",
+    "webBuild": "PASS",
+    "remoteGate": "PASS",
+    "roleBrowser": "PASS",
+    "responsiveAccessibility": "PASS",
+    "jobs50001To50005Navigation": "PASS",
+    "nvoccOpenJobQuickView": "PASS",
+    "carrierPaymentQuickView": "PASS",
+    "roleScope": "PASS",
+    "finalize": "PASS",
+    "evidence": "PASS"
+  },
+  "controls": {
+    "databaseMigration": false,
+    "newJobModel": false,
+    "apiModelChange": false,
+    "productionPromotion": false,
+    "newApprovedCRRequiredForRuntimeChange": true
+  }
+}

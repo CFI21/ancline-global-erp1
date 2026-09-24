@@ -1,13 +1,13 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260924-009",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED_LOCKED",
   "title": "Job Workspace + Cross-Module Navigation Consistency",
   "createdAt": "2026-09-24T01:46:00+02:00",
-  "approvalStatus": "APPROVED_FOR_STAGING_BUILD",
-  "buildAllowed": true,
-  "mergeAllowed": true,
-  "deploymentAllowed": true,
+  "approvalStatus": "FINAL_ACCEPTED",
+  "buildAllowed": false,
+  "mergeAllowed": false,
+  "deploymentAllowed": false,
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
   "frozenBaseline": {
@@ -189,12 +189,12 @@
   "estimatedChangeClass": "WEB_DOMINANT / NO_DB / NO_BUSINESS_LOGIC_CHANGE_PLANNED",
   "recommendedExecutionMode": "IMPACT_SCOPED_GOVERNED_BUILD_AFTER_APPROVAL_ONLY",
   "approvalRequiredBeforeBuild": true,
-  "note": "Approved for governed Web-only build, impact-scoped regression, jobs 50001-50005 UI/UAT, staging-only deployment and freeze on PASS. No production promotion. Gate metadata normalized: top-level regressionScopes mirrors the approved CR-009 impact plan.",
+  "note": "FINAL ACCEPTED: CR-009 fast-fix targeted acceptance PASS. Frozen staging-only baseline. Further runtime change requires a new approved CR.",
   "approvedAt": "2026-09-24T01:46:00+02:00",
   "approvedBy": "User command: ANCLINE CR-20260924-009 — APPROVE + GOVERNED BULK BUILD",
   "deploymentTarget": "STAGING_ONLY",
-  "frozen": false,
-  "activationBlocked": false,
+  "frozen": true,
+  "activationBlocked": true,
   "baselineWebCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
   "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
   "baselineStatus": "STAGING_ACCEPTED_LOCKED",
@@ -212,5 +212,49 @@
     "NVOCC_REGISTER_ACTIONS",
     "CROSS_MODULE_NAVIGATION",
     "CR008_SMOKE_REGRESSION"
-  ]
+  ],
+  "acceptedAt": "2026-09-24T00:26:49.321298+00:00",
+  "acceptedRuntime": {
+    "webCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
+    "apiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "webDigest": "sha256:d9d5bb2c88ddcd406780102e33201b20d70925670455ce7d37131785da184faa",
+    "apiDigest": "sha256:29e2296f53bda74fa8dea58c5a5e5a41ce766a08edecc00401df72742bbc48ea"
+  },
+  "acceptance": {
+    "smartReleaseRunId": 35937838770,
+    "status": "PASS",
+    "uatRunId": "UAT-20260923235435-XWJOW",
+    "baseline": "PASS",
+    "quality": "PASS",
+    "webBuild": "PASS",
+    "remoteGate": "PASS",
+    "roleBrowser": "PASS",
+    "responsiveAccessibility": "PASS",
+    "jobWorkspaceNavigationAcceptance": "PASS",
+    "finalize": "PASS",
+    "evidence": "PASS",
+    "recoveryTriggered": false,
+    "productionPromotionAuthorized": false
+  },
+  "finalFreeze": {
+    "status": "FINAL_ACCEPTED_LOCKED",
+    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+    "frozenAt": "2026-09-24T00:26:49.321298+00:00",
+    "parentBaseline": "CR-20260924-008",
+    "preservedApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+    "approvedWebCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
+    "scope": [
+      "Explicit /jobs register using existing Booking/Job data",
+      "Jobs navigation",
+      "Carrier Payment / Payer in JobContextRail + Quick View",
+      "NVOCC Open Job + Quick View"
+    ],
+    "invariants": [
+      "No second job model",
+      "No DB migration",
+      "No API model change",
+      "CR-008 privacy/workflow controls preserved",
+      "Production unchanged"
+    ]
+  }
 }
