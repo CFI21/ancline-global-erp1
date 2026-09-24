@@ -46,10 +46,10 @@ try{
 
   const fwd=byNo.get('50001');
   await page.goto(WEB+'/bookings/'+encodeURIComponent(fwd.id),{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForTimeout(700);
-  text=await page.locator('body').innerText();
-  assert(text.includes('Carrier Payment / Payer'),'JobContextRail Carrier Payment / Payer missing');
   const qv=page.locator('button[title="Quick View Carrier Payment / Payer"]');
+  await qv.waitFor({state:'visible',timeout:15000});
+  text=await page.locator('body').innerText();
+  assert(text.includes('Carrier Payment / Payer'),'JobContextRail Carrier Payment / Payer missing after workspace load');
   assert(await qv.count()===1,'Carrier Payment quick-view button missing');
   await qv.click();
   const paymentFrame=page.locator('iframe.job-quick-frame');
