@@ -1,260 +1,49 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260924-009",
-  "status": "STAGING_ACCEPTED_LOCKED",
-  "title": "Job Workspace + Cross-Module Navigation Consistency",
-  "createdAt": "2026-09-24T01:46:00+02:00",
-  "approvalStatus": "FINAL_ACCEPTED",
-  "buildAllowed": false,
-  "mergeAllowed": false,
-  "deploymentAllowed": false,
+  "id": "CR-20260924-010",
+  "status": "APPROVED",
+  "title": "Fast Operational Hardening — Job Workspace Business UI Consistency",
+  "createdAt": "2026-09-24T13:05:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING_BUILD",
+  "approvedBy": "User bulk authorization to follow recommended CR-010 path without per-step approvals",
+  "approvedAt": "2026-09-24T13:05:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
-  "frozenBaseline": {
-    "changeRequest": "CR-20260924-008",
-    "runtimeCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
-    "lockCommit": "33032afc7de505c076b474474d38e48b8e79ee0e",
-    "preservedRoot": {
-      "changeRequest": "CR-20260923-006",
-      "runtimeCommit": "bc37709e9b888410136213bee477630c3956b78d",
-      "lockCommit": "92c12c9f7d559831bb484275f7c978a3f32ed86a"
-    }
-  },
-  "businessRequirement": "Improve job workspace and cross-module navigation consistency without changing the existing booking/job data model or any frozen CR-008 business workflow.",
-  "requirements": [
-    "Add explicit Jobs register / Jobs navigation using the existing single Booking/Job data model.",
-    "Reuse the existing /bookings/{ID} Job Workspace as the only job detail workspace.",
-    "Add Carrier Payment / Payer Control to the JobContextRail Related Tasks section with Quick View support.",
-    "Add Open Job and Quick View actions to the NVOCC Booking Register.",
-    "Preserve all CR-008 UI, workflows, data structures, role/privacy boundaries, NVOCC, Global Forwarding, Finance, Payment, Release, Operations Control, Action Queue, SLA Automation, Notification Center, external communications and Control Tower."
-  ],
-  "nonGoals": [
-    "No second Job entity or table.",
-    "No duplication of Booking records.",
-    "No database migration.",
-    "No API schema change unless a verified gap makes one strictly necessary.",
-    "No change to booking creation, quote acceptance, finance, payment, release, document or closeout lifecycle.",
-    "No change to customer/KYC/carrier privacy rules.",
-    "No production deployment."
-  ],
-  "impactedModules": {
-    "web": [
-      {
-        "path": "apps/web/components/WorkspaceShell.tsx",
-        "impact": "Add explicit Jobs navigation item while preserving grouped menu/search behavior.",
-        "risk": "LOW"
-      },
-      {
-        "path": "apps/web/app/jobs/page.tsx",
-        "impact": "New presentation-only Jobs Register over existing /bookings API/data. No new job model.",
-        "risk": "MEDIUM"
-      },
-      {
-        "path": "apps/web/components/JobContextRail.tsx",
-        "impact": "Add Carrier Payment / Payer entry to Related Tasks + Quick View using existing /carrier-payment?bookingId= route.",
-        "risk": "LOW"
-      },
-      {
-        "path": "apps/web/app/nvocc-portal/page.tsx",
-        "impact": "Add Open Job and Quick View actions per NVOCC booking row, reusing /bookings/{id} and existing embed/Quick View convention.",
-        "risk": "LOW"
-      },
-      {
-        "path": "apps/web/app/bookings/page.tsx",
-        "impact": "Reference/source register remains unchanged; optional shared presentation helper reuse only.",
-        "risk": "LOW"
-      }
-    ],
-    "api": [
-      {
-        "path": "existing /bookings endpoints",
-        "impact": "No planned behavior change. Jobs Register reads existing booking/job data only.",
-        "risk": "NONE_PLANNED"
-      },
-      {
-        "path": "existing /carrier-payment endpoints",
-        "impact": "No planned behavior change; only navigation exposure from JobContextRail.",
-        "risk": "NONE_PLANNED"
-      },
-      {
-        "path": "existing /portal/nvocc/bookings endpoints",
-        "impact": "No planned behavior change; NVOCC row actions use existing booking IDs.",
-        "risk": "NONE_PLANNED"
-      }
-    ]
-  },
-  "dataModelImpact": {
-    "databaseMigration": false,
-    "newTables": false,
-    "duplicateJobModel": false,
-    "bookingRemainsCanonicalJobRecord": true,
-    "jobReferenceRule": "Existing 5-digit bookingNo/job ref remains canonical."
-  },
-  "rolePrivacyImpact": {
-    "internalRoles": [
-      "GLOBAL_ADMIN",
-      "CONTROL_TOWER",
-      "BRANCH_OPS",
-      "FINANCE"
-    ],
-    "externalRoles": [
-      "AGENT",
-      "CUSTOMER",
-      "SHIPPER",
-      "CONSIGNEE"
-    ],
-    "rules": [
-      "Jobs navigation must not broaden data scope beyond existing /bookings authorization.",
-      "NVOCC Open Job/Quick View must preserve Agent/Branch/Global Admin NVOCC scope.",
-      "Carrier Payment/Payer Quick View must continue enforcing existing internal/Forwarding authorization and customer/KYC privacy.",
-      "No external role may gain internal finance, carrier buy-rate, Control Tower, SLA or KYC visibility."
-    ]
-  },
-  "uiBehavior": {
-    "jobsRegister": {
-      "source": "Existing /bookings data",
-      "route": "/jobs",
-      "semantics": "Operational Jobs view across NVOCC + Forwarding, not a second source of truth.",
-      "actions": [
-        "Open Job",
-        "Quick View"
-      ],
-      "filters": [
-        "Job Ref",
-        "Model",
-        "Status",
-        "Customer/Party",
-        "Origin",
-        "Destination",
-        "Carrier",
-        "Attention"
-      ],
-      "detailTarget": "/bookings/{id}"
-    },
-    "jobContextRail": {
-      "add": {
-        "key": "PAYMENT",
-        "label": "Carrier Payment / Payer",
-        "href": "/carrier-payment?bookingId={id}",
-        "quickView": true
-      }
-    },
-    "nvoccRegister": {
-      "actions": [
-        "Open Job",
-        "Quick View"
-      ],
-      "openJobTarget": "/bookings/{id}",
-      "quickViewTarget": "/bookings/{id}?embed=1"
-    }
-  },
-  "regressionPlan": {
-    "requiredScopes": [
-      "WEB_BUILD",
-      "FROZEN_SIDEBAR_GUARD",
-      "JOBS_REGISTER_UI",
-      "JOB_CONTEXT_RAIL_NAVIGATION",
-      "NVOCC_REGISTER_ACTIONS",
-      "ROLE_BROWSER_UAT",
-      "RESPONSIVE_ACCESSIBILITY",
-      "CROSS_MODULE_NAVIGATION",
-      "CR008_SMOKE_REGRESSION"
-    ],
-    "tests": [
-      "Verify /jobs renders the same underlying NVOCC and Forwarding records as /bookings with no duplicated records.",
-      "Verify 5-digit jobs 50001–50005 are visible and open /bookings/{id}.",
-      "Verify Jobs menu search and grouped sidebar remain stable on desktop/tablet/mobile.",
-      "Verify JobContextRail includes Carrier Payment / Payer and its Quick View iframe opens the existing carrier-payment route with bookingId.",
-      "Verify Carrier Payment / Payer Quick View preserves existing Forwarding-only behavior and does not expose customer/KYC data.",
-      "Verify NVOCC Booking Register Open Job navigates to the existing job workspace.",
-      "Verify NVOCC Quick View opens embedded /bookings/{id} without replacing the portal page.",
-      "Verify Agent NVOCC scope cannot open out-of-scope jobs.",
-      "Verify CUSTOMER/SHIPPER/CONSIGNEE do not gain internal Jobs navigation unless already permitted by the existing frozen role model.",
-      "Verify existing Booking Register, Booking Control, NVOCC Portal and Global Forwarding Portal remain unchanged in business behavior.",
-      "Verify Finance, Documents, Payment, Release, Operations Control, Action Queue, SLA, Notifications and external communications smoke tests remain PASS.",
-      "Verify no database migration and no new API model/table is introduced.",
-      "Verify no production promotion."
-    ],
-    "acceptanceCriteria": [
-      "One canonical Booking/Job data model remains in use.",
-      "Jobs is a navigation/register view only.",
-      "All Open Job actions resolve to /bookings/{id}.",
-      "Carrier Payment/Payer is available in JobContextRail Related Tasks and Quick View.",
-      "NVOCC Booking Register exposes Open Job and Quick View without widening NVOCC role scope.",
-      "No CR-008 workflow, privacy, finance, payment, release, notification or communication regression.",
-      "Responsive and accessibility regression passes.",
-      "Production remains unchanged."
-    ]
-  },
-  "estimatedChangeClass": "WEB_DOMINANT / NO_DB / NO_BUSINESS_LOGIC_CHANGE_PLANNED",
-  "recommendedExecutionMode": "IMPACT_SCOPED_GOVERNED_BUILD_AFTER_APPROVAL_ONLY",
-  "approvalRequiredBeforeBuild": true,
-  "note": "FINAL ACCEPTED: CR-009 fast-fix targeted acceptance PASS. Frozen staging-only baseline. Further runtime change requires a new approved CR.",
-  "approvedAt": "2026-09-24T01:46:00+02:00",
-  "approvedBy": "User command: ANCLINE CR-20260924-009 — APPROVE + GOVERNED BULK BUILD",
-  "deploymentTarget": "STAGING_ONLY",
-  "frozen": true,
-  "activationBlocked": true,
-  "baselineWebCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "frozen": false,
+  "activationBlocked": false,
+  "baselineWebCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
   "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
-  "baselineStatus": "STAGING_ACCEPTED_LOCKED",
+  "parentBaseline": "CR-20260924-009",
   "components": [
     "web"
   ],
-  "autoRollbackOnFailure": true,
-  "freezeOnPass": true,
+  "requirements": [
+    "Show Carrier Payment / Payer in JobContextRail for FORWARDING jobs only; hide for NVOCC.",
+    "Complete /jobs with dedicated Customer/Party, Origin, Destination and Carrier filters.",
+    "Add JobContextRail to full Carrier Payment / Payer page while suppressing nested rail in embed=1 Quick View.",
+    "Add GLOBAL_ADMIN-only Open Job and Quick View actions to Global Forwarding portal rows."
+  ],
+  "invariants": [
+    "Reuse existing canonical Booking/Job model.",
+    "No database migration.",
+    "No API model change.",
+    "Preserve CR-009 roles/privacy/workflows.",
+    "No production deployment."
+  ],
   "regressionScopes": [
     "WEB_BUILD",
     "ROLE_BROWSER_UAT",
     "RESPONSIVE_FAILURE_ACCESSIBILITY",
     "JOBS_REGISTER_UI",
     "JOB_CONTEXT_RAIL_NAVIGATION",
-    "NVOCC_REGISTER_ACTIONS",
-    "CROSS_MODULE_NAVIGATION",
-    "CR008_SMOKE_REGRESSION"
+    "FORWARDING_PORTAL_INTERNAL_ACTIONS",
+    "CR009_SMOKE_REGRESSION"
   ],
-  "acceptedAt": "2026-09-24T00:26:49.321298+00:00",
-  "acceptedRuntime": {
-    "webCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
-    "apiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
-    "webDigest": "sha256:d9d5bb2c88ddcd406780102e33201b20d70925670455ce7d37131785da184faa",
-    "apiDigest": "sha256:29e2296f53bda74fa8dea58c5a5e5a41ce766a08edecc00401df72742bbc48ea"
-  },
-  "acceptance": {
-    "smartReleaseRunId": 35937838770,
-    "status": "PASS",
-    "uatRunId": "UAT-20260923235435-XWJOW",
-    "baseline": "PASS",
-    "quality": "PASS",
-    "webBuild": "PASS",
-    "remoteGate": "PASS",
-    "roleBrowser": "PASS",
-    "responsiveAccessibility": "PASS",
-    "jobWorkspaceNavigationAcceptance": "PASS",
-    "finalize": "PASS",
-    "evidence": "PASS",
-    "recoveryTriggered": false,
-    "productionPromotionAuthorized": false
-  },
-  "finalFreeze": {
-    "status": "FINAL_ACCEPTED_LOCKED",
-    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
-    "frozenAt": "2026-09-24T00:26:49.321298+00:00",
-    "parentBaseline": "CR-20260924-008",
-    "preservedApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
-    "approvedWebCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
-    "scope": [
-      "Explicit /jobs register using existing Booking/Job data",
-      "Jobs navigation",
-      "Carrier Payment / Payer in JobContextRail + Quick View",
-      "NVOCC Open Job + Quick View"
-    ],
-    "invariants": [
-      "No second job model",
-      "No DB migration",
-      "No API model change",
-      "CR-008 privacy/workflow controls preserved",
-      "Production unchanged"
-    ]
-  }
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "User authorized governed staging-only fast path without per-step approval. Auto-fix verified CR-010 gaps; production remains explicitly prohibited."
 }
