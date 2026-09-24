@@ -614,6 +614,10 @@ jobs:
         name: Job workspace navigation acceptance
         run: node tools/live_cr009_job_navigation_acceptance.mjs
 
+      - if: needs.changes.outputs.web == 'true'
+        name: CR-010 fast operational acceptance
+        run: node tools/live_cr010_fast_operational_acceptance.mjs
+
       - name: Write impact regression evidence
         shell: bash
         run: |

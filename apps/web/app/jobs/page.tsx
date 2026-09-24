@@ -17,6 +17,10 @@ export default function JobsPage(){
   const [search,setSearch]=useState('');
   const [model,setModel]=useState('ALL');
   const [status,setStatus]=useState('ALL');
+  const [party,setParty]=useState('ALL');
+  const [origin,setOrigin]=useState('ALL');
+  const [destination,setDestination]=useState('ALL');
+  const [carrier,setCarrier]=useState('ALL');
   const [attention,setAttention]=useState('ALL');
   const [message,setMessage]=useState('');
   const [modal,setModal]=useState<Booking|null>(null);
@@ -41,6 +45,10 @@ export default function JobsPage(){
   }
 
   const statuses=useMemo(()=>Array.from(new Set(rows.map(x=>String(x.status||'')).filter(Boolean))).sort(),[rows]);
+  const parties=useMemo(()=>Array.from(new Set(rows.map(x=>x.customer?.name||x.producingAgent?.name||'').filter(Boolean))).sort(),[rows]);
+  const origins=useMemo(()=>Array.from(new Set(rows.map(x=>x.origin).filter(Boolean))).sort(),[rows]);
+  const destinations=useMemo(()=>Array.from(new Set(rows.map(x=>x.destination).filter(Boolean))).sort(),[rows]);
+  const carriers=useMemo(()=>Array.from(new Set(rows.map(x=>x.carrier||'').filter(Boolean))).sort(),[rows]);
   const needsAttention=(b:Booking)=>{
     const bad=(v?:string)=>v&&['HOLD','BLOCKED','MISSING','REJECTED','FAILED','OVERDUE','PENDING'].includes(String(v).toUpperCase());
     return Boolean(bad(b.creditStatus)||bad(b.slotStatus)||bad(b.equipmentStatus)||['EXCEPTION','ON_HOLD','BLOCKED'].includes(String(b.status||'').toUpperCase()));
@@ -50,10 +58,14 @@ export default function JobsPage(){
     return rows.filter(b=>
       (model==='ALL'||String(b.businessModel||'NVOCC').toUpperCase()===model)&&
       (status==='ALL'||b.status===status)&&
+      (party==='ALL'||(b.customer?.name||b.producingAgent?.name||'')===party)&&
+      (origin==='ALL'||b.origin===origin)&&
+      (destination==='ALL'||b.destination===destination)&&
+      (carrier==='ALL'||(b.carrier||'')===carrier)&&
       (attention==='ALL'||(attention==='ACTION'&&needsAttention(b))||(attention==='CLEAR'&&!needsAttention(b)))&&
       (!q||[b.bookingNo,b.businessModel,b.status,b.customer?.name,b.producingAgent?.name,b.origin,b.destination,b.carrier,b.vesselVoyage,b.equipment,b.shipmentNo].some(v=>String(v||'').toLowerCase().includes(q)))
     );
-  },[rows,search,model,status,attention]);
+  },[rows,search,model,status,party,origin,destination,carrier,attention]);
 
   return <WorkspaceShell
     title="Jobs"
@@ -69,11 +81,15 @@ export default function JobsPage(){
       <div className="card"><div className="sub">NEEDS ACTION</div><div className="kpi">{rows.filter(needsAttention).length}</div></div>
     </div>
     <div className="card" style={{marginBottom:12}}>
-      <div style={{display:'grid',gridTemplateColumns:'minmax(240px,2fr) repeat(3,minmax(145px,1fr))',gap:8}}>
-        <input style={fieldStyle} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search job ref, customer, route, carrier, vessel…"/>
-        <select style={fieldStyle} value={model} onChange={e=>setModel(e.target.value)}><option value="ALL">All models</option><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></select>
-        <select style={fieldStyle} value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option>{statuses.map(x=><option key={x}>{x}</option>)}</select>
-        <select style={fieldStyle} value={attention} onChange={e=>setAttention(e.target.value)}><option value="ALL">All attention</option><option value="ACTION">Needs action</option><option value="CLEAR">Clear</option></select>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8}}>
+        <input style={{...fieldStyle,minWidth:240}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search job ref, route, vessel…"/>
+        <select aria-label="Business Model" style={fieldStyle} value={model} onChange={e=>setModel(e.target.value)}><option value="ALL">All models</option><option value="NVOCC">NVOCC</option><option value="FORWARDING">Forwarding</option></select>
+        <select aria-label="Status" style={fieldStyle} value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option>{statuses.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Customer / Party" style={fieldStyle} value={party} onChange={e=>setParty(e.target.value)}><option value="ALL">All customers / parties</option>{parties.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Origin" style={fieldStyle} value={origin} onChange={e=>setOrigin(e.target.value)}><option value="ALL">All origins</option>{origins.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Destination" style={fieldStyle} value={destination} onChange={e=>setDestination(e.target.value)}><option value="ALL">All destinations</option>{destinations.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Carrier" style={fieldStyle} value={carrier} onChange={e=>setCarrier(e.target.value)}><option value="ALL">All carriers</option>{carriers.map(x=><option key={x}>{x}</option>)}</select>
+        <select aria-label="Attention" style={fieldStyle} value={attention} onChange={e=>setAttention(e.target.value)}><option value="ALL">All attention</option><option value="ACTION">Needs action</option><option value="CLEAR">Clear</option></select>
       </div>
     </div>
     <div className="card">

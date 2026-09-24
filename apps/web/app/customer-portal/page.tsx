@@ -16,8 +16,10 @@ function transitState(b:Booking){const code=String(b.latestMovement?.eventCode||
 
 export default function CustomerPortal(){
   const [rows,setRows]=useState<Booking[]>([]),[err,setErr]=useState(''),[search,setSearch]=useState(''),[selected,setSelected]=useState<string>('');
+  const [jobQuick,setJobQuick]=useState<Booking|null>(null);
   const [loading,setLoading]=useState(true);const user=currentUser();const portalRole=String(user?.role||'CUSTOMER').toUpperCase() as 'CUSTOMER'|'SHIPPER'|'CONSIGNEE'|'AGENT'|'GLOBAL_ADMIN';const agentForwarding=portalRole==='AGENT'&&Array.isArray(user?.permissions)&&user.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE');
   useEffect(()=>{const token=requireToken();if(!token)return;const u=currentUser();if(u?.role&&!['CUSTOMER','SHIPPER','CONSIGNEE','GLOBAL_ADMIN'].includes(String(u.role))&&!(String(u.role)==='AGENT'&&Array.isArray(u?.permissions)&&u.permissions.includes('FORWARDING_DIRECT_COLOAD_CROSS_TRADE'))){location.replace('/');return;}api('/portal/bookings',token).then(x=>setRows(Array.isArray(x)?x:[])).catch(e=>setErr(e.message)).finally(()=>setLoading(false));},[]);
+  useEffect(()=>{if(!jobQuick)return;const close=(e:KeyboardEvent)=>{if(e.key==='Escape')setJobQuick(null);};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[jobQuick]);
   const visible=useMemo(()=>{const q=search.trim().toLowerCase();return rows.filter(b=>!q||[b.bookingNo,b.origin,b.destination,b.status,b.carrier,b.vesselVoyage,b.houseBL,b.masterBL,b.customer?.name,b.latestMovement?.eventLabel,b.latestMovement?.location,...(b.containers||[]).map(c=>c.containerNo)].some(v=>String(v||'').toLowerCase().includes(q)));},[rows,search]);
   const active=rows.filter(b=>!['FINANCIALLY_CLOSED','CANCELLED'].includes(String(b.status).toUpperCase())).length;
   const inTransit=rows.filter(transitState).length;
@@ -40,7 +42,17 @@ export default function CustomerPortal(){
     <div id="new-booking"><PortalRateBooking token={requireToken()||''} role={portalRole} onBooked={()=>location.reload()}/></div>
     <div className="grid" style={{marginBottom:12}}><div className="card"><div className="sub">TOTAL SHIPMENTS</div><div className="kpi">{loading?'…':rows.length}</div></div><div className="card"><div className="sub">ACTIVE</div><div className="kpi">{loading?'…':active}</div></div><div className="card"><div className="sub">IN TRANSIT</div><div className="kpi">{loading?'…':inTransit}</div></div><div className="card"><div className="sub">RELEASED DOCUMENTS</div><div className="kpi">{loading?'…':releasedDocs}</div></div></div>
     <div className="card" style={{marginBottom:12}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search booking, B/L, vessel, route, status or container" style={{width:'100%',maxWidth:520,padding:9,border:'1px solid #cfd9e2',borderRadius:6}}/></div>
-    <div className="card"><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Route</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Latest Event</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(b=><tr key={b.id}><td><b>{b.bookingNo}</b><div className="sub">{b.houseBL||b.masterBL||''}</div></td><td>{b.origin} → {b.destination}</td><td>{b.vesselVoyage||'-'}<div className="sub">{b.carrier||''}</div></td><td>{fmtDate(b.atd||b.etd)}</td><td>{fmtDate(b.ata||b.eta)}</td><td>{b.latestMovement?.eventLabel||'-'}<div className="sub">{b.latestMovement?.location||''}</div></td><td><span className="status">{b.status}</span></td><td><button className="btn" onClick={()=>setSelected(selected===b.id?'':b.id)}>{selected===b.id?'Close':'Track'}</button></td></tr>)}{!loading&&visible.length===0&&<tr><td colSpan={8}>No shipments found.</td></tr>}</tbody></table></div></div>
+    <div className="card"><div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>Booking</th><th>Route</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th>Latest Event</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visible.map(b=><tr key={b.id}><td><b>{b.bookingNo}</b><div className="sub">{b.houseBL||b.masterBL||''}</div></td><td>{b.origin} → {b.destination}</td><td>{b.vesselVoyage||'-'}<div className="sub">{b.carrier||''}</div></td><td>{fmtDate(b.atd||b.etd)}</td><td>{fmtDate(b.ata||b.eta)}</td><td>{b.latestMovement?.eventLabel||'-'}<div className="sub">{b.latestMovement?.location||''}</div></td><td><span className="status">{b.status}</span></td><td><div style={{display:'flex',gap:5,flexWrap:'wrap',minWidth:portalRole==='GLOBAL_ADMIN'?240:80}}><button className="btn" onClick={()=>setSelected(selected===b.id?'':b.id)}>{selected===b.id?'Close':'Track'}</button>{portalRole==='GLOBAL_ADMIN'&&<><a className="btn" href={'/bookings/'+b.id} style={{textDecoration:'none'}}>Open Job</a><button className="btn" type="button" onClick={()=>setJobQuick(b)}>Quick View</button></>}</div></td></tr>)}{!loading&&visible.length===0&&<tr><td colSpan={8}>No shipments found.</td></tr>}</tbody></table></div></div>
+
+    {jobQuick&&portalRole==='GLOBAL_ADMIN'&&<div className="job-quick-overlay" role="dialog" aria-modal="true" aria-label={'Job '+jobQuick.bookingNo} onMouseDown={e=>{if(e.target===e.currentTarget)setJobQuick(null);}}>
+      <div className="job-quick-modal">
+        <div className="job-quick-head">
+          <div><span>FORWARDING JOB QUICK VIEW</span><b>{jobQuick.bookingNo}</b></div>
+          <div className="job-quick-actions"><a href={'/bookings/'+jobQuick.id}>Open Full Job</a><button type="button" onClick={()=>setJobQuick(null)} aria-label="Close quick view">×</button></div>
+        </div>
+        <iframe src={'/bookings/'+jobQuick.id+'?embed=1'} title={'Forwarding job '+jobQuick.bookingNo+' quick view'} className="job-quick-frame"/>
+      </div>
+    </div>}
 
     <ExternalPortalCommunications />
 
