@@ -1,13 +1,13 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-24T00:26:49.321298+00:00",
+  "updatedAt": "2026-09-24T13:10:31.663257+00:00",
   "source": "smart-release-hardened",
   "current": {
     "web": {
-      "commit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
-      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
-      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-620e9e5d2b1b",
-      "digest": "sha256:d9d5bb2c88ddcd406780102e33201b20d70925670455ce7d37131785da184faa"
+      "commit": "88e88e9c639fc205d7d83195f8c40822614cfe60",
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-88e88e9c639fc205d7d83195f8c40822614cfe60",
+      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-88e88e9c639f",
+      "digest": "sha256:7eaf6f7329645a3ceef4b564af6c656e020546b5fbbaf921953f4acb7ab3caf8"
     },
     "api": {
       "commit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
@@ -17,6 +17,17 @@
     }
   },
   "history": [
+    {
+      "runId": "36002995520",
+      "approvedAt": "2026-09-24T13:10:31.663257+00:00",
+      "commit": "88e88e9c639fc205d7d83195f8c40822614cfe60",
+      "components": [
+        "web"
+      ],
+      "uatRunId": "UAT-20260924110910-6032U",
+      "backupSha256": "2fefa0a946f18dd72ef969210a3309a6aa2adab827e2b64f3c90e97741cdcee8",
+      "offPlatformArtifactSha256": "b50cc858e7c48f5d825f3e9d89267e7920b881876bcc77b4cd6ffef6863e2c01"
+    },
     {
       "runId": "35937838770",
       "approvedAt": "2026-09-24T00:26:49.321298+00:00",
@@ -506,18 +517,6 @@
       "uatRunId": "UAT-20260922174540-GGCE7",
       "backupSha256": "71c62cb0d5e5fc45e19485f36d3a4352a30a0436537365b95a5d207f36232986",
       "offPlatformArtifactSha256": "a153d2454293c5915d6fa2573096ab41a57a088169415a930e0d2d930283e687"
-    },
-    {
-      "runId": "35761155377",
-      "approvedAt": "2026-09-22T17:37:16.057173+00:00",
-      "commit": "8f43cf1e10dd409ff08e3876a3eea6acb5c8ae2c",
-      "components": [
-        "web",
-        "api"
-      ],
-      "uatRunId": "UAT-20260922173637-YUY66",
-      "backupSha256": "188ce38512e21bc5098d1f86084add37b6ca98fbe0e82033d7c535b5bac1afbc",
-      "offPlatformArtifactSha256": "c83aa39e909c9f4c05bd96c150a364075fa736d99b31956d64d81a277c4933a6"
     }
   ]
 }
