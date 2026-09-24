@@ -1,0 +1,49 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260924-010",
+  "status": "APPROVED",
+  "title": "Fast Operational Hardening — Job Workspace Business UI Consistency",
+  "createdAt": "2026-09-24T13:05:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING_BUILD",
+  "approvedBy": "User bulk authorization to follow recommended CR-010 path without per-step approvals",
+  "approvedAt": "2026-09-24T13:05:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "frozen": false,
+  "activationBlocked": false,
+  "baselineWebCommit": "620e9e5d2b1b3ac1a4c01989c2d19380ff0fc9ea",
+  "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "parentBaseline": "CR-20260924-009",
+  "components": [
+    "web"
+  ],
+  "requirements": [
+    "Show Carrier Payment / Payer in JobContextRail for FORWARDING jobs only; hide for NVOCC.",
+    "Complete /jobs with dedicated Customer/Party, Origin, Destination and Carrier filters.",
+    "Add JobContextRail to full Carrier Payment / Payer page while suppressing nested rail in embed=1 Quick View.",
+    "Add GLOBAL_ADMIN-only Open Job and Quick View actions to Global Forwarding portal rows."
+  ],
+  "invariants": [
+    "Reuse existing canonical Booking/Job model.",
+    "No database migration.",
+    "No API model change.",
+    "Preserve CR-009 roles/privacy/workflows.",
+    "No production deployment."
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "JOBS_REGISTER_UI",
+    "JOB_CONTEXT_RAIL_NAVIGATION",
+    "FORWARDING_PORTAL_INTERNAL_ACTIONS",
+    "CR009_SMOKE_REGRESSION"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "User authorized governed staging-only fast path without per-step approval. Auto-fix verified CR-010 gaps; production remains explicitly prohibited."
+}
