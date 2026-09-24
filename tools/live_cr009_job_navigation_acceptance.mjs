@@ -75,11 +75,12 @@ try{
   const ap=await actx.newPage();
   await establish(ap,'test.agent.sg@ancline.invalid','AGENT');
   await ap.goto(WEB+'/nvocc-portal',{waitUntil:'domcontentloaded',timeout:60000});
-  await ap.waitForTimeout(800);
+  const agentRow=ap.locator('table.table tbody tr').filter({hasText:'50005'}).first();
+  await agentRow.waitFor({state:'visible',timeout:15000});
   const agentText=await ap.locator('body').innerText();
   assert(agentText.includes('NVOCC Booking Register'),'Agent NVOCC register missing');
-  assert(await ap.getByRole('link',{name:'Open Job'}).count()>0,'Agent Open Job missing');
-  assert(await ap.getByRole('button',{name:'Quick View'}).count()>0,'Agent Quick View missing');
+  assert(await agentRow.getByRole('link',{name:'Open Job'}).count()===1,'Agent scoped 50005 Open Job missing');
+  assert(await agentRow.getByRole('button',{name:'Quick View'}).count()===1,'Agent scoped 50005 Quick View missing');
   await ap.goto(WEB+'/jobs',{waitUntil:'domcontentloaded',timeout:60000});
   await ap.waitForTimeout(900);
   assert(new URL(ap.url()).pathname!='/jobs','Agent gained internal Jobs Register');
