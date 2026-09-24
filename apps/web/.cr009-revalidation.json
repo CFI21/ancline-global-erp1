@@ -1,9 +1,9 @@
 {
   "schema": "ANCLINE_CR009_REVALIDATION_V1",
   "changeRequest": "CR-20260924-009",
-  "reason": "Force Web rebuild after verified customer shipment grid async acceptance wait hardening.",
+  "reason": "Force Web rebuild after verified Agent NVOCC scoped-row async acceptance wait hardening.",
   "baseline": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
   "productionPromotionAuthorized": false,
-  "rerun": 2,
-  "previousFailedRun": 35936412996
+  "rerun": 3,
+  "previousFailedRun": 35937087414
 }
