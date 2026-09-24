@@ -86,7 +86,7 @@ try{
   // External customer must not get internal job actions.
   const cctx=await browser.newContext({viewport:{width:1280,height:900}});
   const cp=await cctx.newPage();
-  await session(cp,'test.customer@ancline.invalid','CUSTOMER');
+  await session(cp,'test.customer.nl@ancline.invalid','CUSTOMER');
   await cp.goto(WEB+'/customer-portal',{waitUntil:'domcontentloaded',timeout:60000});
   await cp.waitForSelector('text=TOTAL SHIPMENTS',{timeout:15000});
   assert(await cp.getByRole('link',{name:'Open Job'}).count()===0,'Customer exposed internal Open Job');
