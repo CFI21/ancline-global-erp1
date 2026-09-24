@@ -3,6 +3,7 @@
 import {useEffect,useState} from 'react';
 import WorkspaceShell,{fieldStyle,labelStyle} from '../../components/WorkspaceShell';
 import JobFlowNav from '../../components/JobFlowNav';
+import JobContextRail from '../../components/JobContextRail';
 import {api,requireToken} from '../../lib/api';
 
 const GROUPS=[
@@ -46,6 +47,17 @@ export default function CarrierPaymentPage(){
   return <WorkspaceShell title="Carrier Payment / Payer Control" subtitle="FORWARDING ONLY · ANC-to-carrier settlement · customer commercial terms remain private to ANC" active="/carrier-payment" actions={<>{bookingId&&<a className="btn" href={'/bookings/'+bookingId} style={{textDecoration:'none'}}>Back to Booking</a>}<button className="btn" disabled={busy||!bookingId} onClick={save} >{busy?'Saving...':'Validate & Submit Carrier Booking'}</button></>}>
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
     {bookingId&&<JobFlowNav bookingId={bookingId} bookingNo={ctx?.booking?.bookingNo} active="PAYMENT"/>}
+    {bookingId&&ctx?.booking&&<JobContextRail
+      bookingId={bookingId}
+      bookingNo={ctx.booking.bookingNo}
+      active="PAYMENT"
+      customer={ctx.booking.customer?.name||''}
+      route={[ctx.booking.origin,ctx.booking.destination].filter(Boolean).join(' → ')}
+      carrier={ctx.booking.carrier||''}
+      vessel={ctx.booking.vesselVoyage||''}
+      equipment={ctx.booking.equipment?String(ctx.booking.quantity||1)+' × '+ctx.booking.equipment:''}
+      status={ctx.booking.shipmentStatus||ctx.booking.status||''}
+    />}
     {!bookingId&&<div className="card">Open Carrier Payment / Payer Control from a Forwarding booking.</div>}
     {ctx&&<>
       <div className="card" style={{marginBottom:12}}>
