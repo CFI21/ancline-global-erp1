@@ -22,6 +22,7 @@ type Props={
 type BookingContext={
   id?:string;
   bookingNo?:string;
+  businessModel?:string;
   customer?:{name?:string};
   customerId?:string;
   origin?:string;
@@ -86,13 +87,13 @@ export default function JobContextRail({
   ],[bookingId,q]);
   const taskPages=useMemo(()=>[
     ...pages.filter(p=>p.key!=='DETAILS'),
-    {key:'PAYMENT' as JobWorkspaceKey,label:'Carrier Payment / Payer',href:`/carrier-payment?${q}`},
+    ...(String(context?.businessModel||'NVOCC').toUpperCase()==='FORWARDING'?[{key:'PAYMENT' as JobWorkspaceKey,label:'Carrier Payment / Payer',href:`/carrier-payment?${q}`}]:[]),
     {key:'TRACKING' as JobWorkspaceKey,label:'Tracking',href:`/tracking?${q}`},
     {key:'EXCEPTIONS' as JobWorkspaceKey,label:'Exceptions',href:`/exceptions?${q}`},
     {key:'FINANCE' as JobWorkspaceKey,label:'Job Costing',href:`/finance?${q}`},
     {key:'TASKS' as JobWorkspaceKey,label:'Tasks',href:`/tasks?${q}`},
     {key:'APPROVALS' as JobWorkspaceKey,label:'Approvals',href:`/approvals?${q}`},
-  ],[pages,q]);
+  ],[pages,q,context?.businessModel]);
 
   if(embedded||!bookingId)return null;
 
