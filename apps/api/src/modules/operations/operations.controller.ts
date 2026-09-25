@@ -28,6 +28,7 @@ export class OperationsController {
   @Get('communication-center/preferences') communicationPreferences(@Req() req:any){return this.s.communicationPreferences(req.user);}
   @Patch('communication-center/preferences') updateCommunicationPreferences(@Body() body:any,@Req() req:any){return this.s.updateCommunicationPreferences(body,req.user);}
   @Get('closeout/:bookingId') closeout(@Param('bookingId') bookingId:string,@Req() req:any){return this.s.closeout(bookingId,req.user);}
+  @Get('closeout/:bookingId/readiness') closeoutReadiness(@Param('bookingId') bookingId:string,@Req() req:any){return this.s.closeoutReadiness(bookingId,req.user);}
   @Post('closeout/:bookingId/items/:itemId/toggle') toggleCloseout(@Param('bookingId') bookingId:string,@Param('itemId') itemId:string,@Req() req:any){return this.s.toggleCloseout(bookingId,itemId,req.user);}
   @Post('closeout/:bookingId/finalize') finalize(@Param('bookingId') bookingId:string,@Req() req:any){return this.s.finalizeCloseout(bookingId,req.user);}
 }
