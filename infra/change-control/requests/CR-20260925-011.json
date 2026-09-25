@@ -1,0 +1,54 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260925-011",
+  "status": "APPROVED",
+  "title": "Bulk Data Import + Update + Validate + Error Report + Audit Hardening",
+  "createdAt": "2026-09-25T22:40:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvedBy": "User explicit bulk-data master command authorization",
+  "approvedAt": "2026-09-25T22:40:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "frozen": false,
+  "activationBlocked": true,
+  "baselineWebCommit": "88e88e9c639fc205d7d83195f8c40822614cfe60",
+  "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
+  "parentBaseline": "CR-20260924-010",
+  "components": [
+    "web",
+    "api"
+  ],
+  "requirements": [
+    "Preserve existing bulk-data workspace and CSV templates with 1000-row batch limit.",
+    "Support explicit IMPORT, UPDATE and UPSERT modes for CUSTOMER, CARRIER, RATE and BOOKING.",
+    "Run preview and full preflight validation including duplicates, dependencies and mode-specific existence checks.",
+    "Provide row-level errors and warnings plus downloadable CSV error/execution report.",
+    "Keep all-or-nothing transaction rollback, batch history, actor/timestamp and audit trail.",
+    "Preserve carrier/customer privacy and existing role/data-scope controls."
+  ],
+  "invariants": [
+    "Preserve frozen CR-010 baseline as parent.",
+    "No database migration.",
+    "No new database table.",
+    "No API data-model contract break.",
+    "No production deployment or traffic activation.",
+    "Keep LIVE_PROVIDERS OFF and REAL_MONEY OFF."
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "BULK_DATA_IMPORT_UPDATE_UPSERT",
+    "BULK_DATA_VALIDATION_ROLLBACK_AUDIT"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "User explicitly authorized development/staging implementation and automatic in-scope fixes; production remains prohibited."
+}
