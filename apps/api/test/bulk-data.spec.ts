@@ -31,6 +31,8 @@ function mockPrisma(){
       update:async({where,data}:any)=>{const row=state.bookings.find(x=>x.bookingNo===where.bookingNo);if(!row)throw new Error('booking missing');Object.assign(row,clone(data));return row;}
     },
     integrationEvent:{
+      findFirst:async({where}:any)=>state.events.find(x=>(!where.sourceSystem||x.sourceSystem===where.sourceSystem)&&(!where.objectType||x.objectType===where.objectType)&&(!where.objectId||x.objectId===where.objectId)&&(!where.status||x.status===where.status))||null,
+      findMany:async({where}:any)=>state.events.filter(x=>(!where?.sourceSystem||x.sourceSystem===where.sourceSystem)&&(!where?.objectType||x.objectType===where.objectType)),
       deleteMany:async({where}:any)=>{state.events=state.events.filter(x=>!(x.sourceSystem===where.sourceSystem&&x.objectType===where.objectType&&x.objectId===where.objectId&&x.eventType===where.eventType));return {count:0};},
       create:async({data}:any)=>{const row={id:id(),...clone(data)};state.events.push(row);return row;}
     },
@@ -215,6 +217,59 @@ describe('BulkDataService safety and privacy',()=>{
     expect(result.committed).toBe(false);
     expect(state.organizations.filter(x=>x.code.startsWith('ROLL-'))).toHaveLength(0);
     expect(result.results[1].error).toContain('synthetic execution failure');
+  });
+
+  it('replays an identical client request id without duplicate writes',async()=>{
+    const {prisma,state}=mockPrisma();
+    const service=new BulkDataService(prisma);
+    const body={type:'CUSTOMER',mode:'IMPORT',clientRequestId:'BULKREQ-IDEMP-001',rows:[
+      {code:'IDEMP-01',name:'Idempotent Customer',countryCode:'NL'}
+    ]};
+    const first=await service.importRows(body,admin);
+    expect(first.committed).toBe(true);
+    expect(first.replayed).toBe(false);
+    expect(state.organizations.filter(x=>x.code==='IDEMP-01')).toHaveLength(1);
+
+    const retry=await service.importRows(body,admin);
+    expect(retry.committed).toBe(true);
+    expect(retry.replayed).toBe(true);
+    expect(state.organizations.filter(x=>x.code==='IDEMP-01')).toHaveLength(1);
+  });
+
+  it('rejects reuse of a client request id for different content',async()=>{
+    const {prisma}=mockPrisma();
+    const service=new BulkDataService(prisma);
+    await service.importRows({type:'CUSTOMER',mode:'IMPORT',clientRequestId:'BULKREQ-CONFLICT-001',rows:[
+      {code:'REQ-01',name:'First',countryCode:'NL'}
+    ]},admin);
+    await expect(service.importRows({type:'CUSTOMER',mode:'UPSERT',clientRequestId:'BULKREQ-CONFLICT-001',rows:[
+      {code:'REQ-02',name:'Different',countryCode:'NL'}
+    ]},admin)).rejects.toThrow('already used for a different bulk request');
+  });
+
+  it('reconciles business keys by dataset and role',async()=>{
+    const {prisma}=mockPrisma();
+    const service=new BulkDataService(prisma);
+    await service.importRows({type:'CUSTOMER',mode:'IMPORT',rows:[
+      {code:'REC-CUST-01',name:'Reconcile Customer',countryCode:'NL'}
+    ]},admin);
+    const result=await service.reconcile({type:'CUSTOMER',keys:['REC-CUST-01','REC-MISSING']},admin);
+    expect(result.total).toBe(2);
+    expect(result.matched).toBe(1);
+    expect(result.missing).toBe(1);
+    expect(result.results.find((x:any)=>x.key==='REC-CUST-01').exists).toBe(true);
+    expect(result.results.find((x:any)=>x.key==='REC-MISSING').exists).toBe(false);
+  });
+
+  it('accepts 1000 rows but rejects 1001 rows before writes',async()=>{
+    const {prisma,state}=mockPrisma();
+    const service=new BulkDataService(prisma);
+    const thousand=Array.from({length:1000},(_,i)=>({code:'LOAD-'+String(i+1).padStart(4,'0'),name:'Load '+i,countryCode:'NL'}));
+    const validation=await service.validate({type:'CUSTOMER',mode:'IMPORT',rows:thousand},admin);
+    expect(validation.total).toBe(1000);
+    expect(validation.invalid).toBe(0);
+    await expect(service.validate({type:'CUSTOMER',mode:'IMPORT',rows:[...thousand,{code:'LOAD-1001',name:'Too Many',countryCode:'NL'}]},admin)).rejects.toThrow('Maximum 1000 rows');
+    expect(state.organizations).toHaveLength(0);
   });
 
 });
