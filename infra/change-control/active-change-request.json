@@ -1,19 +1,19 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260925-012",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED_LOCKED",
   "title": "Bulk Data Operational Hardening — Idempotency, Validation Gate, Reconciliation",
   "createdAt": "2026-09-25T22:55:00+02:00",
-  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvalStatus": "FINAL_ACCEPTED",
   "approvedBy": "User autonomous bulk-development authorization",
   "approvedAt": "2026-09-25T22:55:00+02:00",
-  "buildAllowed": true,
-  "mergeAllowed": true,
-  "deploymentAllowed": true,
+  "buildAllowed": false,
+  "mergeAllowed": false,
+  "deploymentAllowed": false,
   "deploymentTarget": "STAGING_ONLY",
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
-  "frozen": false,
+  "frozen": true,
   "activationBlocked": true,
   "baselineWebCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
   "baselineApiCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
@@ -49,5 +49,34 @@
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "Autonomous staging-only continuation. Safe in-scope fixes may be applied and retested without intermediate approval."
+  "note": "Autonomous staging-only continuation. Safe in-scope fixes may be applied and retested without intermediate approval.",
+  "acceptedAt": "2026-09-25T21:27:54Z",
+  "acceptedRuntime": {
+    "webCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+    "apiCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+    "webDigest": "sha256:35d079991d2b787851236d3813a61058514506b41a2e29da9919fe555e14c948",
+    "apiDigest": "sha256:1cd840f8f313bbb0b0019b603581372c2ca5e924c28d99dcbafb6694c9429a49"
+  },
+  "acceptance": {
+    "smartReleaseRunId": "36190259795",
+    "status": "PASS",
+    "uatRunId": "UAT-20260925211708-YD85C",
+    "backupStatus": "PASS",
+    "backupSha256": "b7a0c0002bbda2790dcb022b9e3813634903102727aef66415b869fff810633a",
+    "offPlatformArtifactSha256": "d1bdaa75bc11951598a2a8a6d7cfaa7011bf3283ca38a5ed54f5e6d1f1919f44",
+    "quality": "PASS",
+    "remoteGate": "PASS",
+    "impactRegression": "PASS",
+    "finalize": "PASS",
+    "evidence": "PASS",
+    "recoveryTriggered": false
+  },
+  "finalFreeze": {
+    "status": "FINAL_ACCEPTED_LOCKED",
+    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+    "parentBaseline": "CR-20260925-011",
+    "approvedWebCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+    "approvedApiCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+    "productionUnchanged": true
+  }
 }
