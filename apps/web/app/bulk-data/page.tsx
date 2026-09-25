@@ -6,10 +6,11 @@ import {api,currentUser,requireToken} from '../../lib/api';
 
 type Kind='CUSTOMER'|'CARRIER'|'RATE'|'BOOKING';
 type Mode='IMPORT'|'UPDATE'|'UPSERT';
-type Template={required:string[];headers:string[];example:Record<string,any>};
-type Templates={maxRows:number;importOrder:string[];privacyRule:string;templates:Record<Kind,Template>};
+type Template={keyField:string;required:string[];headers:string[];example:Record<string,any>};
+type Templates={templateVersion?:string;maxRows:number;importOrder:string[];privacyRule:string;templates:Record<Kind,Template>};
 
 function csvEscape(v:any){const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function makeRequestId(){return 'BULKREQ-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();}
 function parseCsv(text:string){
   const rows:string[][]=[];let row:string[]=[],cell='',quoted=false;
   for(let i=0;i<text.length;i++){
@@ -20,9 +21,9 @@ function parseCsv(text:string){
     else cell+=c;
   }
   row.push(cell);if(row.some(x=>x.trim()!==''))rows.push(row);
-  if(rows.length<2)return [];
+  if(rows.length<2)return {headers:rows[0]?.map(x=>x.trim())||[],rows:[]};
   const headers=rows[0].map(x=>x.trim());
-  return rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,String(r[i]??'').trim()])));
+  return {headers,rows:rows.slice(1).map(r=>Object.fromEntries(headers.map((h,i)=>[h,String(r[i]??'').trim()])))};
 }
 
 export default function BulkDataPage(){
@@ -33,6 +34,8 @@ export default function BulkDataPage(){
   const [rows,setRows]=useState<any[]>([]);
   const [validation,setValidation]=useState<any>(null);
   const [result,setResult]=useState<any>(null);
+  const [reconciliation,setReconciliation]=useState<any>(null);
+  const [clientRequestId,setClientRequestId]=useState(makeRequestId());
   const [history,setHistory]=useState<any[]>([]);
   const [testSummary,setTestSummary]=useState<any>(null);
   const [message,setMessage]=useState('');
@@ -50,9 +53,10 @@ export default function BulkDataPage(){
   const current=templates?.templates?.[kind];
   const preview=useMemo(()=>rows.slice(0,10),[rows]);
 
+  function resetRunState(){setValidation(null);setResult(null);setReconciliation(null);setClientRequestId(makeRequestId());}
   function loadExample(){
     if(!current)return;
-    setRows([current.example]);setValidation(null);setResult(null);setMessage('Loaded one synthetic example row. Add more rows by CSV upload as needed.');
+    setRows([current.example]);resetRunState();setMessage('Loaded one synthetic example row. Validate it before commit.');
   }
   function downloadTemplate(){
     if(!current)return;
@@ -60,7 +64,14 @@ export default function BulkDataPage(){
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ancline-'+kind.toLowerCase()+'-bulk-template.csv';a.click();URL.revokeObjectURL(url);
   }
   async function fileSelected(file?:File){
-    if(!file)return;const parsed=parseCsv(await file.text());setRows(parsed);setValidation(null);setResult(null);setMessage(parsed.length?parsed.length+' rows loaded from '+file.name:'No data rows found in CSV.');
+    if(!file||!current)return;
+    const parsed=parseCsv(await file.text());
+    const missing=current.required.filter(h=>!parsed.headers.includes(h));
+    const unexpected=parsed.headers.filter(h=>!current.headers.includes(h));
+    setRows(parsed.rows);resetRunState();
+    if(missing.length){setMessage('CSV loaded but required headers are missing: '+missing.join(', ')+'. Validation will not pass until corrected.');return;}
+    const extra=unexpected.length?' Unexpected headers: '+unexpected.join(', ')+'.':'';
+    setMessage(parsed.rows.length?parsed.rows.length+' rows loaded from '+file.name+'.'+extra:'No data rows found in CSV.');
   }
   async function validate(){
     if(!rows.length){setMessage('Load a CSV or example row first.');return;}setBusy(true);setMessage('');
@@ -68,9 +79,19 @@ export default function BulkDataPage(){
     catch(e:any){setMessage(e?.message||'Validation failed');}finally{setBusy(false);}
   }
   async function importRows(){
-    if(!rows.length){setMessage('Load data first.');return;}setBusy(true);setMessage('');
-    try{const r=await api('/bulk-data/import',token,{method:'POST',body:JSON.stringify({type:kind,mode,rows})});setResult(r);setValidation(null);setMessage(r.committed?('Bulk '+String(r.mode||mode).toLowerCase()+' '+r.batchId+': '+r.succeeded+' succeeded, '+r.failed+' failed.'):(r.message||'Import was not committed.'));await load();}
+    if(!rows.length){setMessage('Load data first.');return;}
+    if(!validation||validation.invalid>0||validation.total!==rows.length||validation.mode!==mode){setMessage('Run a clean validation for the current rows and mode before commit.');return;}
+    setBusy(true);setMessage('');
+    try{const r=await api('/bulk-data/import',token,{method:'POST',body:JSON.stringify({type:kind,mode,rows,clientRequestId})});setResult(r);setMessage(r.replayed?('Safe retry detected for '+r.batchId+'; no duplicate writes were made.'):(r.committed?('Bulk '+String(r.mode||mode).toLowerCase()+' '+r.batchId+': '+r.succeeded+' succeeded, '+r.failed+' failed.'):(r.message||'Import was not committed.')));await load();}
     catch(e:any){setMessage(e?.message||'Import failed');}finally{setBusy(false);}
+  }
+  async function reconcileRows(){
+    if(!rows.length||!current){setMessage('Load data first.');return;}
+    const keys=rows.map(r=>String(r?.[current.keyField]??'').trim()).filter(Boolean);
+    if(!keys.length){setMessage('No business keys are available for reconciliation.');return;}
+    setBusy(true);setMessage('');
+    try{const r=await api('/bulk-data/reconcile',token,{method:'POST',body:JSON.stringify({type:kind,keys})});setReconciliation(r);setMessage('Reconciliation complete: '+r.matched+' matched, '+r.missing+' missing.');}
+    catch(e:any){setMessage(e?.message||'Reconciliation failed');}finally{setBusy(false);}
   }
   function downloadErrorReport(){
     const source=validation?.results||result?.results||[];
@@ -84,6 +105,12 @@ export default function BulkDataPage(){
     ].map(csvEscape).join(','))].join('\n')+'\n';
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ancline-'+kind.toLowerCase()+'-'+mode.toLowerCase()+'-report.csv';a.click();URL.revokeObjectURL(url);
   }
+  function downloadReconciliationReport(){
+    const source=reconciliation?.results||[];
+    if(!source.length){setMessage('No reconciliation report available to download.');return;}
+    const csv=['key,exists,status',...source.map((x:any)=>[x.key,String(Boolean(x.exists)),x.status||''].map(csvEscape).join(','))].join('\n')+'\n';
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ancline-'+kind.toLowerCase()+'-reconciliation.csv';a.click();URL.revokeObjectURL(url);
+  }
   async function seedTest(){
     setBusy(true);setMessage('');
     try{const r=await api('/test-data/seed',token,{method:'POST'});setTestSummary(r);setMessage('Synthetic ANCLINE customer, carrier, rate and booking test pack seeded/refreshed.');await load();}
@@ -96,14 +123,14 @@ export default function BulkDataPage(){
     {!admin&&<div className="card" style={{marginBottom:12}}>Global Admin access is required for bulk imports.</div>}
     {templates&&<div className="card" style={{marginBottom:12,borderLeft:'4px solid #153a5d'}}>
       <b>Critical carrier privacy rule:</b> {templates.privacyRule}
-      <div className="sub" style={{marginTop:5}}>Recommended dependency order: {templates.importOrder.join(' → ')}. Maximum {templates.maxRows} rows per batch.</div>
+      <div className="sub" style={{marginTop:5}}>Recommended dependency order: {templates.importOrder.join(' → ')}. Maximum {templates.maxRows} rows per batch. Template version {templates.templateVersion||'1.0'}.</div>
     </div>}
 
     <div className="card" style={{marginBottom:12}}>
       <h3 style={sectionTitle}>1. Select dataset and load CSV</h3>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10,alignItems:'end'}}>
-        <label><span className="sub">Dataset</span><select style={fieldStyle} value={kind} onChange={e=>{setKind(e.target.value as Kind);setRows([]);setValidation(null);setResult(null);}}><option>CUSTOMER</option><option>CARRIER</option><option>RATE</option><option>BOOKING</option></select></label>
-        <label><span className="sub">Mode</span><select style={fieldStyle} value={mode} onChange={e=>{setMode(e.target.value as Mode);setValidation(null);setResult(null);}}><option value="IMPORT">IMPORT — create only</option><option value="UPDATE">UPDATE — existing only</option><option value="UPSERT">UPSERT — create or update</option></select></label>
+        <label><span className="sub">Dataset</span><select style={fieldStyle} value={kind} onChange={e=>{setKind(e.target.value as Kind);setRows([]);resetRunState();}}><option>CUSTOMER</option><option>CARRIER</option><option>RATE</option><option>BOOKING</option></select></label>
+        <label><span className="sub">Mode</span><select style={fieldStyle} value={mode} onChange={e=>{setMode(e.target.value as Mode);resetRunState();}}><option value="IMPORT">IMPORT — create only</option><option value="UPDATE">UPDATE — existing only</option><option value="UPSERT">UPSERT — create or update</option></select></label>
         <label><span className="sub">CSV file</span><input style={fieldStyle} type="file" accept=".csv,text/csv" onChange={e=>void fileSelected(e.target.files?.[0])}/></label>
         <button className="btn" onClick={downloadTemplate} disabled={!current}>Download CSV Template</button>
         <button className="btn" onClick={loadExample} disabled={!current}>Load Example Row</button>
@@ -113,17 +140,22 @@ export default function BulkDataPage(){
 
     <div className="card" style={{marginBottom:12}}>
       <h3 style={sectionTitle}>2. Preview and validate</h3>
-      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}><span className="status">{rows.length} rows loaded</span><button className="btn" disabled={busy||!rows.length||!admin} onClick={validate}>Validate</button><button className="btn" disabled={busy||!rows.length||!admin} onClick={importRows}>{mode==='IMPORT'?'Import New':mode==='UPDATE'?'Update Existing':'Import / Upsert'}</button><button className="btn" disabled={busy||(!validation&&!result)} onClick={downloadErrorReport}>Download Error Report</button></div>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}><span className="status">{rows.length} rows loaded</span><button className="btn" disabled={busy||!rows.length||!admin} onClick={validate}>Validate</button><button className="btn" disabled={busy||!rows.length||!admin} onClick={reconcileRows}>Reconcile Keys</button><button className="btn" disabled={busy||!rows.length||!admin||!validation||validation.invalid>0||validation.total!==rows.length||validation.mode!==mode} onClick={importRows}>{mode==='IMPORT'?'Import New':mode==='UPDATE'?'Update Existing':'Import / Upsert'}</button><button className="btn" disabled={busy||(!validation&&!result)} onClick={downloadErrorReport}>Download Error Report</button><button className="btn" disabled={busy||!reconciliation} onClick={downloadReconciliationReport}>Download Reconciliation</button></div>
       <div style={{overflowX:'auto'}}><table className="table"><thead><tr>{current?.headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>
         {preview.map((r,i)=><tr key={i}>{current?.headers.map(h=><td key={h}>{String(r[h]??'')}</td>)}</tr>)}
         {!rows.length&&<tr><td colSpan={Math.max(1,current?.headers.length||1)}>No rows loaded.</td></tr>}
       </tbody></table></div>
-      {rows.length>10&&<div className="sub" style={{marginTop:6}}>Preview shows first 10 of {rows.length} rows.</div>}
+      {rows.length>10&&<div className="sub" style={{marginTop:6}}>Preview shows first 10 of {rows.length} rows.</div>}<div className="sub" style={{marginTop:6}}>Commit remains locked until the current dataset and mode pass validation. Safe retries reuse request {clientRequestId}.</div>
     </div>
 
     {validation&&<div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Validation Result</h3>
       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span className="status">Mode {validation.mode||mode}</span><span className="status">Valid {validation.valid}</span><span className="status">Invalid {validation.invalid}</span></div>
       <div style={{overflowX:'auto',marginTop:8}}><table className="table"><thead><tr><th>Row</th><th>State</th><th>Errors</th><th>Warnings</th></tr></thead><tbody>{validation.results?.map((x:any)=><tr key={x.row}><td>{x.row}</td><td>{x.valid?'VALID':'INVALID'}</td><td>{x.errors?.join('; ')||'-'}</td><td>{x.warnings?.join('; ')||'-'}</td></tr>)}</tbody></table></div>
+    </div>}
+
+    {reconciliation&&<div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Reconciliation Result</h3>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span className="status">Matched {reconciliation.matched}</span><span className="status">Missing {reconciliation.missing}</span></div>
+      <div style={{overflowX:'auto',marginTop:8}}><table className="table"><thead><tr><th>Key</th><th>Exists</th><th>Status</th></tr></thead><tbody>{reconciliation.results?.map((x:any)=><tr key={x.key}><td>{x.key}</td><td>{String(Boolean(x.exists))}</td><td>{x.status||'-'}</td></tr>)}</tbody></table></div>
     </div>}
 
     {result&&<div className="card" style={{marginBottom:12}}><h3 style={sectionTitle}>Import Result {result.batchId||''}</h3>
