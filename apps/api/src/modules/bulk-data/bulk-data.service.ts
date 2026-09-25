@@ -7,6 +7,7 @@ const BOOKING_STATUSES=new Set(['DRAFT','RATE_REQUESTED','RATE_RECEIVED','RATE_A
 const KYC_STATUSES=new Set(['NOT_STARTED','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED']);
 
 type ImportType='CUSTOMER'|'CARRIER'|'RATE'|'BOOKING';
+type BulkMode='IMPORT'|'UPDATE'|'UPSERT';
 
 @Injectable()
 export class BulkDataService {
@@ -20,12 +21,15 @@ export class BulkDataService {
   private int(v:any,name:string){const n=this.num(v,name,false);if(n===null)return null;if(!Number.isInteger(n)||n<0)throw new Error(name+' must be a whole number');return n;}
   private date(v:any,name:string,required=false){if(v===undefined||v===null||this.text(v)===''){if(required)throw new Error(name+' is required');return null;}const d=new Date(v);if(Number.isNaN(d.getTime()))throw new Error(name+' is invalid');return d;}
   private type(v:any):ImportType{const t=this.upper(v).replace(/S$/,'') as ImportType;if(!['CUSTOMER','CARRIER','RATE','BOOKING'].includes(t))throw new BadRequestException('Type must be CUSTOMER, CARRIER, RATE or BOOKING');return t;}
+  private mode(v:any):BulkMode{const m=(this.upper(v)||'UPSERT') as BulkMode;if(!['IMPORT','UPDATE','UPSERT'].includes(m))throw new BadRequestException('Mode must be IMPORT, UPDATE or UPSERT');return m;}
+  private enforceMode(mode:BulkMode,exists:boolean,key:string){if(mode==='IMPORT'&&exists)throw new Error(key+' already exists; IMPORT mode only creates new records');if(mode==='UPDATE'&&!exists)throw new Error(key+' does not exist; UPDATE mode only changes existing records');}
   private rows(v:any){if(!Array.isArray(v))throw new BadRequestException('rows must be an array');if(!v.length)throw new BadRequestException('At least one row is required');if(v.length>MAX_ROWS)throw new BadRequestException('Maximum '+MAX_ROWS+' rows per import batch');return v;}
 
   templates(user:any){
     this.admin(user);
     return {
       maxRows:MAX_ROWS,
+      modes:['IMPORT','UPDATE','UPSERT'],
       importOrder:['CUSTOMER','CARRIER','RATE','BOOKING'],
       privacyRule:'Carrier-facing data created from bulk import never includes customer KYC, ANC customer reference, HBL or house parties.',
       templates:{
@@ -91,7 +95,7 @@ export class BulkDataService {
     return type==='CUSTOMER'||type==='CARRIER'?this.upper(row?.code):type==='RATE'?this.upper(row?.quoteNo):this.upper(row?.bookingNo);
   }
 
-  private async preflight(type:ImportType,rows:any[]){
+  private async preflight(type:ImportType,rows:any[],mode:BulkMode){
     const results=rows.map((r:any,i:number)=>this.syntax(type,r,i));
     const seen=new Map<string,number>();
     for(let i=0;i<rows.length;i++){
@@ -103,6 +107,27 @@ export class BulkDataService {
         if(!results[first].errors.includes(msg))results[first].errors.push(msg);
         results[i].errors.push(msg);
       }else seen.set(key,i);
+    }
+
+    const keys=Array.from(new Set(rows.map((r:any)=>this.rowKey(type,r)).filter(Boolean)));
+    let existingKeys=new Set<string>();
+    if(keys.length){
+      if(type==='CUSTOMER'||type==='CARRIER'){
+        const found=await this.db.organization.findMany({where:{code:{in:keys}},select:{code:true}});
+        existingKeys=new Set(found.map((x:any)=>this.upper(x.code)));
+      }else if(type==='RATE'){
+        const found=await this.db.rateQuote.findMany({where:{quoteNo:{in:keys}},select:{quoteNo:true}});
+        existingKeys=new Set(found.map((x:any)=>this.upper(x.quoteNo)));
+      }else{
+        const found=await this.db.booking.findMany({where:{bookingNo:{in:keys}},select:{bookingNo:true}});
+        existingKeys=new Set(found.map((x:any)=>this.upper(x.bookingNo)));
+      }
+      for(let i=0;i<rows.length;i++){
+        const key=this.rowKey(type,rows[i]);if(!key)continue;
+        const exists=existingKeys.has(key);
+        if(mode==='IMPORT'&&exists)results[i].errors.push(key+' already exists; IMPORT mode only creates new records');
+        if(mode==='UPDATE'&&!exists)results[i].errors.push(key+' does not exist; UPDATE mode only changes existing records');
+      }
     }
 
     if(type==='RATE'){
@@ -154,15 +179,16 @@ export class BulkDataService {
 
   async validate(body:any,user:any){
     this.admin(user);
-    const type=this.type(body?.type),rows=this.rows(body?.rows);
-    const results=await this.preflight(type,rows);
-    return {type,total:rows.length,valid:results.filter((x:any)=>x.valid).length,invalid:results.filter((x:any)=>!x.valid).length,results};
+    const type=this.type(body?.type),mode=this.mode(body?.mode),rows=this.rows(body?.rows);
+    const results=await this.preflight(type,rows,mode);
+    return {type,mode,total:rows.length,valid:results.filter((x:any)=>x.valid).length,invalid:results.filter((x:any)=>!x.valid).length,results};
   }
 
-  private async upsertCustomer(r:any,db:any=this.db){
+  private async upsertCustomer(r:any,mode:BulkMode,db:any=this.db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
     const existing=await db.organization.findUnique({where:{code}});
+    this.enforceMode(mode,Boolean(existing),'Customer '+code);
     const roles=Array.from(new Set([...(existing?.roles||[]),'CUSTOMER']));
     const kycStatus=this.upper(r.kycStatus)||existing?.kycStatus||'NOT_STARTED';
     if(!KYC_STATUSES.has(kycStatus))throw new Error('Invalid kycStatus');
@@ -179,10 +205,11 @@ export class BulkDataService {
     return {id:row.id,code:row.code,name:row.name,role:'CUSTOMER',kycStatus:row.kycStatus};
   }
 
-  private async upsertCarrier(r:any,db:any=this.db){
+  private async upsertCarrier(r:any,mode:BulkMode,db:any=this.db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
     const existing=await db.organization.findUnique({where:{code}});
+    this.enforceMode(mode,Boolean(existing),'Carrier '+code);
     const roles=Array.from(new Set([...(existing?.roles||[]),'CARRIER']));
     const data={name,roles,countryCode,active:this.bool(r.active,true)};
     const row=existing?await db.organization.update({where:{code},data}):await db.organization.create({data:{code,...data}});
@@ -197,7 +224,7 @@ export class BulkDataService {
     return {id:row.id,code:row.code,name:row.name,role:'CARRIER',providerCode:providerCode||null};
   }
 
-  private async upsertRate(r:any,db:any=this.db){
+  private async upsertRate(r:any,mode:BulkMode,db:any=this.db){
     const quoteNo=this.upper(r.quoteNo),customerCode=this.upper(r.customerCode);
     const customer=await db.organization.findUnique({where:{code:customerCode}});
     if(!customer||!Array.isArray(customer.roles)||!customer.roles.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
@@ -209,11 +236,12 @@ export class BulkDataService {
     const providerCode=this.upper(r.providerCode)||carrierCode||null;
     const data:any={customerId:customer.id,trade:this.upper(r.trade),equipment:this.upper(r.equipment),buyRate:buy,sellRate:sell,currency:this.upper(r.currency)||'USD',validFrom,validTo,status:this.text(r.status)||'DRAFT',source:this.text(r.source)||'BULK_IMPORT',customerRef:customer.customerRef||null,costCenterCode:customer.costCenterCode||null,carrierCode:providerCode,carrierQuoteRef:this.text(r.carrierQuoteRef)||null,requestData:{bulkImported:true,trade:this.upper(r.trade),equipment:this.upper(r.equipment)},carrierOfferData:carrier?{bulkImported:true,carrierOrgId:carrier.id,carrierCode:carrier.code,providerCode,buyRate:buy,currency:this.upper(r.currency)||'USD',customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,customerDataOutbound:false,houseDataOutbound:false}:null};
     const existing=await db.rateQuote.findUnique({where:{quoteNo}});
+    this.enforceMode(mode,Boolean(existing),'Rate '+quoteNo);
     const row=existing?await db.rateQuote.update({where:{quoteNo},data}):await db.rateQuote.create({data:{quoteNo,...data}});
     return {id:row.id,quoteNo:row.quoteNo,customerCode,carrierCode:carrierCode||null,status:row.status};
   }
 
-  private async upsertBooking(r:any,db:any=this.db){
+  private async upsertBooking(r:any,mode:BulkMode,db:any=this.db){
     const bookingNo=this.upper(r.bookingNo),customerCode=this.upper(r.customerCode),businessModel=this.upper(r.businessModel)||'NVOCC';
     const customer=await db.organization.findUnique({where:{code:customerCode}});
     if(!customer||!customer.roles?.includes('CUSTOMER'))throw new Error('Customer '+customerCode+' not found');
@@ -235,15 +263,16 @@ export class BulkDataService {
     };
     if(!data.origin||!data.destination)throw new Error('origin and destination are required');
     const existing=await db.booking.findUnique({where:{bookingNo}});
+    this.enforceMode(mode,Boolean(existing),'Booking '+bookingNo);
     const row=existing?await db.booking.update({where:{bookingNo},data}):await db.booking.create({data:{bookingNo,...data}});
     return {id:row.id,bookingNo:row.bookingNo,customerCode,businessModel:row.businessModel,status:row.status,carrier:row.carrier,rateQuoteNo:quote?.quoteNo||null};
   }
 
   async importRows(body:any,user:any){
     this.admin(user);
-    const type=this.type(body?.type),rows=this.rows(body?.rows);
-    const checks=await this.preflight(type,rows);
-    if(checks.some((x:any)=>!x.valid))return {type,committed:false,total:rows.length,succeeded:0,failed:checks.filter((x:any)=>!x.valid).length,results:checks,message:'Validation failed. No rows were imported.'};
+    const type=this.type(body?.type),mode=this.mode(body?.mode),rows=this.rows(body?.rows);
+    const checks=await this.preflight(type,rows,mode);
+    if(checks.some((x:any)=>!x.valid))return {type,mode,committed:false,total:rows.length,succeeded:0,failed:checks.filter((x:any)=>!x.valid).length,results:checks,message:'Validation failed. No rows were committed.'};
 
     const batchId='BULK-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
     let activeRow=0;
@@ -252,21 +281,22 @@ export class BulkDataService {
         const results:any[]=[];
         for(let i=0;i<rows.length;i++){
           activeRow=i+1;
-          const value=type==='CUSTOMER'?await this.upsertCustomer(rows[i],tx):type==='CARRIER'?await this.upsertCarrier(rows[i],tx):type==='RATE'?await this.upsertRate(rows[i],tx):await this.upsertBooking(rows[i],tx);
+          const value=type==='CUSTOMER'?await this.upsertCustomer(rows[i],mode,tx):type==='CARRIER'?await this.upsertCarrier(rows[i],mode,tx):type==='RATE'?await this.upsertRate(rows[i],mode,tx):await this.upsertBooking(rows[i],mode,tx);
           results.push({row:i+1,status:'SUCCESS',value});
         }
-        const payload={batchId,type,total:rows.length,succeeded:rows.length,failed:0,actorId:user?.sub||user?.email||'unknown',customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false};
-        await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,status:'COMPLETED',payload,completedAt:new Date()}});
-        await tx.auditEvent.create({data:{actorId:user?.sub||user?.email||'unknown',action:'BULK_DATA_IMPORT',objectType:'BulkDataImport',objectId:batchId,bookingId:null,detail:payload}});
+        const actorId=user?.sub||user?.email||'unknown';
+        const payload={batchId,type,mode,total:rows.length,succeeded:rows.length,failed:0,actorId,executedAt:new Date().toISOString(),customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false};
+        await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'BULK_DATA_'+mode,objectType:'BulkDataImport',objectId:batchId,status:'COMPLETED',payload,completedAt:new Date()}});
+        await tx.auditEvent.create({data:{actorId,action:'BULK_DATA_'+mode,objectType:'BulkDataImport',objectId:batchId,bookingId:null,detail:payload}});
         return {results,payload};
       });
-      return {type,batchId,committed:true,total:rows.length,succeeded:rows.length,failed:0,results:committed.results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false}};
+      return {type,mode,batchId,committed:true,total:rows.length,succeeded:rows.length,failed:0,results:committed.results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false}};
     }catch(e:any){
       const error=e?.message||String(e);
       return {
-        type,batchId,committed:false,total:rows.length,succeeded:0,failed:rows.length,
+        type,mode,batchId,committed:false,total:rows.length,succeeded:0,failed:rows.length,
         results:rows.map((_:any,i:number)=>({row:i+1,status:'FAILED',error:i+1===activeRow?error:'Batch rolled back because another row failed'})),
-        message:'Import failed. The entire batch was rolled back; no rows were committed.'
+        message:mode+' failed. The entire batch was rolled back; no rows were committed.'
       };
     }
   }
