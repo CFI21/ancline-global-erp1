@@ -76,27 +76,6 @@ export class BulkDataService {
       req('code');req('name');req('countryCode');
       const cc=this.upper(row?.countryCode);if(cc&&cc.length!==2)errors.push('countryCode must be a 2-letter ISO code');
     }
-    const keys=Array.from(new Set(rows.map(r=>this.rowKey(type,r)).filter(Boolean)));
-    let existingKeys=new Set<string>();
-    if(keys.length){
-      if(type==='CUSTOMER'||type==='CARRIER'){
-        const found=await this.db.organization.findMany({where:{code:{in:keys}},select:{code:true}});
-        existingKeys=new Set(found.map((x:any)=>this.upper(x.code)));
-      }else if(type==='RATE'){
-        const found=await this.db.rateQuote.findMany({where:{quoteNo:{in:keys}},select:{quoteNo:true}});
-        existingKeys=new Set(found.map((x:any)=>this.upper(x.quoteNo)));
-      }else{
-        const found=await this.db.booking.findMany({where:{bookingNo:{in:keys}},select:{bookingNo:true}});
-        existingKeys=new Set(found.map((x:any)=>this.upper(x.bookingNo)));
-      }
-      for(let i=0;i<rows.length;i++){
-        const key=this.rowKey(type,rows[i]);if(!key)continue;
-        const exists=existingKeys.has(key);
-        if(mode==='IMPORT'&&exists)results[i].errors.push(key+' already exists; IMPORT mode only creates new records');
-        if(mode==='UPDATE'&&!exists)results[i].errors.push(key+' does not exist; UPDATE mode only changes existing records');
-      }
-    }
-
     if(type==='RATE'){
       ['quoteNo','customerCode','trade','equipment','buyRate','sellRate','currency','validFrom','validTo'].forEach(k=>req(k));
       try{const b=this.num(row?.buyRate,'buyRate',true),s=this.num(row?.sellRate,'sellRate',true);if(b!==null&&b<0)errors.push('buyRate cannot be negative');if(s!==null&&s<0)errors.push('sellRate cannot be negative');if(b!==null&&s!==null&&s<b)warnings.push('sellRate is below buyRate');}catch(e:any){errors.push(e.message);}
@@ -128,6 +107,27 @@ export class BulkDataService {
         if(!results[first].errors.includes(msg))results[first].errors.push(msg);
         results[i].errors.push(msg);
       }else seen.set(key,i);
+    }
+
+    const keys=Array.from(new Set(rows.map((r:any)=>this.rowKey(type,r)).filter(Boolean)));
+    let existingKeys=new Set<string>();
+    if(keys.length){
+      if(type==='CUSTOMER'||type==='CARRIER'){
+        const found=await this.db.organization.findMany({where:{code:{in:keys}},select:{code:true}});
+        existingKeys=new Set(found.map((x:any)=>this.upper(x.code)));
+      }else if(type==='RATE'){
+        const found=await this.db.rateQuote.findMany({where:{quoteNo:{in:keys}},select:{quoteNo:true}});
+        existingKeys=new Set(found.map((x:any)=>this.upper(x.quoteNo)));
+      }else{
+        const found=await this.db.booking.findMany({where:{bookingNo:{in:keys}},select:{bookingNo:true}});
+        existingKeys=new Set(found.map((x:any)=>this.upper(x.bookingNo)));
+      }
+      for(let i=0;i<rows.length;i++){
+        const key=this.rowKey(type,rows[i]);if(!key)continue;
+        const exists=existingKeys.has(key);
+        if(mode==='IMPORT'&&exists)results[i].errors.push(key+' already exists; IMPORT mode only creates new records');
+        if(mode==='UPDATE'&&!exists)results[i].errors.push(key+' does not exist; UPDATE mode only changes existing records');
+      }
     }
 
     if(type==='RATE'){
