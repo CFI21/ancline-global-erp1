@@ -313,11 +313,10 @@ export class OperationsService {
     if(openLines.length)blockers.push({code:'FINANCE_LINES_OPEN',message:`${openLines.length} finance line(s) are not FINAL/CLEARED/PAID.`});
     if(tasks.length)blockers.push({code:'OPEN_TASKS',message:`${tasks.length} operational task(s) remain open.`});
     if(approvals.length)blockers.push({code:'PENDING_APPROVALS',message:`${approvals.length} approval(s) remain pending.`});
-    const relevant=events.filter((e:any)=>String((e.payload as any)?.bookingId||'')===bookingId);
     const groups=new Map<string,any[]>();
-    for(const e of relevant){if(!groups.has(e.objectId))groups.set(e.objectId,[]);groups.get(e.objectId)!.push(e);}
+    for(const e of events){if(!groups.has(e.objectId))groups.set(e.objectId,[]);groups.get(e.objectId)!.push(e);}
     for(const [invoiceNo,rows] of groups){
-      const created=rows.find((e:any)=>e.eventType==='INVOICE_CREATED');if(!created)continue;
+      const created=rows.find((e:any)=>e.eventType==='INVOICE_CREATED');if(!created||String((created.payload as any)?.bookingId||'')!==bookingId)continue;
       const base:any=created.payload||{};const total=Number(base.totalAmount||0);
       const paid=rows.filter((e:any)=>e.eventType==='PAYMENT_RECORDED').reduce((s:number,e:any)=>s+Number((e.payload as any)?.amount||0),0);
       const controls=rows.filter((e:any)=>['INVOICE_DISPUTED','INVOICE_RESOLVED','INVOICE_VOIDED'].includes(e.eventType));
