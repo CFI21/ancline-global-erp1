@@ -257,8 +257,8 @@ describe('BulkDataService safety and privacy',()=>{
     expect(result.total).toBe(2);
     expect(result.matched).toBe(1);
     expect(result.missing).toBe(1);
-    expect(result.results.find((x:any)=>x.key==='REC-CUST-01').exists).toBe(true);
-    expect(result.results.find((x:any)=>x.key==='REC-MISSING').exists).toBe(false);
+    expect(result.results.find((x:any)=>x.key==='REC-CUST-01')!.exists).toBe(true);
+    expect(result.results.find((x:any)=>x.key==='REC-MISSING')!.exists).toBe(false);
   });
 
   it('accepts 1000 rows but rejects 1001 rows before writes',async()=>{
