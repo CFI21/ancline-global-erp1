@@ -196,7 +196,7 @@ export class BulkDataService {
     const type=this.type(body?.type);
     if(!Array.isArray(body?.keys)||!body.keys.length)throw new BadRequestException('keys must be a non-empty array');
     if(body.keys.length>MAX_ROWS)throw new BadRequestException('Maximum '+MAX_ROWS+' keys per reconciliation');
-    const keys=Array.from(new Set(body.keys.map((x:any)=>this.upper(x)).filter(Boolean)));
+    const keys:string[]=Array.from(new Set<string>(body.keys.map((x:any)=>this.upper(x)).filter(Boolean)));
     let found:any[]=[];
     if(type==='CUSTOMER'||type==='CARRIER')found=await this.db.organization.findMany({where:{code:{in:keys}},select:{code:true,roles:true,active:true}});
     else if(type==='RATE')found=await this.db.rateQuote.findMany({where:{quoteNo:{in:keys}},select:{quoteNo:true,status:true}});
