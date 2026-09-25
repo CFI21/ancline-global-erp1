@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ScopeService } from '../auth/scope.service';
-import { ScopeUser } from '../auth/scope';
+import { ScopeUser, bookingScope } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
 
 const DAY=24*60*60*1000;
@@ -112,6 +112,9 @@ export class AccountingService {
 
   async invoices(user:ScopeUser){
     this.access(user);
+    const scoped=bookingScope(user);
+    const visibleBookings=await this.prisma.booking.findMany({where:scoped,select:{id:true}});
+    const visibleIds=new Set(visibleBookings.map((x:any)=>String(x.id)));
     const events=await this.allEvents();
     const grouped=new Map<string,any[]>();
     for(const e of events){
@@ -119,7 +122,7 @@ export class AccountingService {
       if(!grouped.has(key)) grouped.set(key,[]);
       grouped.get(key)!.push(e);
     }
-    return Array.from(grouped.values()).map(events=>this.buildInvoice(events)).filter(Boolean).sort((a:any,b:any)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime());
+    return Array.from(grouped.values()).map(events=>this.buildInvoice(events)).filter((x:any)=>Boolean(x)&&visibleIds.has(String(x.bookingId))).sort((a:any,b:any)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime());
   }
 
   async getInvoice(invoiceNo:string,user:ScopeUser){
@@ -130,7 +133,98 @@ export class AccountingService {
     });
     const invoice=this.buildInvoice(events);
     if(!invoice) throw new NotFoundException('Accounting invoice not found');
+    await this.scope.assertBookingAccess(user,String(invoice.bookingId));
     return invoice;
+  }
+
+  private reconciliationReasons(booking:any,lines:any[],invoices:any[]){
+    const active=lines.filter((x:any)=>x.status!=='CANCELLED');
+    const reasons:any[]=[];
+    const revenue=active.filter((x:any)=>x.type==='REVENUE');
+    const cost=active.filter((x:any)=>x.type==='COST');
+    if(!revenue.length)reasons.push({code:'MISSING_REVENUE',severity:'BLOCKER',message:'No active revenue finance line exists.'});
+    if(!cost.length)reasons.push({code:'MISSING_COST',severity:'BLOCKER',message:'No active cost finance line exists.'});
+    const openLines=active.filter((x:any)=>!['FINAL','CLEARED','PAID'].includes(String(x.status)));
+    if(openLines.length)reasons.push({code:'FINANCE_LINES_OPEN',severity:'BLOCKER',message:`${openLines.length} finance line(s) are not FINAL/CLEARED/PAID.`});
+    const disputedLines=active.filter((x:any)=>String(x.status)==='DISPUTED');
+    if(disputedLines.length)reasons.push({code:'FINANCE_LINES_DISPUTED',severity:'BLOCKER',message:`${disputedLines.length} finance line(s) are disputed.`});
+    const liveInvoices=invoices.filter((x:any)=>x.status!=='VOID');
+    const drafts=liveInvoices.filter((x:any)=>x.status==='DRAFT');
+    const disputed=liveInvoices.filter((x:any)=>x.status==='DISPUTED');
+    const openBalances=liveInvoices.filter((x:any)=>Number(x.balanceAmount)>0.005&&!['DRAFT','VOID'].includes(x.status));
+    if(drafts.length)reasons.push({code:'DRAFT_INVOICES',severity:'BLOCKER',message:`${drafts.length} invoice(s) are still DRAFT.`});
+    if(disputed.length)reasons.push({code:'DISPUTED_INVOICES',severity:'BLOCKER',message:`${disputed.length} invoice(s) are disputed.`});
+    if(openBalances.length)reasons.push({code:'OUTSTANDING_INVOICE_BALANCE',severity:'BLOCKER',message:`${openBalances.length} invoice(s) have outstanding balances.`});
+    const unbilledRevenue=revenue.filter((x:any)=>!x.invoiceNo);
+    const unbilledCost=cost.filter((x:any)=>!x.invoiceNo);
+    if(unbilledRevenue.length)reasons.push({code:'UNBILLED_REVENUE',severity:'WARNING',message:`${unbilledRevenue.length} revenue line(s) are not linked to an AR invoice.`});
+    if(unbilledCost.length)reasons.push({code:'UNBILLED_COST',severity:'WARNING',message:`${unbilledCost.length} cost line(s) are not linked to an AP invoice.`});
+    const currencies=[...new Set(active.map((x:any)=>String(x.currency||booking.currency||'USD').toUpperCase()))];
+    const financials=currencies.map(currency=>{
+      const rows=active.filter((x:any)=>String(x.currency||'').toUpperCase()===currency);
+      const rev=this.round(rows.filter((x:any)=>x.type==='REVENUE').reduce((s:number,x:any)=>s+Number(x.finalAmount??x.amount??0),0));
+      const buy=this.round(rows.filter((x:any)=>x.type==='COST').reduce((s:number,x:any)=>s+Number(x.finalAmount??x.amount??0),0));
+      const gp=this.round(rev-buy);
+      if(rev>0&&gp<0)reasons.push({code:'NEGATIVE_MARGIN',severity:'WARNING',message:`Negative margin ${gp.toFixed(2)} ${currency}.`});
+      return {currency,revenue:rev,cost:buy,gp,marginPct:rev?this.round(gp/rev*100):0};
+    });
+    const ar=liveInvoices.filter((x:any)=>x.invoiceType==='AR'),ap=liveInvoices.filter((x:any)=>x.invoiceType==='AP');
+    const totals={
+      arTotal:this.round(ar.reduce((s:number,x:any)=>s+Number(x.totalAmount||0),0)),
+      arPaid:this.round(ar.reduce((s:number,x:any)=>s+Number(x.paidAmount||0),0)),
+      arBalance:this.round(ar.reduce((s:number,x:any)=>s+Number(x.balanceAmount||0),0)),
+      apTotal:this.round(ap.reduce((s:number,x:any)=>s+Number(x.totalAmount||0),0)),
+      apPaid:this.round(ap.reduce((s:number,x:any)=>s+Number(x.paidAmount||0),0)),
+      apBalance:this.round(ap.reduce((s:number,x:any)=>s+Number(x.balanceAmount||0),0))
+    };
+    const blockers=reasons.filter(x=>x.severity==='BLOCKER');
+    let state='MATCHED';
+    if(String(booking.status)==='FINANCIALLY_CLOSED')state='CLOSED';
+    else if(disputed.length||disputedLines.length)state='DISPUTED';
+    else if(blockers.some(x=>['MISSING_REVENUE','MISSING_COST','FINANCE_LINES_OPEN','DRAFT_INVOICES'].includes(x.code)))state='BLOCKED';
+    else if(liveInvoices.some((x:any)=>x.status==='PART_PAID'))state='PARTIAL';
+    else if(totals.arBalance>0.005||totals.apBalance>0.005)state='OPEN';
+    return {state,reasons,blockers,financials,totals,closeReady:blockers.length===0&&String(booking.status)==='COMPLETED'};
+  }
+
+  async reconciliation(user:ScopeUser){
+    this.access(user);
+    const scoped=bookingScope(user);
+    const bookings:any[]=await this.prisma.booking.findMany({where:scoped,include:{customer:{select:{id:true,name:true,code:true}}},orderBy:{updatedAt:'desc'},take:500});
+    const ids=bookings.map(x=>x.id);
+    if(!ids.length)return {generatedAt:new Date().toISOString(),summary:{jobs:0,matched:0,open:0,partial:0,disputed:0,blocked:0,closed:0,exceptions:0},rows:[]};
+    const [lines,allInvoices]=await Promise.all([
+      this.prisma.financeLine.findMany({where:{bookingId:{in:ids}},orderBy:{createdAt:'asc'}}),
+      this.invoices(user)
+    ]);
+    const rows=bookings.map(booking=>{
+      const jobLines=lines.filter((x:any)=>x.bookingId===booking.id);
+      const jobInvoices=allInvoices.filter((x:any)=>x.bookingId===booking.id);
+      const r=this.reconciliationReasons(booking,jobLines,jobInvoices);
+      return {
+        bookingId:booking.id,bookingNo:booking.bookingNo,customer:booking.customer?.name||null,
+        origin:booking.origin,destination:booking.destination,bookingStatus:booking.status,
+        state:r.state,closeReady:r.closeReady,financials:r.financials,totals:r.totals,reasons:r.reasons,
+        invoiceCount:jobInvoices.length,financeLineCount:jobLines.filter((x:any)=>x.status!=='CANCELLED').length,
+        actionHref:`/jobs/${booking.id}`,financeHref:`/finance?bookingId=${booking.id}`,accountingHref:`/accounting?bookingId=${booking.id}`,closeoutHref:`/closeout?bookingId=${booking.id}`
+      };
+    });
+    const summary:any={jobs:rows.length,matched:0,open:0,partial:0,disputed:0,blocked:0,closed:0,exceptions:0};
+    for(const row of rows){const k=String(row.state).toLowerCase();if(Object.prototype.hasOwnProperty.call(summary,k))summary[k]++;summary.exceptions+=row.reasons.length;}
+    return {generatedAt:new Date().toISOString(),summary,rows};
+  }
+
+  async reconciliationBooking(bookingId:string,user:ScopeUser){
+    this.access(user);await this.scope.assertBookingAccess(user,bookingId);
+    const [booking,lines,allInvoices]=await Promise.all([
+      this.prisma.booking.findUnique({where:{id:bookingId},include:{customer:{select:{id:true,name:true,code:true}}}}),
+      this.prisma.financeLine.findMany({where:{bookingId},orderBy:{createdAt:'asc'}}),
+      this.invoices(user)
+    ]);
+    if(!booking)throw new NotFoundException('Booking not found');
+    const invoices=allInvoices.filter((x:any)=>x.bookingId===bookingId);
+    const r=this.reconciliationReasons(booking,lines,invoices);
+    return {...r,booking:{id:booking.id,bookingNo:booking.bookingNo,status:booking.status,origin:booking.origin,destination:booking.destination,customer:booking.customer},invoices,lines};
   }
 
   async dashboard(user:ScopeUser){
