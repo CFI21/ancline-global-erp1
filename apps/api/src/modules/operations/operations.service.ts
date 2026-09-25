@@ -299,13 +299,58 @@ export class OperationsService {
     await this.audit.log({actorId:user.sub,action:completed?'CLOSEOUT_ITEM_COMPLETE':'CLOSEOUT_ITEM_REOPEN',objectType:'JobCloseoutChecklist',objectId:itemId,bookingId,detail:{itemCode:item.itemCode}});
     return row;
   }
+  private async financeCloseBlockers(bookingId:string){
+    const [lines,tasks,approvals,events]=await Promise.all([
+      this.prisma.financeLine.findMany({where:{bookingId,status:{not:'CANCELLED'}}}),
+      this.prisma.task.findMany({where:{bookingId,status:{not:'Completed'}}}),
+      this.prisma.approval.findMany({where:{bookingId,status:'Pending'}}),
+      this.prisma.integrationEvent.findMany({where:{sourceSystem:'ANCLINE_ACCOUNTING',objectType:'FinanceInvoice'},orderBy:{createdAt:'asc'}})
+    ]);
+    const blockers:any[]=[];
+    if(!lines.some(x=>x.type==='REVENUE'))blockers.push({code:'MISSING_REVENUE',message:'No active revenue finance line exists.'});
+    if(!lines.some(x=>x.type==='COST'))blockers.push({code:'MISSING_COST',message:'No active cost finance line exists.'});
+    const openLines=lines.filter(x=>!['FINAL','CLEARED','PAID'].includes(String(x.status)));
+    if(openLines.length)blockers.push({code:'FINANCE_LINES_OPEN',message:`${openLines.length} finance line(s) are not FINAL/CLEARED/PAID.`});
+    if(tasks.length)blockers.push({code:'OPEN_TASKS',message:`${tasks.length} operational task(s) remain open.`});
+    if(approvals.length)blockers.push({code:'PENDING_APPROVALS',message:`${approvals.length} approval(s) remain pending.`});
+    const groups=new Map<string,any[]>();
+    for(const e of events){if(!groups.has(e.objectId))groups.set(e.objectId,[]);groups.get(e.objectId)!.push(e);}
+    for(const [invoiceNo,rows] of groups){
+      const created=rows.find((e:any)=>e.eventType==='INVOICE_CREATED');if(!created||String((created.payload as any)?.bookingId||'')!==bookingId)continue;
+      const base:any=created.payload||{};const total=Number(base.totalAmount||0);
+      const paid=rows.filter((e:any)=>e.eventType==='PAYMENT_RECORDED').reduce((s:number,e:any)=>s+Number((e.payload as any)?.amount||0),0);
+      const controls=rows.filter((e:any)=>['INVOICE_DISPUTED','INVOICE_RESOLVED','INVOICE_VOIDED'].includes(e.eventType));
+      const last=controls[controls.length-1]?.eventType||'';
+      if(last==='INVOICE_VOIDED')continue;
+      if(last==='INVOICE_DISPUTED'){blockers.push({code:'DISPUTED_INVOICE',invoiceNo,message:`Invoice ${invoiceNo} is disputed.`});continue;}
+      const issued=rows.some((e:any)=>e.eventType==='INVOICE_ISSUED');
+      if(!issued){blockers.push({code:'DRAFT_INVOICE',invoiceNo,message:`Invoice ${invoiceNo} is still DRAFT.`});continue;}
+      const balance=Math.round((Math.max(0,total-paid)+Number.EPSILON)*100)/100;
+      if(balance>0.005)blockers.push({code:'OUTSTANDING_INVOICE_BALANCE',invoiceNo,message:`Invoice ${invoiceNo} has outstanding balance ${balance.toFixed(2)} ${String(base.currency||'')}.`});
+    }
+    return blockers;
+  }
+
+  async closeoutReadiness(bookingId:string,user:ScopeUser){
+    await this.scope.assertBookingAccess(user,bookingId);this.assertInternal(user);
+    const booking=await this.prisma.booking.findUnique({where:{id:bookingId}});if(!booking)throw new BadRequestException('Booking not found');
+    const checklist=await this.closeout(bookingId,user);
+    const checklistOutstanding=checklist.filter(x=>x.mandatory&&!x.completed);
+    const financeBlockers=await this.financeCloseBlockers(bookingId);
+    if(String(booking.status)!=='COMPLETED'&&String(booking.status)!=='FINANCIALLY_CLOSED')financeBlockers.unshift({code:'OPERATIONS_NOT_COMPLETE',message:'Operational job must be COMPLETED before financial close.'});
+    return {bookingId,bookingNo:booking.bookingNo,status:booking.status,ready:checklistOutstanding.length===0&&financeBlockers.length===0,checklistOutstanding:checklistOutstanding.map(x=>({id:x.id,itemCode:x.itemCode,itemLabel:x.itemLabel})),financeBlockers};
+  }
+
   async finalizeCloseout(bookingId:string,user:ScopeUser){
     await this.scope.assertBookingAccess(user,bookingId);this.assertInternal(user);
     const booking=await this.prisma.booking.findUnique({where:{id:bookingId}});if(!booking)throw new BadRequestException('Booking not found');
-    const rows=await this.closeout(bookingId,user);const outstanding=rows.filter(x=>x.mandatory&&!x.completed);
-    if(outstanding.length) throw new BadRequestException(`${outstanding.length} mandatory closeout item(s) are still outstanding`);
+    const readiness=await this.closeoutReadiness(bookingId,user);
+    if(!readiness.ready){
+      const reasons=[...readiness.checklistOutstanding.map((x:any)=>x.itemCode),...readiness.financeBlockers.map((x:any)=>x.code)];
+      throw new BadRequestException(`Financial close blocked: ${reasons.join(', ')}`);
+    }
     const updated=await this.prisma.booking.update({where:{id:bookingId},data:{status:'FINANCIALLY_CLOSED'}});
-    await this.audit.log({actorId:user.sub,action:'JOB_FINANCIALLY_CLOSED',objectType:'Booking',objectId:bookingId,bookingId,detail:{bookingNo:booking.bookingNo,previousStatus:booking.status}});
+    await this.audit.log({actorId:user.sub,action:'JOB_FINANCIALLY_CLOSED',objectType:'Booking',objectId:bookingId,bookingId,detail:{bookingNo:booking.bookingNo,previousStatus:booking.status,reconciliation:'CLEAR'}});
     return updated;
   }
 }

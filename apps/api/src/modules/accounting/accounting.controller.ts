@@ -8,6 +8,8 @@ export class AccountingController {
   constructor(private service:AccountingService){}
 
   @Get('dashboard') dashboard(@Req() req:any){ return this.service.dashboard(req.user); }
+  @Get('reconciliation') reconciliation(@Req() req:any){ return this.service.reconciliation(req.user); }
+  @Get('reconciliation/:bookingId') reconciliationBooking(@Param('bookingId') bookingId:string,@Req() req:any){ return this.service.reconciliationBooking(bookingId,req.user); }
   @Get('invoices') invoices(@Req() req:any){ return this.service.invoices(req.user); }
   @Get('invoices/:invoiceNo') invoice(@Param('invoiceNo') invoiceNo:string,@Req() req:any){ return this.service.getInvoice(invoiceNo,req.user); }
   @Post('invoices') create(@Body() body:any,@Req() req:any){ return this.service.createInvoice(body,req.user); }
