@@ -1,41 +1,43 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260925-012",
-  "status": "STAGING_ACCEPTED_LOCKED",
-  "title": "Bulk Data Operational Hardening — Idempotency, Validation Gate, Reconciliation",
-  "createdAt": "2026-09-25T22:55:00+02:00",
-  "approvalStatus": "FINAL_ACCEPTED",
-  "approvedBy": "User autonomous bulk-development authorization",
-  "approvedAt": "2026-09-25T22:55:00+02:00",
-  "buildAllowed": false,
-  "mergeAllowed": false,
-  "deploymentAllowed": false,
+  "id": "CR-20260925-013",
+  "status": "APPROVED",
+  "title": "Finance + Reconciliation Control",
+  "createdAt": "2026-09-25T23:38:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvedBy": "User autonomous finance/reconciliation master command authorization",
+  "approvedAt": "2026-09-25T23:38:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
   "deploymentTarget": "STAGING_ONLY",
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
-  "frozen": true,
+  "frozen": false,
   "activationBlocked": true,
-  "baselineWebCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
-  "baselineApiCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
-  "parentBaseline": "CR-20260925-011",
+  "baselineWebCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+  "baselineApiCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+  "parentBaseline": "CR-20260925-012",
   "components": [
     "web",
     "api"
   ],
   "requirements": [
-    "Add retry-safe client request idempotency for committed bulk operations without new tables.",
-    "Require clean preflight validation before UI commit action and invalidate validation when dataset/mode/file changes.",
-    "Strengthen CSV header/template checks and surface missing or unexpected headers before server execution.",
-    "Add admin-only business-key reconciliation for CUSTOMER, CARRIER, RATE and BOOKING plus downloadable CSV reconciliation report.",
-    "Keep 1000-row maximum and prove boundary behavior.",
-    "Preserve existing batch history, audit, privacy and atomic rollback behavior."
+    "Reuse existing FinanceLine, Accounting invoice/payment events, Booking, Task, Approval and Audit data; do not create a second finance engine.",
+    "Add booking/job reconciliation control for revenue, cost, margin, AR, AP, payments, disputed balances and finance closeout readiness.",
+    "Classify reconciliation state using compatible derived states OPEN, MATCHED, PARTIAL, DISPUTED, BLOCKED and CLOSED without database enum changes.",
+    "Detect unresolved invoice balances, disputes, missing revenue/cost, unfinalized finance lines and payment anomalies already represented by existing accounting events.",
+    "Expose finance reconciliation dashboard with row-level exception reasons, filters, direct remediation links and downloadable CSV report.",
+    "Require reconciliation-clean pre-close validation before financial closeout.",
+    "Preserve payment idempotency, duplicate-reference protection, maker-checker/four-eyes, role/data scope, privacy and audit controls.",
+    "Test job to invoice to payment/payable to reconciliation to closeout plus partial, duplicate, overpayment, dispute, missing-cost, margin-variance and reopen/correction scenarios."
   ],
   "invariants": [
     "No database migration or new table.",
-    "No breaking API model change.",
-    "Preserve CR-011 IMPORT/UPDATE/UPSERT semantics.",
-    "Preserve CR-010 and CR-011 role/privacy/security controls.",
-    "No production deployment, DNS change, live providers or real money."
+    "No breaking API contract or business-model change.",
+    "Preserve frozen CR-010, CR-011 and CR-012 accepted behavior.",
+    "Free-tier only; no Redis unless verified mandatory.",
+    "No production runtime/DNS changes; PRODUCTION_TRAFFIC OFF, LIVE_PROVIDERS OFF, REAL_MONEY OFF."
   ],
   "regressionScopes": [
     "WEB_BUILD",
@@ -44,39 +46,10 @@
     "RESPONSIVE_FAILURE_ACCESSIBILITY",
     "TRANSACTION_LIFECYCLE",
     "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
-    "BULK_DATA_IMPORT_UPDATE_UPSERT",
-    "BULK_DATA_VALIDATION_ROLLBACK_AUDIT"
+    "FINANCE_RECONCILIATION",
+    "FINANCIAL_CLOSEOUT"
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "Autonomous staging-only continuation. Safe in-scope fixes may be applied and retested without intermediate approval.",
-  "acceptedAt": "2026-09-25T21:27:54Z",
-  "acceptedRuntime": {
-    "webCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
-    "apiCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
-    "webDigest": "sha256:35d079991d2b787851236d3813a61058514506b41a2e29da9919fe555e14c948",
-    "apiDigest": "sha256:1cd840f8f313bbb0b0019b603581372c2ca5e924c28d99dcbafb6694c9429a49"
-  },
-  "acceptance": {
-    "smartReleaseRunId": "36190259795",
-    "status": "PASS",
-    "uatRunId": "UAT-20260925211708-YD85C",
-    "backupStatus": "PASS",
-    "backupSha256": "b7a0c0002bbda2790dcb022b9e3813634903102727aef66415b869fff810633a",
-    "offPlatformArtifactSha256": "d1bdaa75bc11951598a2a8a6d7cfaa7011bf3283ca38a5ed54f5e6d1f1919f44",
-    "quality": "PASS",
-    "remoteGate": "PASS",
-    "impactRegression": "PASS",
-    "finalize": "PASS",
-    "evidence": "PASS",
-    "recoveryTriggered": false
-  },
-  "finalFreeze": {
-    "status": "FINAL_ACCEPTED_LOCKED",
-    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
-    "parentBaseline": "CR-20260925-011",
-    "approvedWebCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
-    "approvedApiCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
-    "productionUnchanged": true
-  }
+  "note": "Autonomous staging-only finance/reconciliation development. Safe in-scope fixes may be applied and retested without intermediate approval."
 }
