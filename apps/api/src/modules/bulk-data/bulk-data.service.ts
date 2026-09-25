@@ -23,32 +23,39 @@ export class BulkDataService {
   private type(v:any):ImportType{const t=this.upper(v).replace(/S$/,'') as ImportType;if(!['CUSTOMER','CARRIER','RATE','BOOKING'].includes(t))throw new BadRequestException('Type must be CUSTOMER, CARRIER, RATE or BOOKING');return t;}
   private mode(v:any):BulkMode{const m=(this.upper(v)||'UPSERT') as BulkMode;if(!['IMPORT','UPDATE','UPSERT'].includes(m))throw new BadRequestException('Mode must be IMPORT, UPDATE or UPSERT');return m;}
   private enforceMode(mode:BulkMode,exists:boolean,key:string){if(mode==='IMPORT'&&exists)throw new Error(key+' already exists; IMPORT mode only creates new records');if(mode==='UPDATE'&&!exists)throw new Error(key+' does not exist; UPDATE mode only changes existing records');}
+  private requestId(v:any){const raw=this.text(v);if(!raw)return '';const id=raw.replace(/[^A-Za-z0-9._-]/g,'-').slice(0,80);if(id.length<8)throw new BadRequestException('clientRequestId must be at least 8 characters');return id;}
+  private fingerprint(type:ImportType,mode:BulkMode,rows:any[]){const src=type+'|'+mode+'|'+JSON.stringify(rows);let h=2166136261;for(let i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'FNV1A-'+(h>>>0).toString(16).padStart(8,'0');}
   private rows(v:any){if(!Array.isArray(v))throw new BadRequestException('rows must be an array');if(!v.length)throw new BadRequestException('At least one row is required');if(v.length>MAX_ROWS)throw new BadRequestException('Maximum '+MAX_ROWS+' rows per import batch');return v;}
 
   templates(user:any){
     this.admin(user);
     return {
+      templateVersion:'2.0',
       maxRows:MAX_ROWS,
       modes:['IMPORT','UPDATE','UPSERT'],
       importOrder:['CUSTOMER','CARRIER','RATE','BOOKING'],
       privacyRule:'Carrier-facing data created from bulk import never includes customer KYC, ANC customer reference, HBL or house parties.',
       templates:{
         CUSTOMER:{
+          keyField:'code',
           required:['code','name','countryCode'],
           headers:['code','name','countryCode','customerRef','registrationRef','costCenterCode','kycStatus','contactName','contactEmail','contactPhone','registeredAddress','active'],
           example:{code:'TEST-BULK-CUST-NL',name:'TEST Bulk NorthSea Trading B.V.',countryCode:'NL',customerRef:'ANC-TEST-BULK-CUS-001',registrationRef:'TEST-BULK-REG-001',costCenterCode:'TEST-BULK-NL',kycStatus:'APPROVED',contactName:'Test Contact',contactEmail:'bulk.customer@ancline.invalid',contactPhone:'+31-000-000-0000',registeredAddress:'TEST Address, Rotterdam',active:'true'}
         },
         CARRIER:{
+          keyField:'code',
           required:['code','name','countryCode'],
           headers:['code','name','countryCode','providerCode','accountCode','active'],
           example:{code:'TEST-BULK-CAR-01',name:'TEST BlueWave Container Line',countryCode:'SG',providerCode:'TEST_BLUEWAVE',accountCode:'ANC-TEST-BLUEWAVE',active:'true'}
         },
         RATE:{
+          keyField:'quoteNo',
           required:['quoteNo','customerCode','trade','equipment','buyRate','sellRate','currency','validFrom','validTo'],
           headers:['quoteNo','customerCode','carrierCode','providerCode','trade','equipment','buyRate','sellRate','currency','validFrom','validTo','status','source','carrierQuoteRef'],
           example:{quoteNo:'ANC-TEST-BULK-Q-001',customerCode:'TEST-BULK-CUST-NL',carrierCode:'TEST-BULK-CAR-01',providerCode:'TEST_BLUEWAVE',trade:'NLRTM-AEJEA',equipment:'40HC',buyRate:'1450',sellRate:'1725',currency:'USD',validFrom:'2026-09-01',validTo:'2026-12-31',status:'APPROVED',source:'BULK_IMPORT',carrierQuoteRef:'TEST-CARRIER-Q-001'}
         },
         BOOKING:{
+          keyField:'bookingNo',
           required:['bookingNo','customerCode','origin','destination'],
           headers:['bookingNo','customerCode','rateQuoteNo','businessModel','origin','destination','bookingType','transportMode','serviceType','carrierCode','carrierBookingNo','equipment','quantity','commodity','freightTerms','currency','status','customerReference','etd','eta','houseBL','masterBL'],
           example:{bookingNo:'ANC-TEST-BULK-BKG-001',customerCode:'TEST-BULK-CUST-NL',rateQuoteNo:'ANC-TEST-BULK-Q-001',businessModel:'FORWARDING',origin:'NLRTM',destination:'AEJEA',bookingType:'FCL',transportMode:'SEA',serviceType:'PORT_TO_PORT',carrierCode:'TEST-BULK-CAR-01',carrierBookingNo:'TEST-CAR-BKG-001',equipment:'40HC',quantity:'1',commodity:'Furniture',freightTerms:'PREPAID',currency:'USD',status:'BOOKING_REQUESTED',customerReference:'TEST-CUST-REF-001',etd:'2026-10-01',eta:'2026-10-24',houseBL:'ANC-TEST-HBL-001',masterBL:''}
@@ -184,6 +191,26 @@ export class BulkDataService {
     return {type,mode,total:rows.length,valid:results.filter((x:any)=>x.valid).length,invalid:results.filter((x:any)=>!x.valid).length,results};
   }
 
+  async reconcile(body:any,user:any){
+    this.admin(user);
+    const type=this.type(body?.type);
+    if(!Array.isArray(body?.keys)||!body.keys.length)throw new BadRequestException('keys must be a non-empty array');
+    if(body.keys.length>MAX_ROWS)throw new BadRequestException('Maximum '+MAX_ROWS+' keys per reconciliation');
+    const keys:string[]=Array.from(new Set<string>(body.keys.map((x:any)=>this.upper(x)).filter(Boolean)));
+    let found:any[]=[];
+    if(type==='CUSTOMER'||type==='CARRIER')found=await this.db.organization.findMany({where:{code:{in:keys}},select:{code:true,roles:true,active:true}});
+    else if(type==='RATE')found=await this.db.rateQuote.findMany({where:{quoteNo:{in:keys}},select:{quoteNo:true,status:true}});
+    else found=await this.db.booking.findMany({where:{bookingNo:{in:keys}},select:{bookingNo:true,status:true}});
+    const byKey=new Map(found.map((x:any)=>[this.upper(x.code||x.quoteNo||x.bookingNo),x]));
+    const results=keys.map(key=>{
+      const row:any=byKey.get(key);
+      const roleOk=type==='CUSTOMER'?row?.roles?.includes('CUSTOMER'):type==='CARRIER'?row?.roles?.includes('CARRIER'):true;
+      return {key,exists:Boolean(row&&roleOk),status:row?.status??(row?((row.active===false)?'INACTIVE':'ACTIVE'):null)};
+    });
+    return {type,total:results.length,matched:results.filter(x=>x.exists).length,missing:results.filter(x=>!x.exists).length,results};
+  }
+
+
   private async upsertCustomer(r:any,mode:BulkMode,db:any=this.db){
     const code=this.upper(r.code),name=this.text(r.name),countryCode=this.upper(r.countryCode);
     if(!code||!name||countryCode.length!==2)throw new Error('code, name and 2-letter countryCode are required');
@@ -271,10 +298,20 @@ export class BulkDataService {
   async importRows(body:any,user:any){
     this.admin(user);
     const type=this.type(body?.type),mode=this.mode(body?.mode),rows=this.rows(body?.rows);
+    const clientRequestId=this.requestId(body?.clientRequestId);
+    const requestFingerprint=this.fingerprint(type,mode,rows);
+    if(clientRequestId){
+      const previous=await this.db.integrationEvent.findFirst({where:{sourceSystem:SOURCE,objectType:'BulkDataImport',objectId:clientRequestId,status:'COMPLETED'}});
+      if(previous){
+        if(previous.payload?.requestFingerprint!==requestFingerprint)throw new BadRequestException('clientRequestId was already used for a different bulk request');
+        const p=previous.payload||{};
+        return {type,mode,batchId:clientRequestId,committed:true,replayed:true,total:p.total??rows.length,succeeded:p.succeeded??rows.length,failed:p.failed??0,results:[],privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false}};
+      }
+    }
     const checks=await this.preflight(type,rows,mode);
     if(checks.some((x:any)=>!x.valid))return {type,mode,committed:false,total:rows.length,succeeded:0,failed:checks.filter((x:any)=>!x.valid).length,results:checks,message:'Validation failed. No rows were committed.'};
 
-    const batchId='BULK-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
+    const batchId=clientRequestId||('BULK-'+new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,7).toUpperCase());
     let activeRow=0;
     try{
       const committed=await (this.prisma as any).$transaction(async (tx:any)=>{
@@ -285,12 +322,12 @@ export class BulkDataService {
           results.push({row:i+1,status:'SUCCESS',value});
         }
         const actorId=user?.sub||user?.email||'unknown';
-        const payload={batchId,type,mode,total:rows.length,succeeded:rows.length,failed:0,actorId,executedAt:new Date().toISOString(),customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false};
+        const payload={batchId,type,mode,clientRequestId:clientRequestId||null,requestFingerprint,total:rows.length,succeeded:rows.length,failed:0,actorId,executedAt:new Date().toISOString(),customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false};
         await tx.integrationEvent.create({data:{sourceSystem:SOURCE,eventType:'BULK_DATA_'+mode,objectType:'BulkDataImport',objectId:batchId,status:'COMPLETED',payload,completedAt:new Date()}});
         await tx.auditEvent.create({data:{actorId,action:'BULK_DATA_'+mode,objectType:'BulkDataImport',objectId:batchId,bookingId:null,detail:payload}});
         return {results,payload};
       });
-      return {type,mode,batchId,committed:true,total:rows.length,succeeded:rows.length,failed:0,results:committed.results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false}};
+      return {type,mode,batchId,committed:true,replayed:false,total:rows.length,succeeded:rows.length,failed:0,results:committed.results,privacy:{customerKycOutbound:false,customerReferenceOutbound:false,houseBlOutbound:false,housePartiesOutbound:false,houseDataOutbound:false}};
     }catch(e:any){
       const error=e?.message||String(e);
       return {

@@ -16,6 +16,9 @@ export class BulkDataController {
   @Post('validate')
   validate(@Body() body:any,@Req() req:any){return this.service.validate(body,req.user);}
 
+  @Post('reconcile')
+  reconcile(@Body() body:any,@Req() req:any){return this.service.reconcile(body,req.user);}
+
   @Post('import')
   importRows(@Body() body:any,@Req() req:any){return this.service.importRows(body,req.user);}
 }
