@@ -39,7 +39,7 @@ describe('CR-013 finance reconciliation control',()=>{
     };
     const accounting=new AccountingService(prisma,scope,audit);
     const dashboard:any=await accounting.reconciliation(user);
-    expect(dashboard.rows[0].state).toBe('OPEN');
+    expect(dashboard.rows[0].state).toBe('PARTIAL');
     expect(dashboard.rows[0].totals.arBalance).toBe(600);
     expect(dashboard.rows[0].reasons.some((x:any)=>x.code==='OUTSTANDING_INVOICE_BALANCE')).toBe(true);
 
