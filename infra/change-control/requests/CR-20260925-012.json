@@ -1,0 +1,53 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260925-012",
+  "status": "APPROVED",
+  "title": "Bulk Data Operational Hardening — Idempotency, Validation Gate, Reconciliation",
+  "createdAt": "2026-09-25T22:55:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvedBy": "User autonomous bulk-development authorization",
+  "approvedAt": "2026-09-25T22:55:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "frozen": false,
+  "activationBlocked": true,
+  "baselineWebCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
+  "baselineApiCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
+  "parentBaseline": "CR-20260925-011",
+  "components": [
+    "web",
+    "api"
+  ],
+  "requirements": [
+    "Add retry-safe client request idempotency for committed bulk operations without new tables.",
+    "Require clean preflight validation before UI commit action and invalidate validation when dataset/mode/file changes.",
+    "Strengthen CSV header/template checks and surface missing or unexpected headers before server execution.",
+    "Add admin-only business-key reconciliation for CUSTOMER, CARRIER, RATE and BOOKING plus downloadable CSV reconciliation report.",
+    "Keep 1000-row maximum and prove boundary behavior.",
+    "Preserve existing batch history, audit, privacy and atomic rollback behavior."
+  ],
+  "invariants": [
+    "No database migration or new table.",
+    "No breaking API model change.",
+    "Preserve CR-011 IMPORT/UPDATE/UPSERT semantics.",
+    "Preserve CR-010 and CR-011 role/privacy/security controls.",
+    "No production deployment, DNS change, live providers or real money."
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "BULK_DATA_IMPORT_UPDATE_UPSERT",
+    "BULK_DATA_VALIDATION_ROLLBACK_AUDIT"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "Autonomous staging-only continuation. Safe in-scope fixes may be applied and retested without intermediate approval."
+}
