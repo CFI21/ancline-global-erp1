@@ -1,12 +1,12 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260925-011",
+  "id": "CR-20260925-012",
   "status": "APPROVED",
-  "title": "Bulk Data Import + Update + Validate + Error Report + Audit Hardening",
-  "createdAt": "2026-09-25T22:40:00+02:00",
+  "title": "Bulk Data Operational Hardening — Idempotency, Validation Gate, Reconciliation",
+  "createdAt": "2026-09-25T22:55:00+02:00",
   "approvalStatus": "APPROVED_FOR_STAGING",
-  "approvedBy": "User explicit bulk-data master command authorization",
-  "approvedAt": "2026-09-25T22:40:00+02:00",
+  "approvedBy": "User autonomous bulk-development authorization",
+  "approvedAt": "2026-09-25T22:55:00+02:00",
   "buildAllowed": true,
   "mergeAllowed": true,
   "deploymentAllowed": true,
@@ -15,28 +15,27 @@
   "productionPromotionAuthorized": false,
   "frozen": false,
   "activationBlocked": true,
-  "baselineWebCommit": "88e88e9c639fc205d7d83195f8c40822614cfe60",
-  "baselineApiCommit": "1d4d7f38c8cd5898aca1a518ea57d000a9afeaa6",
-  "parentBaseline": "CR-20260924-010",
+  "baselineWebCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
+  "baselineApiCommit": "5154eb0af2de91dd153085b3c4d2b633d649c89a",
+  "parentBaseline": "CR-20260925-011",
   "components": [
     "web",
     "api"
   ],
   "requirements": [
-    "Preserve existing bulk-data workspace and CSV templates with 1000-row batch limit.",
-    "Support explicit IMPORT, UPDATE and UPSERT modes for CUSTOMER, CARRIER, RATE and BOOKING.",
-    "Run preview and full preflight validation including duplicates, dependencies and mode-specific existence checks.",
-    "Provide row-level errors and warnings plus downloadable CSV error/execution report.",
-    "Keep all-or-nothing transaction rollback, batch history, actor/timestamp and audit trail.",
-    "Preserve carrier/customer privacy and existing role/data-scope controls."
+    "Add retry-safe client request idempotency for committed bulk operations without new tables.",
+    "Require clean preflight validation before UI commit action and invalidate validation when dataset/mode/file changes.",
+    "Strengthen CSV header/template checks and surface missing or unexpected headers before server execution.",
+    "Add admin-only business-key reconciliation for CUSTOMER, CARRIER, RATE and BOOKING plus downloadable CSV reconciliation report.",
+    "Keep 1000-row maximum and prove boundary behavior.",
+    "Preserve existing batch history, audit, privacy and atomic rollback behavior."
   ],
   "invariants": [
-    "Preserve frozen CR-010 baseline as parent.",
-    "No database migration.",
-    "No new database table.",
-    "No API data-model contract break.",
-    "No production deployment or traffic activation.",
-    "Keep LIVE_PROVIDERS OFF and REAL_MONEY OFF."
+    "No database migration or new table.",
+    "No breaking API model change.",
+    "Preserve CR-011 IMPORT/UPDATE/UPSERT semantics.",
+    "Preserve CR-010 and CR-011 role/privacy/security controls.",
+    "No production deployment, DNS change, live providers or real money."
   ],
   "regressionScopes": [
     "WEB_BUILD",
@@ -50,5 +49,5 @@
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "User explicitly authorized development/staging implementation and automatic in-scope fixes; production remains prohibited."
+  "note": "Autonomous staging-only continuation. Safe in-scope fixes may be applied and retested without intermediate approval."
 }
