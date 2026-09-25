@@ -26,6 +26,7 @@ function mockPrisma(){
     },
     booking:{
       findUnique:async({where}:any)=>state.bookings.find(x=>x.bookingNo===where.bookingNo)||null,
+      findMany:async({where}:any)=>state.bookings.filter(x=>matchIn(x.bookingNo,where?.bookingNo)),
       create:async({data}:any)=>{const row={id:id(),...clone(data)};state.bookings.push(row);return row;},
       update:async({where,data}:any)=>{const row=state.bookings.find(x=>x.bookingNo===where.bookingNo);if(!row)throw new Error('booking missing');Object.assign(row,clone(data));return row;}
     },
@@ -155,4 +156,65 @@ describe('BulkDataService safety and privacy',()=>{
     expect(result.results[0].errors[0]).toContain('Duplicate CUSTOMER key DUP-01');
     expect(result.results[1].errors[0]).toContain('Duplicate CUSTOMER key DUP-01');
   });
+  it('enforces IMPORT, UPDATE and UPSERT modes without partial writes',async()=>{
+    const {prisma,state}=mockPrisma();
+    const service=new BulkDataService(prisma);
+
+    const first=await service.importRows({type:'CUSTOMER',mode:'IMPORT',rows:[
+      {code:'MODE-01',name:'Mode Customer',countryCode:'NL'}
+    ]},admin);
+    expect(first.committed).toBe(true);
+    expect(first.mode).toBe('IMPORT');
+
+    const duplicateImport=await service.importRows({type:'CUSTOMER',mode:'IMPORT',rows:[
+      {code:'MODE-01',name:'Duplicate',countryCode:'NL'}
+    ]},admin);
+    expect(duplicateImport.committed).toBe(false);
+    expect(duplicateImport.results[0].errors.join(' ')).toContain('already exists');
+    expect(state.organizations.find(x=>x.code==='MODE-01')!.name).toBe('Mode Customer');
+
+    const missingUpdate=await service.importRows({type:'CUSTOMER',mode:'UPDATE',rows:[
+      {code:'MODE-MISSING',name:'Missing',countryCode:'NL'}
+    ]},admin);
+    expect(missingUpdate.committed).toBe(false);
+    expect(missingUpdate.results[0].errors.join(' ')).toContain('does not exist');
+
+    const update=await service.importRows({type:'CUSTOMER',mode:'UPDATE',rows:[
+      {code:'MODE-01',name:'Mode Customer Updated',countryCode:'NL'}
+    ]},admin);
+    expect(update.committed).toBe(true);
+    expect(update.mode).toBe('UPDATE');
+    expect(state.organizations.find(x=>x.code==='MODE-01')!.name).toBe('Mode Customer Updated');
+
+    const upsert=await service.importRows({type:'CUSTOMER',mode:'UPSERT',rows:[
+      {code:'MODE-02',name:'Upsert Customer',countryCode:'NL'}
+    ]},admin);
+    expect(upsert.committed).toBe(true);
+    expect(state.organizations.some(x=>x.code==='MODE-02')).toBe(true);
+
+    const actions=state.audits.map(x=>x.action);
+    expect(actions).toContain('BULK_DATA_IMPORT');
+    expect(actions).toContain('BULK_DATA_UPDATE');
+    expect(actions).toContain('BULK_DATA_UPSERT');
+  });
+
+  it('rolls back the full batch if execution fails after validation',async()=>{
+    const {prisma,state}=mockPrisma();
+    const service=new BulkDataService(prisma);
+    const originalCreate=prisma.organization.create;
+    let creates=0;
+    prisma.organization.create=async(args:any)=>{
+      creates++;
+      if(creates===2)throw new Error('synthetic execution failure');
+      return originalCreate(args);
+    };
+    const result=await service.importRows({type:'CUSTOMER',mode:'IMPORT',rows:[
+      {code:'ROLL-01',name:'Rollback One',countryCode:'NL'},
+      {code:'ROLL-02',name:'Rollback Two',countryCode:'NL'}
+    ]},admin);
+    expect(result.committed).toBe(false);
+    expect(state.organizations.filter(x=>x.code.startsWith('ROLL-'))).toHaveLength(0);
+    expect(result.results[1].error).toContain('synthetic execution failure');
+  });
+
 });
