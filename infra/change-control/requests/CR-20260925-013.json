@@ -1,0 +1,55 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260925-013",
+  "status": "APPROVED",
+  "title": "Finance + Reconciliation Control",
+  "createdAt": "2026-09-25T23:38:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvedBy": "User autonomous finance/reconciliation master command authorization",
+  "approvedAt": "2026-09-25T23:38:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "frozen": false,
+  "activationBlocked": true,
+  "baselineWebCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+  "baselineApiCommit": "dfd6cfa88bf0df1489b36d4e0d34959e1236a9db",
+  "parentBaseline": "CR-20260925-012",
+  "components": [
+    "web",
+    "api"
+  ],
+  "requirements": [
+    "Reuse existing FinanceLine, Accounting invoice/payment events, Booking, Task, Approval and Audit data; do not create a second finance engine.",
+    "Add booking/job reconciliation control for revenue, cost, margin, AR, AP, payments, disputed balances and finance closeout readiness.",
+    "Classify reconciliation state using compatible derived states OPEN, MATCHED, PARTIAL, DISPUTED, BLOCKED and CLOSED without database enum changes.",
+    "Detect unresolved invoice balances, disputes, missing revenue/cost, unfinalized finance lines and payment anomalies already represented by existing accounting events.",
+    "Expose finance reconciliation dashboard with row-level exception reasons, filters, direct remediation links and downloadable CSV report.",
+    "Require reconciliation-clean pre-close validation before financial closeout.",
+    "Preserve payment idempotency, duplicate-reference protection, maker-checker/four-eyes, role/data scope, privacy and audit controls.",
+    "Test job to invoice to payment/payable to reconciliation to closeout plus partial, duplicate, overpayment, dispute, missing-cost, margin-variance and reopen/correction scenarios."
+  ],
+  "invariants": [
+    "No database migration or new table.",
+    "No breaking API contract or business-model change.",
+    "Preserve frozen CR-010, CR-011 and CR-012 accepted behavior.",
+    "Free-tier only; no Redis unless verified mandatory.",
+    "No production runtime/DNS changes; PRODUCTION_TRAFFIC OFF, LIVE_PROVIDERS OFF, REAL_MONEY OFF."
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "FINANCE_RECONCILIATION",
+    "FINANCIAL_CLOSEOUT"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "Autonomous staging-only finance/reconciliation development. Safe in-scope fixes may be applied and retested without intermediate approval."
+}
