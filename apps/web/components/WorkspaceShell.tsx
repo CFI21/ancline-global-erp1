@@ -106,6 +106,7 @@ const menuGroups=[
       ['/background-automation','Scheduled Automation'],
       ['/integrations','Integrations'],
       ['/connectivity','EDI / Connectivity'],
+      ['/management-control','Management Control'],
       ['/enterprise-reporting','Enterprise BI'],
     ],
   },
