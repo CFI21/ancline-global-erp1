@@ -2,7 +2,7 @@ name: CR-016 Free GHCR Staging Deploy
 on:
   push:
     branches:
-      - cr016-free-ghcr-staging-deploy
+      - main
 
 permissions:
   contents: read
