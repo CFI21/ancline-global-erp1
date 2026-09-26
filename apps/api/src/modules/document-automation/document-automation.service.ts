@@ -110,9 +110,9 @@ export class DocumentAutomationService {
     const current=this.latest(rows,'Communication').find((x:any)=>x.communicationId===id);
     if(!current)throw new BadRequestException('Communication not found');
     await this.scope.assertBookingAccess(user,String(current.bookingId));
-    if(!['FAILED','BOUNCED'].includes(String(current.status)))throw new BadRequestException('Only FAILED or BOUNCED communications can be retried');
     const requestId=String(body?.requestId||'').trim()||`retry-${id}`;
     if(String(current.lastRetryRequestId||'')===requestId)return {...current,duplicate:true};
+    if(!['FAILED','BOUNCED'].includes(String(current.status)))throw new BadRequestException('Only FAILED or BOUNCED communications can be retried');
     const attachedIds=Array.isArray(current.documentIds)?current.documentIds.map(String):[];
     if(attachedIds.length){
       const docs=await this.db.document.findMany({where:{id:{in:attachedIds},bookingId:String(current.bookingId)}});
