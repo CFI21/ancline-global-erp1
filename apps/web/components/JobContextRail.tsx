@@ -86,14 +86,15 @@ export default function JobContextRail({
     {key:'DETAILS' as JobWorkspaceKey,label:'Additional Detail',href:bookingId?`/bookings/${bookingId}?tab=Details`:'/bookings'},
   ],[bookingId,q]);
   const taskPages=useMemo(()=>[
-    ...pages.filter(p=>p.key!=='DETAILS'),
-    ...(String(context?.businessModel||'NVOCC').toUpperCase()==='FORWARDING'?[{key:'PAYMENT' as JobWorkspaceKey,label:'Carrier Payment / Payer',href:`/carrier-payment?${q}`}]:[]),
-    {key:'TRACKING' as JobWorkspaceKey,label:'Tracking',href:`/tracking?${q}`},
-    {key:'EXCEPTIONS' as JobWorkspaceKey,label:'Exceptions',href:`/exceptions?${q}`},
-    {key:'FINANCE' as JobWorkspaceKey,label:'Job Costing',href:`/finance?${q}`},
-    {key:'TASKS' as JobWorkspaceKey,label:'Tasks',href:`/tasks?${q}`},
-    {key:'APPROVALS' as JobWorkspaceKey,label:'Approvals',href:`/approvals?${q}`},
+    ...pages.filter(p=>p.key!=='DETAILS').map(p=>({...p,group:'JOB FLOW'})),
+    ...(String(context?.businessModel||'NVOCC').toUpperCase()==='FORWARDING'?[{key:'PAYMENT' as JobWorkspaceKey,label:'Carrier Payment / Payer',href:`/carrier-payment?${q}`,group:'CONTROL'}]:[]),
+    {key:'TRACKING' as JobWorkspaceKey,label:'Tracking',href:`/tracking?${q}`,group:'CONTROL'},
+    {key:'EXCEPTIONS' as JobWorkspaceKey,label:'Exceptions',href:`/exceptions?${q}`,group:'CONTROL'},
+    {key:'FINANCE' as JobWorkspaceKey,label:'Job Costing',href:`/finance?${q}`,group:'CONTROL'},
+    {key:'TASKS' as JobWorkspaceKey,label:'My Work / Tasks',href:`/tasks?${q}`,group:'ACTION'},
+    {key:'APPROVALS' as JobWorkspaceKey,label:'Approvals',href:`/approvals?${q}`,group:'ACTION'},
   ],[pages,q,context?.businessModel]);
+  const taskGroups=useMemo(()=>['JOB FLOW','CONTROL','ACTION'].map(group=>({group,items:taskPages.filter(p=>p.group===group)})).filter(x=>x.items.length),[taskPages]);
 
   if(embedded||!bookingId)return null;
 
@@ -144,14 +145,17 @@ export default function JobContextRail({
         {counts.map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}
       </div>
 
-      <div className="job-context-section-title">Related Tasks</div>
+      <div className="job-context-section-title job-context-related-title"><span>Related Tasks</span><small>Open or preview</small></div>
       <div className="job-context-links">
-        {taskPages.map(p=><div className={'job-context-link'+(active===p.key?' active':'')} key={p.key}>
-          <a href={p.href}>{p.label}</a>
-          <button type="button" title={`Quick View ${p.label}`} onClick={()=>setModal({title:p.label,href:quickHref(p.href)})}>▣</button>
-        </div>)}
+        {taskGroups.map(group=><section className="job-context-task-group" key={group.group}>
+          <div className="job-context-task-group-title">{group.group}</div>
+          {group.items.map(p=><div className={'job-context-link'+(active===p.key?' active':'')} key={p.key}>
+            <a href={p.href}><span>{p.label}</span>{active===p.key&&<em>CURRENT</em>}</a>
+            <button type="button" aria-label={`Quick View ${p.label}`} title={`Quick View ${p.label}`} onClick={()=>setModal({title:p.label,href:quickHref(p.href)})}><span aria-hidden="true">▣</span> Quick</button>
+          </div>)}
+        </section>)}
       </div>
-      <div className="job-context-help">▣ opens Quick View on top of this screen. Press Esc to close.</div>
+      <div className="job-context-help"><b>Tip:</b> select the task name to open it, or use <b>Quick</b> to stay on this job.</div>
     </aside>
 
     {modal&&<div className="job-quick-overlay" role="dialog" aria-modal="true" aria-label={modal.title} onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}>
