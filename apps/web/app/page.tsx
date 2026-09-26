@@ -79,9 +79,9 @@ export default function Home(){
   },[bookings,tasks,control,actor]);
 
   const cards=[
-    {label:'MY WORK',value:data.myWork.length,href:'/tasks',detail:'Open tasks assigned to me'},
-    {label:'CRITICAL EXCEPTIONS',value:data.critical.length,href:'/exceptions?severity=CRITICAL',detail:'Immediate operational attention'},
-    {label:'OVERDUE',value:data.overdue.length,href:'/tasks?filter=OVERDUE',detail:'Open tasks past due'},
+    {label:'MY WORK',value:data.myWork.length,href:'/operations-workbench',detail:'Open tasks assigned to me'},
+    {label:'CRITICAL EXCEPTIONS',value:data.critical.length,href:'/operations-workbench',detail:'Immediate operational attention'},
+    {label:'OVERDUE',value:data.overdue.length,href:'/operations-workbench',detail:'Open tasks past due'},
     {label:'OPEN JOBS',value:data.activeJobs.length,href:'/jobs',detail:'Active NVOCC + Forwarding jobs'},
     {label:'FINANCE ATTENTION',value:data.financeAttention.length,href:'/exceptions?category=PAYMENT_RELEASE_BLOCK',detail:'Payment, release or reconciliation'},
     {label:'QUEUE OPEN',value:Number(control.summary?.queueOpen||control.summary?.open||0),href:'/exceptions',detail:'Governed operations queue'}
@@ -92,8 +92,8 @@ export default function Home(){
   const quick=[
     ['/bookings?new=1','New Booking'],
     ['/shipment-control?new=1','New Shipment'],
+    ['/operations-workbench','Operations Workbench'],
     ['/tasks','My Work'],
-    ['/exceptions','Operations Control'],
     ['/finance','Job Costing'],
     ['/enterprise-reporting','Enterprise BI']
   ];
