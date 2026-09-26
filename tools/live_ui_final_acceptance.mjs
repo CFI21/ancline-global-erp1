@@ -314,19 +314,21 @@ try{
     })});
     assert(raceTask.ok&&raceTask.body?.id,'concurrent run-due task creation failed');
     await sleep(3800);
-    const tasksBefore=await api(page,'/tasks');
-    const beforeEsc=(Array.isArray(tasksBefore.body)?tasksBefore.body:[]).filter(x=>String(x.title||'').includes('Escalation: OPERATIONS_ACTION_QUEUE · TASK_SLA_ESCALATION')).length;
+    wa=await api(page,'/workflow-automation/dashboard');
+    const raceTimersBefore=(wa.body.timers||[]).filter(x=>String(x.sourceResult?.taskId)===String(raceTask.body.id));
+    assert(raceTimersBefore.length===1,'dedicated concurrent run-due race timer missing before execution');
+    const raceTimerId=String(raceTimersBefore[0].id);
     const raced=await page.evaluate(async ()=>{
       const token=localStorage.getItem('ancline_token');
       const call=async()=>{const r=await fetch('/api-proxy/workflow-automation/run-due',{method:'POST',headers:{Authorization:'Bearer '+token}});const raw=await r.text();let body;try{body=raw?JSON.parse(raw):null}catch{body=raw}return {status:r.status,body};};
       return Promise.all([call(),call()]);
     });
     assert(raced.every(x=>x.status>=200&&x.status<300),'concurrent run-due request failed: '+JSON.stringify(raced.map(x=>({status:x.status,body:x.body}))));
-    const executed=raced.reduce((n,x)=>n+Number(x.body?.executed||0),0);
-    assert(executed<=1,'concurrent run-due executed the same due timer more than once: '+JSON.stringify(raced.map(x=>x.body)));
-    const tasksAfter=await api(page,'/tasks');
-    const afterEsc=(Array.isArray(tasksAfter.body)?tasksAfter.body:[]).filter(x=>String(x.title||'').includes('Escalation: OPERATIONS_ACTION_QUEUE · TASK_SLA_ESCALATION')).length;
-    assert(afterEsc-beforeEsc<=1,'concurrent run-due created duplicate escalation tasks');
+    const raceResults=raced.flatMap(x=>Array.isArray(x.body?.results)?x.body.results:[]).filter(x=>String(x.timerId)===raceTimerId);
+    const raceExecuted=raceResults.filter(x=>x.status==='EXECUTED');
+    assert(raceExecuted.length===1,'dedicated race timer was not executed exactly once: '+JSON.stringify(raced.map(x=>x.body)));
+    const raceTaskIds=[...new Set(raceExecuted.map(x=>String(x.taskId||'')).filter(Boolean))];
+    assert(raceTaskIds.length===1,'dedicated race timer created duplicate escalation tasks: '+JSON.stringify(raceResults));
     wa=await api(page,'/workflow-automation/dashboard');
     const raceTimers=(wa.body.timers||[]).filter(x=>String(x.sourceResult?.taskId)===String(raceTask.body.id));
     assert(raceTimers.length===1,'concurrent run-due duplicated or lost the race timer');
