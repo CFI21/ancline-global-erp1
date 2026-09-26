@@ -51,7 +51,6 @@ describe('Role-by-role UI and managed-session contracts',()=>{
     expect(login).toContain("if(role==='CUSTOMER'&&scopeId)payload.customerId=scopeId");
     expect(login).toContain("if((role==='SHIPPER'||role==='CONSIGNEE')&&scopeId)payload.partyId=scopeId");
     expect(login).toContain("if(role==='BRANCH_OPS'&&scopeId)payload.branchId=scopeId");
-    const auth=read('../src/modules/auth/auth.service.ts');
     expect(auth).toContain("if(account){");
     expect(auth).toContain("return this.issueManaged(account,'TRANSITIONAL_MANAGED')");
     expect(auth).toContain("if((role==='SHIPPER'||role==='CONSIGNEE')&&!body.partyId)");
