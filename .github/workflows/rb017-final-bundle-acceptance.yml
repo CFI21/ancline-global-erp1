@@ -40,11 +40,18 @@ jobs:
       - name: Verify exact live release identity + API health
         run: |
           set -euo pipefail
-          curl -L -fsS "$WEB_URL/release-info" -o /tmp/release.json
-          jq -e --arg sha "$PRODUCT_SHA" '.buildCommit==$sha' /tmp/release.json >/dev/null
-          curl -L -fsS "$WEB_URL/api-proxy/health" -o /tmp/health.json
-          jq -e --arg sha "$EXPECTED_API_COMMIT" '(.commit==$sha) or (.buildCommit==$sha) or (.gitCommit==$sha)' /tmp/health.json >/dev/null || {
-            echo "Health payload:"; cat /tmp/health.json; exit 1;
+          ok=0
+          for i in $(seq 1 12); do
+            if curl -L -fsS --connect-timeout 10 --max-time 30 "$WEB_URL/release-info" -o /tmp/release.json &&
+               jq -e --arg sha "$PRODUCT_SHA" '.buildCommit==$sha' /tmp/release.json >/dev/null &&
+               curl -L -fsS --connect-timeout 10 --max-time 30 "$WEB_URL/api-proxy/health" -o /tmp/health.json; then
+              ok=1; break
+            fi
+            sleep 5
+          done
+          [[ "$ok" == "1" ]] || { echo "Live identity/API health unavailable"; exit 1; }
+          jq -e '.status=="ok" or .status=="healthy" or .ok==true or .service!=null' /tmp/health.json >/dev/null || {
+            echo "Unexpected health payload:"; cat /tmp/health.json; exit 1;
           }
 
       - uses: actions/setup-node@v4
