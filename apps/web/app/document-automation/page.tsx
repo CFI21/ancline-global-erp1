@@ -1,4 +1,5 @@
 'use client';
+// CR-014 governed shared release marker
 
 import {useEffect,useMemo,useState} from 'react';
 import WorkspaceShell,{fieldStyle,formGrid,labelStyle,sectionTitle} from '../../components/WorkspaceShell';

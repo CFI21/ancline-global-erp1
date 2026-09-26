@@ -4,7 +4,7 @@ import { ScopeService } from '../auth/scope.service';
 import { ScopeUser, bookingScope } from '../auth/scope';
 import { AuditService } from '../audit/audit.service';
 
-const SOURCE='ANCLINE_DOCUMENT_AUTOMATION';
+const SOURCE='ANCLINE_DOCUMENT_AUTOMATION'; // CR-014 governed shared release marker
 const COMM_STATUSES=new Set(['DRAFT','QUEUED','SENT','DELIVERED','FAILED','BOUNCED']);
 const PACK_TYPES=new Set(['CUSTOMER_PACK','AGENT_PACK','CARRIER_PACK','CUSTOMS_PACK','CLOSEOUT_PACK']);
 
