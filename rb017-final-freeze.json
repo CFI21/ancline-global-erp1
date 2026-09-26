@@ -1,0 +1,67 @@
+{
+  "schema": "ANCLINE_RB017_FINAL_FREEZE_V1",
+  "releaseBundle": "RB-017",
+  "status": "FROZEN_ACCEPTED",
+  "frozenAt": "2026-09-26T20:08:12Z",
+  "repository": "CFI21/ancline-global-erp1",
+  "environment": "staging",
+  "workPackages": [
+    "WP-01",
+    "WP-02",
+    "WP-03",
+    "WP-04"
+  ],
+  "web": {
+    "service": "ancline-web-staging",
+    "serviceId": "srv-dairuloae00c73fnfo1g",
+    "url": "https://ancline-web-staging.onrender.com",
+    "appCommit": "8de92cbbd0d9d005c77b7263c0956b88aed4734d",
+    "image": "ghcr.io/cfi21/ancline-web:rb017-wp04-8de92cbbd0d9",
+    "liveDigest": "sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844",
+    "renderDeployId": "dep-das0hrnpn0mc73ebcf10",
+    "sourceMode": "image"
+  },
+  "api": {
+    "service": "ancline-api-staging",
+    "serviceId": "srv-daisqstg1s2s738kklb0",
+    "commit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "image": "ghcr.io/cfi21/ancline-api:sha-04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "liveDigest": "sha256:c2eb0c275e2301e10fe66b43bcd49723f6ee586938dba32f77d70d8f1c718d37",
+    "changedByRB017": false
+  },
+  "acceptance": {
+    "workflow": "RB-017 Final Bundle Acceptance",
+    "runId": 36268058150,
+    "conclusion": "success",
+    "evidenceArtifactId": 10914696924,
+    "evidenceArtifactDigest": "sha256:9583972214ab7bbcebfc45cf4dab3667be43bbcac4b75e5d201f0089e1c88f87",
+    "gates": {
+      "candidateAndBundleState": "PASS",
+      "exactReleaseIdentityAndApiHealth": "PASS",
+      "responsiveDesktopTabletMobile": "PASS",
+      "accessibilityAndFailureStates": "PASS",
+      "loginSessionDashboardJobsRolesLogout": "PASS",
+      "roleDataScopePrivacyExceptions": "PASS",
+      "jobs50001to50005TransactionalMutation": "PASS",
+      "makerCheckerFourEyesAudit": "PASS",
+      "integratedSurfacesNavigationFiltersDrilldowns": "PASS"
+    }
+  },
+  "acceptedScope": [
+    "WP-01 Executive Home + Operations Control Cleanup",
+    "WP-02 Operations Workbench + Exception Workflow Consolidation",
+    "WP-03 Finance Attention + Approval Control Consolidation",
+    "WP-04 Management Reporting + KPI Control Consolidation"
+  ],
+  "boundaries": {
+    "productionPromotion": false,
+    "apiDataModelChange": false,
+    "m3Changes": false
+  },
+  "notes": [
+    "RB-017 product Web content is pinned to commit 8de92cbbd0d9d005c77b7263c0956b88aed4734d and the recorded live digest.",
+    "Final acceptance-harness and workflow-only commits after the product candidate did not alter the deployed RB-017 application content.",
+    "CR-015 API remained unchanged throughout RB-017.",
+    "Production promotion remains prohibited until explicit user approval."
+  ]
+}
