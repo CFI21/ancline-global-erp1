@@ -61,6 +61,7 @@ jobs:
             --arg redirectUri "$redirect" \
             '{issuerPresent:$issuerPresent,clientIdPresent:$clientIdPresent,clientSecretPresent:$clientSecretPresent,devLogin:$devLogin,redirectUri:$redirectUri}' \
             > rb017-oidc-final/current-config.json
+          cat rb017-oidc-final/current-config.json
 
       - name: Configure from existing production GitHub secrets only
         env:
