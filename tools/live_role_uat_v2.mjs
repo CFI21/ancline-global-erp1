@@ -150,8 +150,12 @@ try{
       if(n==='50005') assert(b.businessModel==='NVOCC','50005 not NVOCC');
       if(special[n]) assert(b.specialCargo===special[n],`${n}: expected ${special[n]}, got ${b.specialCargo}`);
       await page.goto(WEB_URL+'/bookings/'+encodeURIComponent(b.id),{waitUntil:'domcontentloaded',timeout:60000});
-      await page.waitForTimeout(500);
-      const body=await page.locator('body').innerText();
+      let body='';
+      for(let attempt=1;attempt<=12;attempt++){
+        body=await page.locator('body').innerText();
+        if(body.includes(n))break;
+        await page.waitForTimeout(500);
+      }
       assert(body.includes(n),`${n}: booking detail did not render reference; url=${page.url()}`);
       report.jobs.push({bookingNo:n,businessModel:b.businessModel,specialCargo:b.specialCargo||null,artifacts:{routingLegs:b.routingLegs,milestones:b.milestones,documents:b.documents,financeLines:b.financeLines,tasks:b.tasks,approvals:b.approvals,closeoutItems:b.closeoutItems},status:'PASS'});
     }
