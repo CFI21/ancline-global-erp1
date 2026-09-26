@@ -1,0 +1,69 @@
+{
+  "schema": "ANCLINE_RELEASE_BUNDLE_MANIFEST_V1",
+  "bundleId": "RB-017",
+  "status": "OPEN_APPROVED",
+  "baseline": {
+    "webCommit": "338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+    "apiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "sourceFreeze": "release-registry/cr016-final-freeze.json"
+  },
+  "governance": {
+    "separateCRPerItem": false,
+    "bundleWorkItems": true,
+    "stagingFirst": true,
+    "productionRequiresExplicitApproval": true,
+    "m3Excluded": true,
+    "apiDataModelPreservedUnlessExplicitlyScoped": true,
+    "finalAcceptanceOncePerBundle": true
+  },
+  "lanes": [
+    {
+      "id": "UI_UX",
+      "items": []
+    },
+    {
+      "id": "WORKFLOW",
+      "items": []
+    },
+    {
+      "id": "NAVIGATION",
+      "items": []
+    },
+    {
+      "id": "OPERATIONS",
+      "items": []
+    },
+    {
+      "id": "FINANCE",
+      "items": []
+    },
+    {
+      "id": "CONTROL",
+      "items": []
+    },
+    {
+      "id": "REPORTING",
+      "items": []
+    }
+  ],
+  "execution": {
+    "implementApprovedItemsContinuously": true,
+    "fixVerifiedInScopeDefects": true,
+    "retestAfterFix": true,
+    "impactRegressionPerChange": true,
+    "finalFullUatRequired": true,
+    "freezeOneNewBaselineOnPass": true
+  },
+  "acceptance": {
+    "required": [
+      "build",
+      "role-scope",
+      "desktop-tablet-mobile",
+      "jobs-50001-50005",
+      "login-session",
+      "impact-regression",
+      "full-uat"
+    ],
+    "currentStatus": "NOT_STARTED"
+  }
+}
