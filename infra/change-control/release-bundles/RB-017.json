@@ -29,6 +29,11 @@
           "id": "WP-02",
           "title": "Operations Workbench + Exception Workflow Consolidation",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-03",
+          "title": "Finance Attention + Approval Control Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -39,6 +44,11 @@
           "id": "WP-02",
           "title": "Operations Workbench + Exception Workflow Consolidation",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-03",
+          "title": "Finance Attention + Approval Control Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -54,6 +64,11 @@
           "id": "WP-02",
           "title": "Operations Workbench + Exception Workflow Consolidation",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-03",
+          "title": "Finance Attention + Approval Control Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -79,6 +94,11 @@
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-03",
+          "title": "Finance Attention + Approval Control Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -94,6 +114,11 @@
           "id": "WP-02",
           "title": "Operations Workbench + Exception Workflow Consolidation",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-03",
+          "title": "Finance Attention + Approval Control Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -126,7 +151,7 @@
       "impact-regression",
       "full-uat"
     ],
-    "currentStatus": "WP-02_ACCEPTED_RB-017_OPEN"
+    "currentStatus": "WP-03_IN_PROGRESS_RB-017_OPEN"
   },
   "workPackages": [
     {
@@ -253,6 +278,44 @@
           "OPERATIONS_WORKBENCH_SURFACE"
         ]
       }
+    },
+    {
+      "id": "WP-03",
+      "title": "Finance Attention + Approval Control Consolidation",
+      "status": "IMPLEMENTING",
+      "approvedAt": "2026-09-26T17:57:00+02:00",
+      "domains": [
+        "UI_UX",
+        "WORKFLOW",
+        "NAVIGATION",
+        "FINANCE",
+        "CONTROL"
+      ],
+      "scope": [
+        "Consolidate finance-related approvals and finance attention exceptions into one control surface.",
+        "Use existing /approvals, /operations/control-dashboard, /credit-control/dashboard and /accounting/dashboard data only.",
+        "Present pending approvals, finance exceptions, credit holds, collections, unreconciled bank items, open AR/AP and overdue/disputed finance indicators.",
+        "Retain direct links to Approval Queue, Job Costing, AR/AP, Credit & Collections and Financial Reporting.",
+        "Allow approve/reject through existing approval endpoints only."
+      ],
+      "constraints": [
+        "Preserve API-side maker-checker and assigned-approver enforcement.",
+        "Preserve role/data scope, audit and four-eyes controls.",
+        "No new finance business logic.",
+        "No API or data-model changes.",
+        "Staging only.",
+        "Do not freeze RB-017 after WP-03.",
+        "No production promotion.",
+        "No M3 changes."
+      ],
+      "regression": [
+        "WEB_BUILD",
+        "ROLE_BROWSER_UAT",
+        "RESPONSIVE_FAILURE_ACCESSIBILITY",
+        "FINANCE_APPROVAL_CONTROL",
+        "JOBS_50001_50005",
+        "LOGIN_SESSION"
+      ]
     }
   ]
 }
