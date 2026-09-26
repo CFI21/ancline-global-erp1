@@ -85,6 +85,7 @@ jobs:
             docker exec rb017-restore-postgres pg_isready -U postgres >/dev/null 2>&1 && break
             sleep 2
           done
+          docker exec rb017-restore-postgres psql -U postgres -d ancline_restore -c 'DROP SCHEMA public CASCADE;' >/dev/null
           docker exec -i rb017-restore-postgres pg_restore -U postgres -d ancline_restore --no-owner --no-acl < /tmp/rb017-dr/ancline-prod.dump
 
           : > /tmp/rb017-dr/restored_counts.tsv
