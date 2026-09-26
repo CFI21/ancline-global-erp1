@@ -69,7 +69,7 @@ jobs:
           mkdir -p /tmp/rb017-dr
           docker pull postgres:17-alpine >/dev/null
 
-          docker run --rm -e DATABASE_URL="$DB_URL" -v /tmp/rb017-dr:/work postgres:17-alpine             sh -c 'psql "$DATABASE_URL" -Atqc "select tablename from pg_tables where schemaname=\x27public\x27 order by tablename" > /work/source_tables.txt'
+          docker run --rm -e DATABASE_URL="$DB_URL" -v /tmp/rb017-dr:/work postgres:17-alpine             sh -c 'psql "$DATABASE_URL" -Atqc "select tablename from pg_tables where schemaname=current_schema() order by tablename" > /work/source_tables.txt'
 
           : > /tmp/rb017-dr/source_counts.tsv
           while IFS= read -r t; do
