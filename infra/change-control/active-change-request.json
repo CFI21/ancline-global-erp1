@@ -15,8 +15,8 @@
   "productionPromotionAuthorized": false,
   "frozen": false,
   "activationBlocked": true,
-  "baselineWebCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
-  "baselineApiCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+  "baselineWebCommit": "3c2beb750166309560e457195d8f1d0781d82324",
+  "baselineApiCommit": "3c2beb750166309560e457195d8f1d0781d82324",
   "parentBaseline": "CR-20260926-014",
   "components": [
     "web",
@@ -50,5 +50,5 @@
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "Navigation/access correction only; safe in-scope fixes may be applied and retested without intermediate approval."
+  "note": "CR-015 login hotfix continues from the currently approved CR-015 staging runtime. Safe in-scope login/frontend-auth fixes may be applied and retested without intermediate approval."
 }
