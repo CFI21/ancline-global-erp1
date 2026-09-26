@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { scryptSync, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OidcService } from './oidc/oidc.service';
 
@@ -29,12 +30,48 @@ export class AuthService {
     return {accessToken:this.jwt.sign(payload,{expiresIn:'8h'}),user:payload,managedAccount:true,authSource};
   }
 
+  private verifyStagingPassword(password:string,encoded:string){
+    const parts=String(encoded||'').split('$');
+    if(parts.length!==3||parts[0]!=='scrypt') return false;
+    try{
+      const salt=Buffer.from(parts[1],'hex');
+      const expected=Buffer.from(parts[2],'hex');
+      const actual=scryptSync(password,salt,expected.length);
+      return expected.length===actual.length&&timingSafeEqual(expected,actual);
+    }catch{return false;}
+  }
+
   async login(body:any){
     if(!body?.email) throw new UnauthorizedException('Email required');
     const email=String(body.email).trim().toLowerCase();
-    const account=await this.prisma.userAccount.findUnique({where:{email}});
-
     const devAllowed=String(process.env.ALLOW_DEV_LOGIN||'true').toLowerCase()!=='false';
+    const configuredEmail=String(process.env.DEV_AUTH_EMAIL||'').trim().toLowerCase();
+    const configuredHash=String(process.env.DEV_AUTH_PASSWORD_HASH||'');
+    const configuredRole=String(process.env.DEV_AUTH_ROLE||'GLOBAL_ADMIN').toUpperCase();
+
+    if(devAllowed&&configuredEmail&&email===configuredEmail){
+      const password=String(body?.password||'');
+      if(!configuredHash||!this.verifyStagingPassword(password,configuredHash)) throw new UnauthorizedException('Invalid credentials');
+      const allowed=['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'];
+      if(!allowed.includes(configuredRole)) throw new UnauthorizedException('Unsupported ANCLINE role');
+      const payload={
+        sub:configuredEmail,
+        email:configuredEmail,
+        role:configuredRole,
+        branchId:null,
+        agentId:null,
+        customerId:null,
+        partyId:null,
+        costCenterCode:null,
+        agentMode:null,
+        permissions:[],
+        managedAccount:false,
+        authSource:'STAGING_LOCAL'
+      };
+      return {accessToken:this.jwt.sign(payload,{expiresIn:'2h'}),user:payload,managedAccount:false,authSource:'STAGING_LOCAL'};
+    }
+
+    const account=await this.prisma.userAccount.findUnique({where:{email}});
     if(account){
       if(!account.active) throw new UnauthorizedException('This ANCLINE account is inactive');
       if(!devAllowed) throw new UnauthorizedException('Email-only ANCLINE login is disabled. Use secure identity sign-in.');
