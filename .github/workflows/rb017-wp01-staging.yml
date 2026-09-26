@@ -14,9 +14,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TARGET_SHA: 2da0fdd2201215d42a3e7415b4d8e51c8dd2a1a8
+  TARGET_SHA: 619f420534cca2be2acb82db211400eb329e4704
   IMAGE: ghcr.io/cfi21/ancline-web
-  IMAGE_TAG: rb017-wp01-2da0fdd22012
+  IMAGE_TAG: rb017-wp01-619f420534cc
   API_URL: https://ancline-api-staging.onrender.com
   STAGING_WEB_URL: https://ancline-web-staging.onrender.com
   RENDER_WEB_SERVICE_ID: srv-dairuloae00c73fnfo1g
