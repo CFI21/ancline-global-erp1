@@ -1,0 +1,52 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260926-015",
+  "status": "APPROVED",
+  "title": "Accounting Navigation + Explicit GL User Entitlements",
+  "createdAt": "2026-09-26T09:36:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvedBy": "User explicit ANCLINE/M3 accounting navigation correction",
+  "approvedAt": "2026-09-26T09:36:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "frozen": false,
+  "activationBlocked": true,
+  "baselineWebCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+  "baselineApiCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+  "parentBaseline": "CR-20260926-014",
+  "components": [
+    "web",
+    "api"
+  ],
+  "requirements": [
+    "Move General Ledger and finance configuration navigation out of operational/agent-task context and place it under General / Administration -> Finance & Accounting Setup.",
+    "Keep operational agent tasks free of GL master/configuration functions.",
+    "Add explicit admin-assignable GL and finance configuration rights for selected users.",
+    "Do not grant GL setup access automatically to FINANCE, OPERATIONS or AGENT users.",
+    "Enforce direct API access using explicit entitlements, not navigation hiding only.",
+    "Preserve maker-checker/four-eyes and record actor, before value, after value and timestamp for GL state changes."
+  ],
+  "invariants": [
+    "No database migration or new table.",
+    "No accounting data-model or API contract redesign.",
+    "Preserve CR-010 through CR-014 accepted baselines.",
+    "No production runtime/DNS change.",
+    "LIVE_PROVIDERS OFF, REAL_MONEY OFF, PRODUCTION_TRAFFIC OFF."
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "ACCOUNTING_NAVIGATION",
+    "GL_ENTITLEMENTS",
+    "MAKER_CHECKER_AUDIT",
+    "TRANSACTION_LIFECYCLE"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "Navigation/access correction only; safe in-scope fixes may be applied and retested without intermediate approval."
+}
