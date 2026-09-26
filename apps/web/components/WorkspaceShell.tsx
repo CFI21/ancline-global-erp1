@@ -57,7 +57,8 @@ const menuGroups=[
       ['/transport','Land Transport'],
       ['/customs','Customs'],
       ['/tracking','Tracking'],
-      ['/exceptions','Exceptions'],
+      ['/operations-workbench','Operations Workbench'],
+      ['/exceptions','Exceptions / Action Queue'],
       ['/forwarding-amendments','Amendments'],
     ],
   },
@@ -272,7 +273,7 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
           <div className="top-title-wrap"><h1>{title}</h1><div className="sub">{subtitle}</div></div>
           <div className="top-actions">
             <span className="status">{role||'USER'}</span>
-            <a className="btn" href="/exceptions" style={{textDecoration:'none'}}>Exceptions</a>
+            <a className="btn" href="/operations-workbench" style={{textDecoration:'none'}}>Operations</a>
             {actions}
             <button className="btn" onClick={signOut}>Sign out</button>
           </div>
