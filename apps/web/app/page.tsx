@@ -95,6 +95,7 @@ export default function Home(){
     ['/operations-workbench','Operations Workbench'],
     ['/tasks','My Work'],
     ['/finance','Job Costing'],
+    ['/management-control','Management Control'],
     ['/enterprise-reporting','Enterprise BI']
   ];
 
