@@ -87,6 +87,16 @@ jobs:
 
           jq -n             --arg nodeEnv "$node_env"             --argjson devLoginDisabled true             --argjson webTargetsProdApi true             --argjson corsIncludesProdWeb true             --argjson oidcConfigured "$oidc"             '{nodeEnv:$nodeEnv,devLoginDisabled:$devLoginDisabled,webTargetsProdApi:$webTargetsProdApi,corsIncludesProdWeb:$corsIncludesProdWeb,oidcConfigured:$oidcConfigured}'             > rb017-production-readiness/auth-routing-checks.json
 
+      - name: Verify managed auth and observability endpoints
+        run: |
+          set -euo pipefail
+          curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/configuration" > rb017-production-readiness/oidc-configuration.json
+          curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/validate" > rb017-production-readiness/oidc-validation.json
+          curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/observability/ready" > rb017-production-readiness/observability-ready.json
+          jq -e '.configured==true and .devLoginAllowed==false' rb017-production-readiness/oidc-configuration.json >/dev/null
+          jq -e '(.valid==true) or (.status=="ok") or (.configured==true)' rb017-production-readiness/oidc-validation.json >/dev/null
+          jq -e '.status=="ready"' rb017-production-readiness/observability-ready.json >/dev/null
+
       - name: Probe production API health read-only
         run: |
           set -euo pipefail
