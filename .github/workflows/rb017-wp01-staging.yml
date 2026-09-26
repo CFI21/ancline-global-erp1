@@ -1,0 +1,144 @@
+name: RB-017 WP-01 Free Staging Acceptance
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rb017-wp01-staging.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ancline-rb017-wp01-staging
+  cancel-in-progress: false
+
+env:
+  TARGET_SHA: 2da0fdd2201215d42a3e7415b4d8e51c8dd2a1a8
+  IMAGE: ghcr.io/cfi21/ancline-web
+  IMAGE_TAG: rb017-wp01-2da0fdd22012
+  API_URL: https://ancline-api-staging.onrender.com
+  STAGING_WEB_URL: https://ancline-web-staging.onrender.com
+  RENDER_WEB_SERVICE_ID: srv-dairuloae00c73fnfo1g
+  RENDER_WORKSPACE_ID: tea-daiog6tg1s2s7385f4h0
+
+jobs:
+  staging-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Build exact RB-017 WP-01 image
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 -f apps/web/Dockerfile \
+            --build-arg ANCLINE_BUILD_COMMIT="$TARGET_SHA" \
+            -t "$IMAGE:$IMAGE_TAG" .
+
+      - name: Start local candidate against frozen CR-015 API
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name ancline-rb017-wp01-web -p 3000:3000 \
+            -e PORT=3000 -e ANCLINE_API_URL="$API_URL" -e NEXT_PUBLIC_API_URL="" \
+            "$IMAGE:$IMAGE_TAG"
+          for i in $(seq 1 60); do
+            code="$(curl -sS -o /tmp/release.json -w '%{http_code}' http://127.0.0.1:3000/release-info || true)"
+            if [[ "$code" == "200" ]] && jq -e --arg sha "$TARGET_SHA" '.buildCommit == $sha' /tmp/release.json >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs ancline-rb017-wp01-web || true
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+
+      - name: Local UI hardening
+        env:
+          WEB_URL: http://127.0.0.1:3000
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Local login jobs role regression
+        env:
+          WEB_URL: http://127.0.0.1:3000
+          EXPECTED_API_COMMIT: 04b6957860c7bb47576d76f1d6fe1b90dca81f9b
+        run: node tools/live_ui_final_acceptance.mjs
+
+      - name: Push WP-01 image to GHCR
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMAGE:$IMAGE_TAG"
+
+      - name: Point ANCLINE Web staging to WP-01 image and deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          IMAGE_URL="$IMAGE:$IMAGE_TAG"
+          code="$(curl -sS -o /tmp/update.json -w '%{http_code}' -X PATCH \
+            "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID" \
+            -H "Accept: application/json" -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            --data "$(jq -nc --arg owner "$RENDER_WORKSPACE_ID" --arg image "$IMAGE_URL" '{image:{ownerId:$owner,imagePath:$image},autoDeploy:"no"}')")"
+          [[ "$code" == "200" ]] || { cat /tmp/update.json; exit 1; }
+          deploy_code="$(curl -sS -o /tmp/deploy.json -w '%{http_code}' -X POST \
+            "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys" \
+            -H "Accept: application/json" -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            --data "$(jq -nc --arg image "$IMAGE_URL" '{imageUrl:$image}')")"
+          [[ "$deploy_code" == "201" || "$deploy_code" == "202" ]] || { cat /tmp/deploy.json; exit 1; }
+          DEPLOY_ID="$(jq -r '.id' /tmp/deploy.json)"
+          echo "$DEPLOY_ID" > /tmp/deploy-id
+          for i in $(seq 1 90); do
+            curl -sS -H "Accept: application/json" -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys/$DEPLOY_ID" -o /tmp/status.json
+            status="$(jq -r '.status' /tmp/status.json)"
+            echo "deploy status: $status"
+            [[ "$status" == "live" ]] && exit 0
+            [[ "$status" =~ ^(build_failed|update_failed|canceled|deactivated)$ ]] && { cat /tmp/status.json; exit 1; }
+            sleep 10
+          done
+          exit 1
+
+      - name: Verify exact live WP-01 identity and API health
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            code="$(curl -L -sS -o /tmp/live.json -w '%{http_code}' "$STAGING_WEB_URL/release-info" || true)"
+            if [[ "$code" == "200" ]] && jq -e --arg sha "$TARGET_SHA" '.buildCommit == $sha' /tmp/live.json >/dev/null; then
+              curl -L -fsS "$STAGING_WEB_URL/api-proxy/health" >/tmp/health.json
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+
+      - name: Final staging UI hardening
+        env:
+          WEB_URL: https://ancline-web-staging.onrender.com
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Final staging login jobs role regression
+        env:
+          WEB_URL: https://ancline-web-staging.onrender.com
+          EXPECTED_API_COMMIT: 04b6957860c7bb47576d76f1d6fe1b90dca81f9b
+        run: node tools/live_ui_final_acceptance.mjs
+
+      - name: Upload WP-01 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rb017-wp01-staging-${{ github.run_id }}
+          path: |
+            ui-hardening-artifacts/
+            ui-acceptance-artifacts/
+          retention-days: 30
