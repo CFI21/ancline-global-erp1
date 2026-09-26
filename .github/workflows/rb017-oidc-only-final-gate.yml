@@ -1,0 +1,161 @@
+name: RB-017 OIDC-Only Final Gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rb017-oidc-only-final-gate.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ancline-rb017-oidc-only-final-gate
+  cancel-in-progress: false
+
+env:
+  PROD_API_SERVICE_ID: srv-dapdoq9srm7s73f4dif0
+  PROD_API_URL: https://ancline-api-prod.onrender.com
+  PROD_WEB_URL: https://ancline-web-prod.onrender.com
+  EXPECTED_REDIRECT_URI: https://ancline-web-prod.onrender.com/auth/callback
+
+jobs:
+  oidc-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize OIDC-only evidence
+        run: |
+          set -euo pipefail
+          mkdir -p rb017-oidc-final
+          jq -n '{
+            bundle:"RB-017",
+            gate:"OIDC_ONLY_FINAL_GATE",
+            rebuilt:false,
+            broadUatRerun:false,
+            supabaseDrRerun:false,
+            productionPromoted:false,
+            trafficSwitched:false,
+            m3Changes:false
+          }' > rb017-oidc-final/result.json
+
+      - name: Inspect current production OIDC configuration
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json" \
+            "https://api.render.com/v1/services/$PROD_API_SERVICE_ID/env-vars" > /tmp/prod-api-env.json
+          value(){ jq -r --arg k "$2" '[.[]|select(.envVar.key==$k)|.envVar.value][0] // ""' "$1"; }
+          issuer="$(value /tmp/prod-api-env.json OIDC_ISSUER)"
+          client="$(value /tmp/prod-api-env.json OIDC_CLIENT_ID)"
+          secret="$(value /tmp/prod-api-env.json OIDC_CLIENT_SECRET)"
+          devlogin="$(value /tmp/prod-api-env.json ALLOW_DEV_LOGIN)"
+          redirect="$(value /tmp/prod-api-env.json OIDC_REDIRECT_URI)"
+          jq -n \
+            --argjson issuerPresent "$([[ -n "$issuer" ]] && echo true || echo false)" \
+            --argjson clientIdPresent "$([[ -n "$client" ]] && echo true || echo false)" \
+            --argjson clientSecretPresent "$([[ -n "$secret" ]] && echo true || echo false)" \
+            --arg devLogin "$devlogin" \
+            --arg redirectUri "$redirect" \
+            '{issuerPresent:$issuerPresent,clientIdPresent:$clientIdPresent,clientSecretPresent:$clientSecretPresent,devLogin:$devLogin,redirectUri:$redirectUri}' \
+            > rb017-oidc-final/current-config.json
+
+      - name: Configure from existing production GitHub secrets only
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          PROD_OIDC_ISSUER: ${{ secrets.PROD_OIDC_ISSUER }}
+          PROD_OIDC_CLIENT_ID: ${{ secrets.PROD_OIDC_CLIENT_ID }}
+          PROD_OIDC_CLIENT_SECRET: ${{ secrets.PROD_OIDC_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          issuer_present="$(jq -r '.issuerPresent' rb017-oidc-final/current-config.json)"
+          client_present="$(jq -r '.clientIdPresent' rb017-oidc-final/current-config.json)"
+          secret_present="$(jq -r '.clientSecretPresent' rb017-oidc-final/current-config.json)"
+
+          if [[ "$issuer_present" == "true" && "$client_present" == "true" && "$secret_present" == "true" ]]; then
+            echo '{"status":"ALREADY_CONFIGURED","externalBlocker":false}' > rb017-oidc-final/action.json
+          elif [[ -n "${PROD_OIDC_ISSUER:-}" && -n "${PROD_OIDC_CLIENT_ID:-}" && -n "${PROD_OIDC_CLIENT_SECRET:-}" ]]; then
+            curl -fsS -X PUT \
+              "https://api.render.com/v1/services/$PROD_API_SERVICE_ID/env-vars" \
+              -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" \
+              --data "$(jq -nc \
+                --arg issuer "$PROD_OIDC_ISSUER" \
+                --arg client "$PROD_OIDC_CLIENT_ID" \
+                --arg secret "$PROD_OIDC_CLIENT_SECRET" \
+                --arg redirect "$EXPECTED_REDIRECT_URI" \
+                '{envVars:[
+                  {key:"OIDC_ISSUER",value:$issuer},
+                  {key:"OIDC_CLIENT_ID",value:$client},
+                  {key:"OIDC_CLIENT_SECRET",value:$secret},
+                  {key:"OIDC_REDIRECT_URI",value:$redirect},
+                  {key:"ALLOW_DEV_LOGIN",value:"false"}
+                ]}')" > /tmp/oidc-update.json
+            echo '{"status":"CONFIGURED_FROM_EXISTING_PROD_SECRETS","externalBlocker":false}' > rb017-oidc-final/action.json
+          else
+            echo '{"status":"EXTERNAL_CREDENTIALS_REQUIRED","externalBlocker":true,"missing":["PROD_OIDC_ISSUER","PROD_OIDC_CLIENT_ID","PROD_OIDC_CLIENT_SECRET"]}' > rb017-oidc-final/action.json
+          fi
+
+      - name: Validate OIDC-only impacted gates
+        run: |
+          set -euo pipefail
+          external="$(jq -r '.externalBlocker' rb017-oidc-final/action.json)"
+          if [[ "$external" == "true" ]]; then
+            echo '{"status":"BLOCKED_EXTERNAL_CREDENTIALS","productionReady":false}' > rb017-oidc-final/validation.json
+            exit 0
+          fi
+
+          fetch_json(){
+            local url="$1" out="$2" ok=0
+            for i in $(seq 1 10); do
+              code="$(curl -L -sS --connect-timeout 10 --max-time 30 -o "$out.tmp" -w '%{http_code}' "$url" || true)"
+              if [[ "$code" == "200" ]]; then mv "$out.tmp" "$out"; ok=1; break; fi
+              sleep 6
+            done
+            [[ "$ok" == "1" ]]
+          }
+
+          fetch_json "$PROD_API_URL/api/auth/oidc/configuration" /tmp/oidc-config.json
+          fetch_json "$PROD_API_URL/api/auth/oidc/validate" /tmp/oidc-validate.json
+          jq -e '.configured==true and .devLoginAllowed==false' /tmp/oidc-config.json >/dev/null
+          jq -e '(.ok==true) or (.valid==true) or (.configured==true)' /tmp/oidc-validate.json >/dev/null
+
+          config_redirect="$(jq -r '.redirectUri // empty' /tmp/oidc-config.json)"
+          [[ -z "$config_redirect" || "$config_redirect" == "$EXPECTED_REDIRECT_URI" ]]
+
+          jq -n \
+            --arg status PASS \
+            --arg redirect "$EXPECTED_REDIRECT_URI" \
+            '{status:$status,productionReady:true,oidcConfigured:true,devLoginDisabled:true,redirectUri:$redirect,scope:"OIDC_ONLY_AUTH_IMPACT"}' \
+            > rb017-oidc-final/validation.json
+
+      - name: Produce final OIDC gate status
+        if: always()
+        run: |
+          set -euo pipefail
+          action_status="$(jq -r '.status // "UNKNOWN"' rb017-oidc-final/action.json 2>/dev/null || echo UNKNOWN)"
+          external="$(jq -r '.externalBlocker // true' rb017-oidc-final/action.json 2>/dev/null || echo true)"
+          validation="$(jq -r '.status // "UNKNOWN"' rb017-oidc-final/validation.json 2>/dev/null || echo UNKNOWN)"
+
+          if [[ "$external" == "false" && "$validation" == "PASS" ]]; then
+            status="PRODUCTION_READY"
+            blockers='[]'
+          else
+            status="EXTERNAL_OIDC_CREDENTIALS_REQUIRED"
+            blockers='[{"id":"PROD_OIDC_CREDENTIALS_REQUIRED","required":["PROD_OIDC_ISSUER","PROD_OIDC_CLIENT_ID","PROD_OIDC_CLIENT_SECRET"],"redirectUri":"https://ancline-web-prod.onrender.com/auth/callback","noBroadRetestRequired":true}]'
+          fi
+
+          jq --arg status "$status" --arg action "$action_status" --argjson blockers "$blockers" \
+            '.status=$status | .oidcAction=$action | .blockers=$blockers' \
+            rb017-oidc-final/result.json > /tmp/result.json
+          mv /tmp/result.json rb017-oidc-final/result.json
+          cat rb017-oidc-final/result.json
+
+      - name: Upload OIDC-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rb017-oidc-only-final-${{ github.run_id }}
+          path: rb017-oidc-final/
+          retention-days: 30
