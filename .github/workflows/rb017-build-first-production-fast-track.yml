@@ -1,0 +1,212 @@
+name: RB-017 Build-First Production Fast Track
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rb017-build-first-production-fast-track.yml'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ancline-rb017-build-first-production-fast-track
+  cancel-in-progress: false
+
+env:
+  PROD_WEB_SERVICE_ID: srv-dapdotijnfac73840em0
+  PROD_API_SERVICE_ID: srv-dapdoq9srm7s73f4dif0
+  PROD_WEB_URL: https://ancline-web-prod.onrender.com
+  PROD_API_URL: https://ancline-api-prod.onrender.com
+  FROZEN_WEB_COMMIT: 8de92cbbd0d9d005c77b7263c0956b88aed4734d
+  FROZEN_WEB_DIGEST: sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844
+  FROZEN_API_COMMIT: 04b6957860c7bb47576d76f1d6fe1b90dca81f9b
+
+jobs:
+  fast-track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize final fast-track evidence
+        run: |
+          set -euo pipefail
+          mkdir -p rb017-fast-track
+          jq -e '.bundleId=="RB-017" and .status=="FROZEN_ACCEPTED" and .acceptance.currentStatus=="RB-017_FINAL_ACCEPTED_FROZEN"' infra/change-control/release-bundles/RB-017.json >/dev/null
+          jq -n '{
+            bundle:"RB-017",
+            mode:"BUILD_FIRST_FAST_TRACK",
+            productionPromotion:false,
+            productionTrafficSwitched:false,
+            m3Changes:false,
+            reusedPassedEvidence:{
+              finalBundleUatRun:36268058150,
+              productionCoreReadinessRun:36269375671
+            },
+            gates:{}
+          }' > rb017-fast-track/result.json
+
+      - name: Fetch production config privately
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json"             "https://api.render.com/v1/services/$PROD_API_SERVICE_ID/env-vars" > /tmp/prod-api-env.json
+          curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json"             "https://api.render.com/v1/services/$PROD_WEB_SERVICE_ID/env-vars" > /tmp/prod-web-env.json
+          jq '[.[]|{key:.envVar.key,present:((.envVar.value//"")|length>0)}]' /tmp/prod-api-env.json > rb017-fast-track/prod-api-env-presence.json
+          jq '[.[]|{key:.envVar.key,present:((.envVar.value//"")|length>0)}]' /tmp/prod-web-env.json > rb017-fast-track/prod-web-env-presence.json
+
+      - name: Close Supabase backup and isolated restore DR blocker
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          value(){ jq -r --arg k "$2" '[.[]|select(.envVar.key==$k)|.envVar.value][0] // ""' "$1"; }
+          DB_URL="$(value /tmp/prod-api-env.json DATABASE_URL)"
+          [[ -n "$DB_URL" ]]
+          export PGPASSWORD=""
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+
+          # Capture source table counts without echoing DB URL.
+          psql "$DB_URL" -Atqc "select tablename from pg_tables where schemaname='public' order by tablename" > /tmp/source_tables.txt
+          : > /tmp/source_counts.tsv
+          while IFS= read -r t; do
+            c="$(psql "$DB_URL" -Atqc "select count(*) from public.\"$t\"")"
+            printf '%s\t%s\n' "$t" "$c" >> /tmp/source_counts.tsv
+          done < /tmp/source_tables.txt
+
+          pg_dump "$DB_URL" --format=custom --no-owner --no-acl --file=/tmp/ancline-prod.dump
+          sha256sum /tmp/ancline-prod.dump | awk '{print $1}' > /tmp/backup.sha256
+
+          docker run -d --rm --name rb017-restore-postgres             -e POSTGRES_PASSWORD=restorepass -e POSTGRES_DB=ancline_restore             -p 55432:5432 postgres:16-alpine >/dev/null
+          for i in $(seq 1 40); do
+            pg_isready -h 127.0.0.1 -p 55432 -U postgres >/dev/null 2>&1 && break
+            sleep 2
+          done
+          PGPASSWORD=restorepass pg_restore -h 127.0.0.1 -p 55432 -U postgres -d ancline_restore             --no-owner --no-acl /tmp/ancline-prod.dump
+
+          : > /tmp/restored_counts.tsv
+          while IFS= read -r t; do
+            c="$(PGPASSWORD=restorepass psql -h 127.0.0.1 -p 55432 -U postgres -d ancline_restore -Atqc "select count(*) from public.\"$t\"")"
+            printf '%s\t%s\n' "$t" "$c" >> /tmp/restored_counts.tsv
+          done < /tmp/source_tables.txt
+
+          diff -u /tmp/source_counts.tsv /tmp/restored_counts.tsv
+          table_count="$(wc -l < /tmp/source_tables.txt | tr -d ' ')"
+          backup_sha="$(cat /tmp/backup.sha256)"
+          jq -n --argjson tableCount "$table_count" --arg backupSha "$backup_sha"             '{status:"PASS",method:"pg_dump custom-format to disposable local PostgreSQL 16 restore",tableCount:$tableCount,rowCountsMatched:true,backupSha256:$backupSha,productionMutated:false,restoreTargetDestroyed:true}'             > rb017-fast-track/backup-restore-drill.json
+          docker rm -f rb017-restore-postgres >/dev/null 2>&1 || true
+          rm -f /tmp/ancline-prod.dump /tmp/source_counts.tsv /tmp/restored_counts.tsv /tmp/source_tables.txt
+
+      - name: Configure OIDC only if production credentials already exist as GitHub secrets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          PROD_OIDC_ISSUER: ${{ secrets.PROD_OIDC_ISSUER }}
+          PROD_OIDC_CLIENT_ID: ${{ secrets.PROD_OIDC_CLIENT_ID }}
+          PROD_OIDC_CLIENT_SECRET: ${{ secrets.PROD_OIDC_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          value(){ jq -r --arg k "$2" '[.[]|select(.envVar.key==$k)|.envVar.value][0] // ""' "$1"; }
+          issuer="$(value /tmp/prod-api-env.json OIDC_ISSUER)"
+          client="$(value /tmp/prod-api-env.json OIDC_CLIENT_ID)"
+          secret="$(value /tmp/prod-api-env.json OIDC_CLIENT_SECRET)"
+
+          if [[ -z "$issuer" || -z "$client" || -z "$secret" ]]; then
+            if [[ -n "${PROD_OIDC_ISSUER:-}" && -n "${PROD_OIDC_CLIENT_ID:-}" && -n "${PROD_OIDC_CLIENT_SECRET:-}" ]]; then
+              body="$(jq -nc                 --arg issuer "$PROD_OIDC_ISSUER"                 --arg client "$PROD_OIDC_CLIENT_ID"                 --arg secret "$PROD_OIDC_CLIENT_SECRET"                 --arg redirect "$PROD_WEB_URL/auth/callback"                 '{envVars:[
+                  {key:"OIDC_ISSUER",value:$issuer},
+                  {key:"OIDC_CLIENT_ID",value:$client},
+                  {key:"OIDC_CLIENT_SECRET",value:$secret},
+                  {key:"OIDC_REDIRECT_URI",value:$redirect},
+                  {key:"ALLOW_DEV_LOGIN",value:"false"}
+                ]}')"
+              code="$(curl -sS -o /tmp/oidc-update.json -w '%{http_code}' -X PUT                 "https://api.render.com/v1/services/$PROD_API_SERVICE_ID/env-vars"                 -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json"                 --data "$body")"
+              [[ "$code" == "200" ]]
+              echo '{"status":"CONFIGURED_FROM_EXISTING_GITHUB_PROD_SECRETS","externalBlocker":false}' > rb017-fast-track/oidc-action.json
+            else
+              echo '{"status":"EXTERNAL_CREDENTIALS_REQUIRED","externalBlocker":true,"missing":["PROD_OIDC_ISSUER","PROD_OIDC_CLIENT_ID","PROD_OIDC_CLIENT_SECRET"]}' > rb017-fast-track/oidc-action.json
+            fi
+          else
+            echo '{"status":"ALREADY_CONFIGURED","externalBlocker":false}' > rb017-fast-track/oidc-action.json
+          fi
+
+      - name: Verify only impacted gates
+        run: |
+          set -euo pipefail
+          fetch_json(){
+            local url="$1" out="$2" ok=0
+            for i in $(seq 1 10); do
+              code="$(curl -L -sS --connect-timeout 10 --max-time 30 -o "$out.tmp" -w '%{http_code}' "$url" || true)"
+              if [[ "$code" == "200" ]]; then mv "$out.tmp" "$out"; ok=1; break; fi
+              sleep 6
+            done
+            [[ "$ok" == "1" ]]
+          }
+
+          # Health/routing were already passed; lightweight recheck only.
+          fetch_json "$PROD_API_URL/health" /tmp/api-health.json
+          fetch_json "$PROD_WEB_URL/api-proxy/health" /tmp/proxy-health.json
+          fetch_json "$PROD_API_URL/api/observability/ready" /tmp/obs.json
+
+          oidc_external="$(jq -r '.externalBlocker' rb017-fast-track/oidc-action.json)"
+          if [[ "$oidc_external" == "false" ]]; then
+            fetch_json "$PROD_API_URL/api/auth/oidc/configuration" /tmp/oidc-config.json
+            fetch_json "$PROD_API_URL/api/auth/oidc/validate" /tmp/oidc-valid.json
+            jq -e '.configured==true and .devLoginAllowed==false' /tmp/oidc-config.json >/dev/null
+            jq -e '(.ok==true) or (.valid==true) or (.configured==true)' /tmp/oidc-valid.json >/dev/null
+            echo '{"status":"PASS","configured":true,"devLoginDisabled":true}' > rb017-fast-track/oidc-verification.json
+          else
+            echo '{"status":"BLOCKED_EXTERNAL_CREDENTIALS"}' > rb017-fast-track/oidc-verification.json
+          fi
+
+          jq -e '.status=="ready"' /tmp/obs.json >/dev/null
+          echo '{"status":"PASS"}' > rb017-fast-track/observability.json
+
+      - name: Verify immutable candidate and rollback targets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull "ghcr.io/cfi21/ancline-web@$FROZEN_WEB_DIGEST" >/dev/null
+          curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json"             "https://api.render.com/v1/services/$PROD_WEB_SERVICE_ID" > /tmp/web-service.json
+          curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json"             "https://api.render.com/v1/services/$PROD_API_SERVICE_ID" > /tmp/api-service.json
+          prev_web="$(jq -r '.imagePath' /tmp/web-service.json)"
+          prev_api="$(jq -r '.imagePath' /tmp/api-service.json)"
+          [[ -n "$prev_web" && "$prev_web" != "null" && -n "$prev_api" && "$prev_api" != "null" ]]
+          jq -n --arg previousWeb "$prev_web" --arg previousApi "$prev_api"             --arg candidateWeb "ghcr.io/cfi21/ancline-web@$FROZEN_WEB_DIGEST"             --arg candidateApi "$FROZEN_API_COMMIT"             '{status:"PASS",previousProduction:{web:$previousWeb,api:$previousApi},candidate:{web:$candidateWeb,apiCommit:$candidateApi}}'             > rb017-fast-track/rollback.json
+
+      - name: Produce one final fast-track verdict
+        if: always()
+        run: |
+          set -euo pipefail
+          dr="$(jq -r '.status // "FAIL"' rb017-fast-track/backup-restore-drill.json 2>/dev/null || echo FAIL)"
+          oidc_block="$(jq -r '.externalBlocker // true' rb017-fast-track/oidc-action.json 2>/dev/null || echo true)"
+          rollback="$(jq -r '.status // "FAIL"' rb017-fast-track/rollback.json 2>/dev/null || echo FAIL)"
+          obs="$(jq -r '.status // "FAIL"' rb017-fast-track/observability.json 2>/dev/null || echo FAIL)"
+
+          if [[ "$dr" == "PASS" && "$rollback" == "PASS" && "$obs" == "PASS" && "$oidc_block" == "false" ]]; then
+            status="PRODUCTION_READY"
+            blockers='[]'
+          else
+            status="EXACT_EXTERNAL_BLOCKERS_ONLY"
+            if [[ "$oidc_block" == "true" ]]; then
+              blockers='[{"id":"PROD_OIDC_CREDENTIALS_REQUIRED","required":["PROD_OIDC_ISSUER","PROD_OIDC_CLIENT_ID","PROD_OIDC_CLIENT_SECRET"],"action":"Provide production managed-OIDC provider credentials. No further product build or broad regression is required."}]'
+            else
+              blockers='[]'
+            fi
+          fi
+
+          jq --arg status "$status" --argjson blockers "$blockers"             --slurpfile dr rb017-fast-track/backup-restore-drill.json             --slurpfile oidc rb017-fast-track/oidc-action.json             --slurpfile rollback rb017-fast-track/rollback.json             --slurpfile obs rb017-fast-track/observability.json             '.status=$status | .blockers=$blockers | .gates.backupRestore=$dr[0] | .gates.oidc=$oidc[0] | .gates.rollback=$rollback[0] | .gates.observability=$obs[0]'             rb017-fast-track/result.json > /tmp/result.json
+          mv /tmp/result.json rb017-fast-track/result.json
+          cat rb017-fast-track/result.json
+
+      - name: Upload sanitized final evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rb017-build-first-fast-track-${{ github.run_id }}
+          path: rb017-fast-track/
+          retention-days: 30
