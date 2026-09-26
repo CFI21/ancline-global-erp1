@@ -1,0 +1,89 @@
+{
+  "schema": "ANCLINE_RB017_PRODUCTION_READINESS_V1",
+  "releaseBundle": "RB-017",
+  "reviewedAt": "2026-09-26T20:28:28Z",
+  "status": "NOT_READY",
+  "promotionAuthorized": false,
+  "productionTrafficSwitched": false,
+  "m3Changes": false,
+  "frozenCandidate": {
+    "webCommit": "8de92cbbd0d9d005c77b7263c0956b88aed4734d",
+    "webDigest": "sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844",
+    "apiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b"
+  },
+  "production": {
+    "webService": "ancline-web-prod",
+    "webServiceId": "srv-dapdotijnfac73840em0",
+    "apiService": "ancline-api-prod",
+    "apiServiceId": "srv-dapdoq9srm7s73f4dif0",
+    "database": "Supabase ANCLINE Production",
+    "databaseProjectRef": "wgxbvbcttxkdqmtdngmq"
+  },
+  "passedChecks": [
+    "RB-017 frozen baseline integrity",
+    "Production Render Web/API services identified and isolated from M3",
+    "DATABASE_URL present on production API",
+    "JWT/AUTH secret present",
+    "NODE_ENV=production",
+    "ALLOW_DEV_LOGIN=false",
+    "Production Web ANCLINE_API_URL points to ancline-api-prod",
+    "Production CORS includes production Web origin",
+    "Production API direct health endpoint responds successfully",
+    "Production Web release-info responds successfully after bounded cold-start handling",
+    "Production Web-to-API proxy health responds successfully",
+    "Supabase production project ACTIVE_HEALTHY",
+    "22 application tables and production migrations present",
+    "anon/authenticated table grants revoked; service_role retains application-table access",
+    "Supabase security advisor returned no active security lint",
+    "Observability readiness endpoint status=ready",
+    "Frozen RB-017 Web digest is available as immutable GHCR pull target",
+    "Existing production Web/API images captured as rollback sources"
+  ],
+  "blockers": [
+    {
+      "id": "PROD_AUTH_OIDC_NOT_CONFIGURED",
+      "severity": "BLOCKING",
+      "evidence": {
+        "configured": false,
+        "devLoginAllowed": false,
+        "missing": [
+          "OIDC_ISSUER",
+          "OIDC_CLIENT_ID",
+          "OIDC_CLIENT_SECRET"
+        ],
+        "redirectUri": "https://ancline-web-prod.onrender.com/auth/callback"
+      },
+      "reason": "Production explicitly disables dev login, so managed OIDC must be configured and validated before users can use the governed production sign-in path.",
+      "automaticFixApplied": false,
+      "whyNotAutoFixed": "Provider issuer/client credentials are external secrets and cannot be invented or inferred safely."
+    },
+    {
+      "id": "PROD_SUPABASE_BACKUP_RESTORE_DR_NOT_PROVEN",
+      "severity": "BLOCKING",
+      "evidence": {
+        "supabaseProject": "wgxbvbcttxkdqmtdngmq",
+        "projectStatus": "ACTIVE_HEALTHY",
+        "historicalRestoreDrill": "staging/previous Render Postgres only",
+        "currentProductionRestoreDrill": false
+      },
+      "reason": "A current backup plus isolated restore drill for the Supabase production database has not been evidenced. Historical restore evidence targets the prior staging/Render database path.",
+      "automaticFixApplied": false,
+      "whyNotAutoFixed": "A credible restore drill requires an isolated restore target and recovery-key/backup procedure; it should not alter production data or schema during a readiness review."
+    }
+  ],
+  "nonBlockingNotes": [
+    "RLS is disabled on the 22 public tables, but anon/authenticated table privileges are revoked by lock-down migrations; service_role is the only listed application role with table grants. Do not enable RLS automatically without policy design.",
+    "Supabase performance advisor reports informational unindexed foreign-key and unused-index findings; these are performance hardening items, not current readiness blockers.",
+    "Render free-tier cold starts caused transient 502/timeouts during probes; bounded retries demonstrated successful API/Web/proxy health.",
+    "Render logging is operational and the application observability readiness endpoint is live."
+  ],
+  "evidence": {
+    "coreReadinessRun": 36269375671,
+    "coreReadinessArtifactId": 10914967426,
+    "coreReadinessArtifactDigest": "sha256:b83349cf2d0da047b67a3eccc24c0f6cbd440d022131380cebf8dbbc348a4f5f",
+    "managedAuthDiagnosticRun": 36269612229,
+    "managedAuthDiagnosticArtifactId": 10915465704,
+    "managedAuthDiagnosticArtifactDigest": "sha256:f34c4a53f75b02823493022adc7c57a5e46749a41df77787e3d1c4cbef489cd7"
+  },
+  "nextGate": "Resolve production OIDC configuration and complete a production-Supabase backup/isolated-restore drill, then rerun RB-017 Production Readiness Review. Production promotion remains prohibited until explicit user approval after readiness PASS."
+}
