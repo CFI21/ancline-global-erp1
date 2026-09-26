@@ -90,9 +90,19 @@ jobs:
       - name: Verify managed auth and observability endpoints
         run: |
           set -euo pipefail
-          curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/configuration" > rb017-production-readiness/oidc-configuration.json
-          curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/validate" > rb017-production-readiness/oidc-validation.json
-          curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/observability/ready" > rb017-production-readiness/observability-ready.json
+          fetch_json(){
+            local url="$1" out="$2" ok=0
+            for i in $(seq 1 8); do
+              code="$(curl -L -sS --connect-timeout 10 --max-time 30 -o "$out.tmp" -w '%{http_code}' "$url" || true)"
+              echo "readiness attempt $i $url => $code"
+              if [[ "$code" == "200" ]]; then mv "$out.tmp" "$out"; ok=1; break; fi
+              sleep 5
+            done
+            [[ "$ok" == "1" ]]
+          }
+          fetch_json "$PROD_API_URL/api/auth/oidc/configuration" rb017-production-readiness/oidc-configuration.json
+          fetch_json "$PROD_API_URL/api/auth/oidc/validate" rb017-production-readiness/oidc-validation.json
+          fetch_json "$PROD_API_URL/api/observability/ready" rb017-production-readiness/observability-ready.json
           jq '{configured,devLoginAllowed,issuer:(.issuer // null),clientIdPresent:((.clientId // "")|length>0),redirectUri:(.redirectUri // null)}' rb017-production-readiness/oidc-configuration.json | tee rb017-production-readiness/oidc-configuration-sanitized.json
           jq '.' rb017-production-readiness/oidc-validation.json | tee rb017-production-readiness/oidc-validation-sanitized.json
           jq '{status,timestamp}' rb017-production-readiness/observability-ready.json | tee rb017-production-readiness/observability-ready-sanitized.json
