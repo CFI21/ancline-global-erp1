@@ -83,7 +83,7 @@ export default function Home(){
     {label:'CRITICAL EXCEPTIONS',value:data.critical.length,href:'/operations-workbench',detail:'Immediate operational attention'},
     {label:'OVERDUE',value:data.overdue.length,href:'/operations-workbench',detail:'Open tasks past due'},
     {label:'OPEN JOBS',value:data.activeJobs.length,href:'/jobs',detail:'Active NVOCC + Forwarding jobs'},
-    {label:'FINANCE ATTENTION',value:data.financeAttention.length,href:'/exceptions?category=PAYMENT_RELEASE_BLOCK',detail:'Payment, release or reconciliation'},
+    {label:'FINANCE ATTENTION',value:data.financeAttention.length,href:'/finance-attention',detail:'Payment, release or reconciliation'},
     {label:'QUEUE OPEN',value:Number(control.summary?.queueOpen||control.summary?.open||0),href:'/exceptions',detail:'Governed operations queue'}
   ];
 
