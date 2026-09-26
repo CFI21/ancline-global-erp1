@@ -1,0 +1,64 @@
+{
+  "schema": "ANCLINE_RB017_BUILD_FIRST_FAST_TRACK_FINAL_V1",
+  "releaseBundle": "RB-017",
+  "recordedAt": "2026-09-26T20:43:16Z",
+  "status": "EXACT_EXTERNAL_BLOCKERS_ONLY",
+  "productionReady": false,
+  "productionPromotionAuthorized": false,
+  "productionTrafficSwitched": false,
+  "m3Changes": false,
+  "frozenBaseline": {
+    "webCommit": "8de92cbbd0d9d005c77b7263c0956b88aed4734d",
+    "webDigest": "sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844",
+    "apiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b"
+  },
+  "completed": [
+    "RB-017 WP-01 through WP-04 accepted and frozen",
+    "Full staging bundle UAT passed",
+    "Production Web/API routing and health verified",
+    "Production DATABASE_URL and auth secret presence verified",
+    "NODE_ENV=production and ALLOW_DEV_LOGIN=false verified",
+    "Production CORS and Web-to-API target verified",
+    "Supabase production project healthy and schema/migrations present",
+    "Supabase application-table grants locked from anon/authenticated",
+    "Observability readiness verified",
+    "Immutable RB-017 Web digest verified",
+    "Rollback source images captured",
+    "Production Supabase public-schema backup created",
+    "Backup restored into disposable PostgreSQL 17 target",
+    "Restored public-schema row counts matched source",
+    "Disposable restore target destroyed"
+  ],
+  "reusedEvidence": {
+    "finalBundleAcceptanceRun": 36268058150,
+    "coreProductionReadinessRun": 36269375671
+  },
+  "fastTrackEvidence": {
+    "runId": 36270341724,
+    "artifactId": 10914899250,
+    "artifactDigest": "sha256:1a0295f20edd7b84ad8263463974e0e6adbfbfa5e8671ff9a471dca45ef9f778"
+  },
+  "remainingExternalBlockers": [
+    {
+      "id": "PROD_OIDC_CREDENTIALS_REQUIRED",
+      "severity": "BLOCKING",
+      "missing": [
+        "OIDC_ISSUER",
+        "OIDC_CLIENT_ID",
+        "OIDC_CLIENT_SECRET"
+      ],
+      "expectedRedirectUri": "https://ancline-web-prod.onrender.com/auth/callback",
+      "reason": "Production dev login is correctly disabled and no production managed-OIDC credentials are available in Render or the existing PROD_OIDC_* GitHub secrets.",
+      "nextAction": "Add the three production OIDC provider values to Render or as PROD_OIDC_* GitHub secrets, then run only OIDC configuration/validation.",
+      "noBroadRetestRequired": true
+    }
+  ],
+  "nextPhase": "OIDC_ONLY_FINAL_GATE",
+  "rules": [
+    "Do not rebuild RB-017.",
+    "Do not rerun broad staging UAT.",
+    "Do not rerun Supabase DR unless database architecture changes.",
+    "Do not promote production until OIDC validates and the user gives explicit promotion approval.",
+    "No M3 changes."
+  ]
+}
