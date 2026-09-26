@@ -82,6 +82,7 @@ const menuGroups=[
       ['/procurement','Procurement'],
       ['/vendor-control','Vendor / Margin Control'],
       ['/commercial-profitability','Profitability'],
+      ['/finance-attention','Finance Attention / Approval Control'],
       ['/finance','Job Costing'],
       ['/accounting','AR / AP & Invoicing'],
       ['/credit-control','Credit & Collections'],
