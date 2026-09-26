@@ -317,7 +317,7 @@ try{
     wa=await api(page,'/workflow-automation/dashboard');
     const raceTimersBefore=(wa.body.timers||[]).filter(x=>String(x.sourceResult?.taskId)===String(raceTask.body.id));
     assert(raceTimersBefore.length===1,'dedicated concurrent run-due race timer missing before execution');
-    const raceTimerId=String(raceTimersBefore[0].id);
+    const raceTimerId=String(raceTimersBefore[0].timerId||raceTimersBefore[0].id);
     const raced=await page.evaluate(async ()=>{
       const token=localStorage.getItem('ancline_token');
       const call=async()=>{const r=await fetch('/api-proxy/workflow-automation/run-due',{method:'POST',headers:{Authorization:'Bearer '+token}});const raw=await r.text();let body;try{body=raw?JSON.parse(raw):null}catch{body=raw}return {status:r.status,body};};
