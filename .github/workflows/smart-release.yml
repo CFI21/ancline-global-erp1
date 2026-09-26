@@ -1,8 +1,6 @@
 name: ANCLINE Smart Release Hardened
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
