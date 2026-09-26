@@ -1,8 +1,11 @@
 name: CR-016 Free GHCR Staging Deploy
 on:
-  push:
+  pull_request:
     branches:
       - main
+    paths:
+      - 'infra/change-control/cr016-free-pr-trigger.txt'
+  workflow_dispatch:
 
 permissions:
   contents: read
