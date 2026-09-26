@@ -24,12 +24,23 @@
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-02",
+          "title": "Operations Workbench + Exception Workflow Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
     {
       "id": "WORKFLOW",
-      "items": []
+      "items": [
+        {
+          "id": "WP-02",
+          "title": "Operations Workbench + Exception Workflow Consolidation",
+          "status": "IMPLEMENTING"
+        }
+      ]
     },
     {
       "id": "NAVIGATION",
@@ -38,6 +49,11 @@
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-02",
+          "title": "Operations Workbench + Exception Workflow Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -48,6 +64,11 @@
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-02",
+          "title": "Operations Workbench + Exception Workflow Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -68,6 +89,11 @@
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
           "status": "ACCEPTED"
+        },
+        {
+          "id": "WP-02",
+          "title": "Operations Workbench + Exception Workflow Consolidation",
+          "status": "IMPLEMENTING"
         }
       ]
     },
@@ -100,7 +126,7 @@
       "impact-regression",
       "full-uat"
     ],
-    "currentStatus": "WP-01_ACCEPTED_RB-017_OPEN"
+    "currentStatus": "WP-02_IN_PROGRESS_RB-017_OPEN"
   },
   "workPackages": [
     {
@@ -163,6 +189,45 @@
           "STAGING_LOGIN_JOBS_ROLE_REGRESSION"
         ]
       }
+    },
+    {
+      "id": "WP-02",
+      "title": "Operations Workbench + Exception Workflow Consolidation",
+      "status": "IMPLEMENTING",
+      "approvedAt": "2026-09-26T17:57:00+02:00",
+      "domains": [
+        "UI_UX",
+        "WORKFLOW",
+        "NAVIGATION",
+        "OPERATIONS",
+        "CONTROL"
+      ],
+      "scope": [
+        "Consolidate My Work, Team Work, Overdue, Critical, Action Queue and Operations Control into one Operations Workbench.",
+        "Use existing approved /tasks and /operations/control-dashboard data only.",
+        "Present consistent owner, team/queue, SLA, status and resolution state.",
+        "Keep direct job/remediation action links.",
+        "Add consistent filter, sort and client-local saved views."
+      ],
+      "constraints": [
+        "Preserve existing exception lifecycle.",
+        "Preserve role/data scope, audit, maker-checker and four-eyes controls.",
+        "No new business logic.",
+        "No API or data-model break.",
+        "Staging only.",
+        "Do not freeze RB-017 after WP-02.",
+        "No production promotion.",
+        "No M3 changes."
+      ],
+      "regression": [
+        "WEB_BUILD",
+        "ROLE_BROWSER_UAT",
+        "RESPONSIVE_FAILURE_ACCESSIBILITY",
+        "OPERATIONS_CONTROL",
+        "ACTION_QUEUE",
+        "JOBS_50001_50005",
+        "LOGIN_SESSION"
+      ]
     }
   ]
 }
