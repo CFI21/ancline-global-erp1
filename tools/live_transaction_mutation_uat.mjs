@@ -156,6 +156,13 @@ try{
     assert(booking.status==='COMPLETED',n+': expected COMPLETED before financial close, got '+booking.status);
     row.mutations.push('booking-state-machine-to-completed');
 
+    // Workflow advancement can legitimately create new governed tasks. Reconcile those
+    // before financial close so the UAT respects (rather than bypasses) OPEN_TASKS.
+    const postAdvanceTasks=ok(await call('/tasks',{token:admin.token}),'post-advance tasks list').filter(x=>String(x.bookingId)===String(base.id));
+    for(const t of postAdvanceTasks)if(String(t.status).toUpperCase()!=='COMPLETED')
+      ok(await call('/tasks/'+t.id+'/complete',{token:admin.token,method:'POST',body:{}}),n+' complete post-advance task');
+    row.mutations.push('post-advance-tasks-complete');
+
     let checklist=ok(await call('/operations/closeout/'+base.id,{token:admin.token}),n+' closeout checklist');
     expectDenied(await call('/operations/closeout/'+base.id+'/finalize',{token:admin.token,method:'POST',body:{}}),n+' premature closeout');
     row.negatives.push('premature-closeout-blocked');
