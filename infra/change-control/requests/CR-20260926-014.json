@@ -1,19 +1,19 @@
 {
   "schema": "ANCLINE_CHANGE_REQUEST_V1",
   "id": "CR-20260926-014",
-  "status": "APPROVED",
+  "status": "STAGING_ACCEPTED_LOCKED",
   "title": "Document + Communication Automation Control",
   "createdAt": "2026-09-26T08:40:00+02:00",
-  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvalStatus": "FINAL_ACCEPTED",
   "approvedBy": "User autonomous next-phase authorization",
   "approvedAt": "2026-09-26T08:40:00+02:00",
-  "buildAllowed": true,
-  "mergeAllowed": true,
-  "deploymentAllowed": true,
+  "buildAllowed": false,
+  "mergeAllowed": false,
+  "deploymentAllowed": false,
   "deploymentTarget": "STAGING_ONLY",
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
-  "frozen": false,
+  "frozen": true,
   "activationBlocked": true,
   "baselineWebCommit": "ca69a00aa79f877fa5e038f4ab30ef9744654c5d",
   "baselineApiCommit": "ca69a00aa79f877fa5e038f4ab30ef9744654c5d",
@@ -53,5 +53,34 @@
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "Autonomous staging-only document/communication hardening; safe in-scope fixes may be applied and retested without intermediate approval."
+  "note": "Autonomous staging-only document/communication hardening; safe in-scope fixes may be applied and retested without intermediate approval.",
+  "acceptedAt": "2026-09-26T07:05:39.552189+00:00",
+  "acceptedRuntime": {
+    "webCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+    "apiCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+    "webDigest": "sha256:f9c8c8229de00b9ef2dd3b0aad3b7b59b9313c86a31c53cac5b8b93c34df0b8c",
+    "apiDigest": "sha256:dbb678b5b54408096f8107ae1e7bf5c7a1d8139e916b2dddf8848355ad7e8f68"
+  },
+  "acceptance": {
+    "smartReleaseRunId": "36225116662",
+    "status": "PASS",
+    "uatRunId": "UAT-20260926065801-MDYNM",
+    "backupStatus": "PASS",
+    "backupSha256": "c4d4c9f42897ea72ab7eed1949ae4713c2455ce892ddbbc8fa6e656da06fd794",
+    "offPlatformArtifactSha256": "1570f3feb7428068813a644a4ccd59731cd3e896ef091c490c40729542e64d60",
+    "quality": "PASS",
+    "remoteGate": "PASS",
+    "impactRegression": "PASS",
+    "finalize": "PASS",
+    "evidence": "PASS",
+    "recoveryTriggered": false
+  },
+  "finalFreeze": {
+    "status": "FINAL_ACCEPTED_LOCKED",
+    "decision": "FROZEN_APPROVED_STAGING_BASELINE",
+    "parentBaseline": "CR-20260925-013",
+    "approvedWebCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+    "approvedApiCommit": "34eaf75999c22b83538988c8529574c0fc35d423",
+    "productionUnchanged": true
+  }
 }
