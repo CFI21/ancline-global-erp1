@@ -15,8 +15,8 @@
   "productionPromotionAuthorized": false,
   "frozen": false,
   "activationBlocked": true,
-  "baselineWebCommit": "3c2beb750166309560e457195d8f1d0781d82324",
-  "baselineApiCommit": "3c2beb750166309560e457195d8f1d0781d82324",
+  "baselineWebCommit": "971dafa4cb0c124ca27835ed518abdf76b1976cb",
+  "baselineApiCommit": "971dafa4cb0c124ca27835ed518abdf76b1976cb",
   "parentBaseline": "CR-20260926-014",
   "components": [
     "web",
@@ -50,5 +50,5 @@
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "CR-015 login hotfix continues from the currently approved CR-015 staging runtime. Safe in-scope login/frontend-auth fixes may be applied and retested without intermediate approval."
+  "note": "CR-015 controlled staging login authentication continues from approved staging runtime 971dafa4cb0c124ca27835ed518abdf76b1976cb. Safe in-scope auth fixes may be applied and retested without intermediate approval."
 }
