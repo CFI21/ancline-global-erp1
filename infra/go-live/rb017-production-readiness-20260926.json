@@ -1,8 +1,8 @@
 {
   "schema": "ANCLINE_RB017_PRODUCTION_READINESS_V1",
   "releaseBundle": "RB-017",
-  "reviewedAt": "2026-09-26T20:28:28Z",
-  "status": "NOT_READY",
+  "reviewedAt": "2026-09-26T20:43:16Z",
+  "status": "EXACT_EXTERNAL_BLOCKERS_ONLY",
   "promotionAuthorized": false,
   "productionTrafficSwitched": false,
   "m3Changes": false,
@@ -37,7 +37,11 @@
     "Supabase security advisor returned no active security lint",
     "Observability readiness endpoint status=ready",
     "Frozen RB-017 Web digest is available as immutable GHCR pull target",
-    "Existing production Web/API images captured as rollback sources"
+    "Existing production Web/API images captured as rollback sources",
+    "Supabase production public-schema logical backup created with PostgreSQL 17 tooling",
+    "Backup restored into disposable isolated PostgreSQL 17 database",
+    "Restored ANCLINE public-schema table row counts matched source",
+    "Disposable restore target destroyed after verification"
   ],
   "blockers": [
     {
@@ -56,19 +60,6 @@
       "reason": "Production explicitly disables dev login, so managed OIDC must be configured and validated before users can use the governed production sign-in path.",
       "automaticFixApplied": false,
       "whyNotAutoFixed": "Provider issuer/client credentials are external secrets and cannot be invented or inferred safely."
-    },
-    {
-      "id": "PROD_SUPABASE_BACKUP_RESTORE_DR_NOT_PROVEN",
-      "severity": "BLOCKING",
-      "evidence": {
-        "supabaseProject": "wgxbvbcttxkdqmtdngmq",
-        "projectStatus": "ACTIVE_HEALTHY",
-        "historicalRestoreDrill": "staging/previous Render Postgres only",
-        "currentProductionRestoreDrill": false
-      },
-      "reason": "A current backup plus isolated restore drill for the Supabase production database has not been evidenced. Historical restore evidence targets the prior staging/Render database path.",
-      "automaticFixApplied": false,
-      "whyNotAutoFixed": "A credible restore drill requires an isolated restore target and recovery-key/backup procedure; it should not alter production data or schema during a readiness review."
     }
   ],
   "nonBlockingNotes": [
@@ -83,7 +74,20 @@
     "coreReadinessArtifactDigest": "sha256:b83349cf2d0da047b67a3eccc24c0f6cbd440d022131380cebf8dbbc348a4f5f",
     "managedAuthDiagnosticRun": 36269612229,
     "managedAuthDiagnosticArtifactId": 10915465704,
-    "managedAuthDiagnosticArtifactDigest": "sha256:f34c4a53f75b02823493022adc7c57a5e46749a41df77787e3d1c4cbef489cd7"
+    "managedAuthDiagnosticArtifactDigest": "sha256:f34c4a53f75b02823493022adc7c57a5e46749a41df77787e3d1c4cbef489cd7",
+    "buildFirstFastTrackRun": 36270341724,
+    "buildFirstFastTrackArtifactId": 10914899250,
+    "buildFirstFastTrackArtifactDigest": "sha256:1a0295f20edd7b84ad8263463974e0e6adbfbfa5e8671ff9a471dca45ef9f778"
   },
-  "nextGate": "Resolve production OIDC configuration and complete a production-Supabase backup/isolated-restore drill, then rerun RB-017 Production Readiness Review. Production promotion remains prohibited until explicit user approval after readiness PASS."
+  "nextGate": "Only external blocker remaining: provide production managed-OIDC credentials (OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET). After those are configured, rerun only the OIDC validation gate; no rebuild, broad UAT, or Supabase DR rerun is required. Production promotion remains prohibited until explicit user approval.",
+  "resolvedBlockers": [
+    {
+      "id": "PROD_SUPABASE_BACKUP_RESTORE_DR_NOT_PROVEN",
+      "status": "RESOLVED",
+      "method": "PostgreSQL 17 public-schema pg_dump → disposable PostgreSQL 17 restore → source/restored row-count comparison",
+      "productionMutated": false,
+      "evidenceRun": 36270341724,
+      "evidenceArtifactId": 10914899250
+    }
+  ]
 }
