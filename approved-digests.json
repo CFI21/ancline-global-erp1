@@ -1,13 +1,13 @@
 {
   "schema": "ANCLINE_APPROVED_DIGEST_REGISTRY_V2",
-  "updatedAt": "2026-09-26T11:19:37.690703+00:00",
-  "source": "smart-release-hardened",
+  "updatedAt": "2026-09-26T14:03:00Z",
+  "source": "cr016-direct-live-acceptance",
   "current": {
     "web": {
-      "commit": "971dafa4cb0c124ca27835ed518abdf76b1976cb",
-      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-971dafa4cb0c124ca27835ed518abdf76b1976cb",
-      "approvedTag": "ghcr.io/cfi21/ancline-web:staging-approved-971dafa4cb0c",
-      "digest": "sha256:227a0804b04232d5a4fa1d16c9356ed3b4660535e79c1b953603d4bd04d72c2d"
+      "commit": "338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+      "immutableTag": "ghcr.io/cfi21/ancline-web:sha-338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+      "approvedTag": "ghcr.io/cfi21/ancline-web@sha256:5293505097ad73b793178c77ee024edc7cd5da5f5fb9a66365fc8ff33e3fefd5",
+      "digest": "sha256:5293505097ad73b793178c77ee024edc7cd5da5f5fb9a66365fc8ff33e3fefd5"
     },
     "api": {
       "commit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
@@ -17,6 +17,33 @@
     }
   },
   "history": [
+    {
+      "runId": "36246731411",
+      "runAttempt": 2,
+      "approvedAt": "2026-09-26T14:03:00Z",
+      "commit": "338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+      "components": [
+        "web"
+      ],
+      "changeRequest": "CR-016",
+      "status": "FROZEN_ACCEPTED",
+      "stagingDeployId": "dep-darsvkppc0ec73dfugi0",
+      "imageDigest": "sha256:5293505097ad73b793178c77ee024edc7cd5da5f5fb9a66365fc8ff33e3fefd5",
+      "apiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+      "evidenceArtifactId": "10907608624",
+      "evidenceArtifactSha256": "sha256:bacb5479e0f5a96f6f791738e4649bd8155fcb36d80aeb3c7e37eb4a91668040",
+      "scope": [
+        "compact-form-fields",
+        "3-char-code-currency-fields",
+        "numeric-field-widths",
+        "job-context-rail-related-tasks-removed",
+        "desktop-tablet-mobile",
+        "jobs-50001-50005",
+        "login-session-role-scope"
+      ],
+      "productionPromotion": false,
+      "m3Changes": false
+    },
     {
       "runId": "36238073808",
       "approvedAt": "2026-09-26T11:19:37.690703+00:00",
