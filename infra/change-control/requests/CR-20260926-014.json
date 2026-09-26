@@ -1,0 +1,55 @@
+{
+  "schema": "ANCLINE_CHANGE_REQUEST_V1",
+  "id": "CR-20260926-014",
+  "status": "APPROVED",
+  "title": "Document + Communication Automation Control",
+  "createdAt": "2026-09-26T08:40:00+02:00",
+  "approvalStatus": "APPROVED_FOR_STAGING",
+  "approvedBy": "User autonomous next-phase authorization",
+  "approvedAt": "2026-09-26T08:40:00+02:00",
+  "buildAllowed": true,
+  "mergeAllowed": true,
+  "deploymentAllowed": true,
+  "deploymentTarget": "STAGING_ONLY",
+  "promotionAllowed": false,
+  "productionPromotionAuthorized": false,
+  "frozen": false,
+  "activationBlocked": true,
+  "baselineWebCommit": "ca69a00aa79f877fa5e038f4ab30ef9744654c5d",
+  "baselineApiCommit": "ca69a00aa79f877fa5e038f4ab30ef9744654c5d",
+  "parentBaseline": "CR-20260925-013",
+  "components": [
+    "web",
+    "api"
+  ],
+  "requirements": [
+    "Reuse existing Document, DocumentAutomation, Communication, DocumentPack, Booking, Milestone, Approval, Task and Audit data.",
+    "Add per-booking document readiness with missing/pending/blocked/released counts and row-level exception reasons.",
+    "Add controlled communication retry that re-queues FAILED/BOUNCED records without live provider activation.",
+    "Make retry idempotent and auditable; duplicate retry requests must not create duplicate logical retries.",
+    "Block communication readiness when attached documents are not released or release control is not clear.",
+    "Add unified filters and direct job/document/remediation links in the existing Document Automation workspace.",
+    "Add downloadable document/communication exception report.",
+    "Preserve existing role/data scope, customer privacy, document release controls and audit trail."
+  ],
+  "invariants": [
+    "No database migration or new table.",
+    "No live provider sending.",
+    "No production runtime or DNS change.",
+    "Preserve CR-010 through CR-013 accepted baselines.",
+    "Free-tier only; LIVE_PROVIDERS OFF, REAL_MONEY OFF, PRODUCTION_TRAFFIC OFF."
+  ],
+  "regressionScopes": [
+    "WEB_BUILD",
+    "API_TEST_BUILD",
+    "ROLE_BROWSER_UAT",
+    "RESPONSIVE_FAILURE_ACCESSIBILITY",
+    "DOCUMENT_AUTOMATION",
+    "COMMUNICATION_RETRY",
+    "DOCUMENT_RELEASE_CONTROL",
+    "OPERATIONS_CONTROL"
+  ],
+  "autoRollbackOnFailure": true,
+  "freezeOnPass": true,
+  "note": "Autonomous staging-only document/communication hardening; safe in-scope fixes may be applied and retested without intermediate approval."
+}
