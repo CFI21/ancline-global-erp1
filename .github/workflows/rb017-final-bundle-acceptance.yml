@@ -1,0 +1,138 @@
+name: RB-017 Final Bundle Acceptance
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rb017-final-bundle-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ancline-rb017-final-acceptance
+  cancel-in-progress: false
+
+env:
+  PRODUCT_SHA: 8de92cbbd0d9d005c77b7263c0956b88aed4734d
+  EXPECTED_API_COMMIT: 04b6957860c7bb47576d76f1d6fe1b90dca81f9b
+  EXPECTED_IMAGE_DIGEST: sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844
+  WEB_URL: https://ancline-web-staging.onrender.com
+
+jobs:
+  final-bundle-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify frozen candidate source + bundle state
+        run: |
+          set -euo pipefail
+          git cat-file -e "$PRODUCT_SHA^{commit}"
+          jq -e '
+            .bundleId=="RB-017" and
+            .status=="OPEN_APPROVED" and
+            ([.workPackages[]|select(.id=="WP-01" or .id=="WP-02" or .id=="WP-03" or .id=="WP-04")|.status] | length==4 and all(.=="ACCEPTED"))
+          ' infra/change-control/release-bundles/RB-017.json >/dev/null
+
+      - name: Verify exact live release identity + API health
+        run: |
+          set -euo pipefail
+          curl -L -fsS "$WEB_URL/release-info" -o /tmp/release.json
+          jq -e --arg sha "$PRODUCT_SHA" '.buildCommit==$sha' /tmp/release.json >/dev/null
+          curl -L -fsS "$WEB_URL/api-proxy/health" -o /tmp/health.json
+          jq -e --arg sha "$EXPECTED_API_COMMIT" '(.commit==$sha) or (.buildCommit==$sha) or (.gitCommit==$sha)' /tmp/health.json >/dev/null || {
+            echo "Health payload:"; cat /tmp/health.json; exit 1;
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0 @axe-core/playwright@4.10.2
+          npx playwright install --with-deps chromium
+
+      - name: Full responsive / accessibility / failure-state UAT
+        run: node tools/live_ui_hardening.mjs
+
+      - name: Full login → session → dashboard → jobs → roles → logout regression
+        run: node tools/live_ui_final_acceptance.mjs
+
+      - name: Full role / data-scope / privacy / exception UAT
+        run: node tools/live_role_uat_v2.mjs
+
+      - name: Jobs 50001-50005 transactional mutation + maker-checker + audit UAT
+        run: node tools/live_transaction_mutation_uat.mjs
+
+      - name: RB-017 integrated surface / navigation / filter / drill-down UAT
+        run: |
+          node - <<'NODE'
+          const {chromium}=require('playwright');
+          const base=process.env.WEB_URL;
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const sizes=[
+            {name:'desktop',viewport:{width:1440,height:1000}},
+            {name:'tablet',viewport:{width:900,height:1100}},
+            {name:'mobile',viewport:{width:390,height:844}}
+          ];
+          (async()=>{
+            const b=await chromium.launch({headless:true});
+            for(const s of sizes){
+              const p=await b.newPage({viewport:s.viewport});
+              await p.goto(base+'/login',{waitUntil:'domcontentloaded'});
+              await p.evaluate(async()=>{
+                const r=await fetch('/api-proxy/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'test.admin@ancline.invalid',role:'GLOBAL_ADMIN'})});
+                if(!r.ok)throw new Error('login '+r.status);
+                const x=await r.json();
+                localStorage.setItem('ancline_token',x.accessToken);
+                localStorage.setItem('ancline_user',JSON.stringify(x.user));
+              });
+              const checks=[
+                ['/', ['Executive Home','MY WORK','CRITICAL EXCEPTIONS','OPEN JOBS','FINANCE ATTENTION']],
+                ['/operations-workbench',['Operations Workbench','MY WORK','TEAM WORK','OVERDUE','CRITICAL','ACTION QUEUE','Save View']],
+                ['/finance-attention',['Finance Attention + Approval Control','MY APPROVALS','PENDING APPROVALS','CREDIT HOLDS','OVERDUE INVOICES','Approval Queue']],
+                ['/management-control',['Management Control','ACTIVE JOBS','OPEN TASKS','CRITICAL EXCEPTIONS','FINANCE ATTENTION','SLA / ESCALATION','Exception Mix']]
+              ];
+              for(const [path,markers] of checks){
+                await p.goto(base+path,{waitUntil:'domcontentloaded'});
+                await p.waitForTimeout(900);
+                const txt=await p.locator('body').innerText();
+                for(const m of markers)assert(txt.includes(m),s.name+' '+path+' missing '+m);
+              }
+              await p.goto(base+'/operations-workbench',{waitUntil:'domcontentloaded'});
+              for(const aria of ['Workbench view','Workbench search','Owner filter','Status filter','Sort work'])
+                assert(await p.locator('[aria-label="'+aria+'"]').count()>0,s.name+' missing '+aria);
+              await p.goto(base+'/finance-attention',{waitUntil:'domcontentloaded'});
+              for(const aria of ['Finance attention view','Finance attention search','Finance item type','Finance item status','Finance attention sort'])
+                assert(await p.locator('[aria-label="'+aria+'"]').count()>0,s.name+' missing '+aria);
+              await p.goto(base+'/management-control',{waitUntil:'domcontentloaded'});
+              for(const aria of ['Management period','Management branch','Management business model','Management section'])
+                assert(await p.locator('[aria-label="'+aria+'"]').count()>0,s.name+' missing '+aria);
+              await p.close();
+            }
+            await b.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Record final live identity evidence
+        run: |
+          mkdir -p rb017-final-evidence
+          cp /tmp/release.json rb017-final-evidence/release-info.json
+          cp /tmp/health.json rb017-final-evidence/api-health.json
+          jq -n             --arg bundle "RB-017"             --arg product "$PRODUCT_SHA"             --arg api "$EXPECTED_API_COMMIT"             --arg digest "$EXPECTED_IMAGE_DIGEST"             --arg run "$GITHUB_RUN_ID"             '{bundle:$bundle,status:"PASS",productCommit:$product,apiCommit:$api,imageDigest:$digest,runId:$run,productionPromotion:false,m3Changes:false}'             > rb017-final-evidence/final-summary.json
+
+      - name: Upload final RB-017 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rb017-final-bundle-acceptance-${{ github.run_id }}
+          path: |
+            rb017-final-evidence/
+            ui-hardening-artifacts/
+            ui-acceptance-artifacts/
+            role-uat-artifacts/
+            transaction-mutation-artifacts/
+          if-no-files-found: warn
+          retention-days: 30
