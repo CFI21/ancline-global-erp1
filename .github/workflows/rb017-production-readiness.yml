@@ -52,10 +52,12 @@ jobs:
         run: |
           set -euo pipefail
           api=rb017-production-readiness/api-env-presence.json
+          web=rb017-production-readiness/web-env-presence.json
           has(){ jq -e --arg k "$2" 'any(.[]; .key==$k and .present==true)' "$1" >/dev/null; }
           missing=()
           has "$api" DATABASE_URL || missing+=(DATABASE_URL)
           has "$api" JWT_SECRET || has "$api" AUTH_SECRET || missing+=(JWT_OR_AUTH_SECRET)
+          has "$web" ANCLINE_API_URL || missing+=(WEB_ANCLINE_API_URL)
           printf '%s\n' "${missing[@]}" | sed '/^$/d' > rb017-production-readiness/missing-required-env.txt
           test ! -s rb017-production-readiness/missing-required-env.txt
 
@@ -75,14 +77,25 @@ jobs:
       - name: Probe production Web and Web-to-API proxy read-only
         run: |
           set -euo pipefail
-          curl -L -fsS --connect-timeout 10 --max-time 40 "$PROD_WEB_URL/release-info" > rb017-production-readiness/current-prod-release-info.json
+          web_ok=0
+          for i in $(seq 1 8); do
+            code="$(curl -L -sS --connect-timeout 10 --max-time 30 -o /tmp/release.json -w '%{http_code}' "$PROD_WEB_URL/release-info" || true)"
+            echo "release-info attempt $i => $code"
+            if [[ "$code" == "200" ]]; then web_ok=1; cp /tmp/release.json rb017-production-readiness/current-prod-release-info.json; break; fi
+            sleep 5
+          done
+          [[ "$web_ok" == "1" ]]
+
           ok=0
-          for path in /api-proxy/health /api-proxy/api/health /api-proxy/api/v1/health; do
-            code="$(curl -L -sS --connect-timeout 10 --max-time 40 -o /tmp/proxy-health.json -w '%{http_code}' "$PROD_WEB_URL$path" || true)"
-            echo "$path $code"
-            if [[ "$code" == "200" ]]; then
-              ok=1; echo "$path" > rb017-production-readiness/web-proxy-health-path.txt; cp /tmp/proxy-health.json rb017-production-readiness/web-proxy-health.json; break
-            fi
+          for i in $(seq 1 8); do
+            for path in /api-proxy/health /api-proxy/api/health /api-proxy/api/v1/health; do
+              code="$(curl -L -sS --connect-timeout 10 --max-time 30 -o /tmp/proxy-health.json -w '%{http_code}' "$PROD_WEB_URL$path" || true)"
+              echo "proxy attempt $i $path => $code"
+              if [[ "$code" == "200" ]]; then
+                ok=1; echo "$path" > rb017-production-readiness/web-proxy-health-path.txt; cp /tmp/proxy-health.json rb017-production-readiness/web-proxy-health.json; break 2
+              fi
+            done
+            sleep 5
           done
           [[ "$ok" == "1" ]]
 
