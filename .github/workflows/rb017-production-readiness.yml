@@ -93,9 +93,18 @@ jobs:
           curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/configuration" > rb017-production-readiness/oidc-configuration.json
           curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/validate" > rb017-production-readiness/oidc-validation.json
           curl -L -fsS --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/observability/ready" > rb017-production-readiness/observability-ready.json
-          jq -e '.configured==true and .devLoginAllowed==false' rb017-production-readiness/oidc-configuration.json >/dev/null
-          jq -e '(.valid==true) or (.status=="ok") or (.configured==true)' rb017-production-readiness/oidc-validation.json >/dev/null
-          jq -e '.status=="ready"' rb017-production-readiness/observability-ready.json >/dev/null
+          jq '{configured,devLoginAllowed,issuer:(.issuer // null),clientIdPresent:((.clientId // "")|length>0),redirectUri:(.redirectUri // null)}' rb017-production-readiness/oidc-configuration.json | tee rb017-production-readiness/oidc-configuration-sanitized.json
+          jq '.' rb017-production-readiness/oidc-validation.json | tee rb017-production-readiness/oidc-validation-sanitized.json
+          jq '{status,timestamp}' rb017-production-readiness/observability-ready.json | tee rb017-production-readiness/observability-ready-sanitized.json
+          oidc_cfg="$(jq -r '.configured==true and .devLoginAllowed==false' rb017-production-readiness/oidc-configuration.json)"
+          oidc_valid="$(jq -r '(.valid==true) or (.status=="ok") or (.configured==true)' rb017-production-readiness/oidc-validation.json)"
+          obs_ready="$(jq -r '.status=="ready"' rb017-production-readiness/observability-ready.json)"
+          echo "OIDC_CONFIGURED_AND_DEV_DISABLED=$oidc_cfg"
+          echo "OIDC_VALID=$oidc_valid"
+          echo "OBSERVABILITY_READY=$obs_ready"
+          [[ "$oidc_cfg" == "true" ]]
+          [[ "$oidc_valid" == "true" ]]
+          [[ "$obs_ready" == "true" ]]
 
       - name: Probe production API health read-only
         run: |
