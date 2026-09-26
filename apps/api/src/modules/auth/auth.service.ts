@@ -30,6 +30,7 @@ export class AuthService {
     return {accessToken:this.jwt.sign(payload,{expiresIn:'8h'}),user:payload,managedAccount:true,authSource};
   }
 
+  // Controlled staging admin password verification; production identity flow remains unchanged.
   private verifyStagingPassword(password:string,encoded:string){
     const parts=String(encoded||'').split('$');
     if(parts.length!==3||parts[0]!=='scrypt') return false;
