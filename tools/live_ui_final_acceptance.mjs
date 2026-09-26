@@ -40,6 +40,15 @@ async function api(page,path,init={}){
     return {ok:r.ok,status:r.status,body};
   },{path,init});
 }
+async function apiWithTransientRetry(page,path,init={},attempts=4){
+  let last=null;
+  for(let attempt=1;attempt<=attempts;attempt++){
+    last=await api(page,path,init);
+    if(![502,503,504].includes(Number(last?.status)))return last;
+    if(attempt<attempts)await sleep(1000*attempt);
+  }
+  return last;
+}
 async function shot(page,name){await page.screenshot({path:OUT+'/'+name+'.png',fullPage:true});}
 async function safeGoto(page,path){const r=await page.goto(WEB_URL+path,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForTimeout(1000);assert(r&&r.status()<500,path+': HTTP '+(r?.status()));}
 async function reseed(page){const r=await api(page,'/test-data/seed',{method:'POST',body:'{}'});assert(r.ok,'reseed HTTP '+r.status);return r.body;}
@@ -224,7 +233,7 @@ try{
     ]){
       const ctx=await browser.newContext(); const page=await ctx.newPage();
       const user=await establish(page,profile.email,profile.role); assert(user.role===profile.role,profile.role+': managed role mismatch');
-      const r=await api(page,'/operations/control-dashboard');
+      const r=await apiWithTransientRetry(page,'/operations/control-dashboard');
       assert(r.status===profile.expect,profile.role+': operations-control boundary expected '+profile.expect+' got '+r.status);
       if(profile.expect===200)assert(Array.isArray(r.body?.rows),profile.role+': internal queue payload malformed');
       report.actionQueue.push({role:profile.role,case:profile.expect===200?'internal-queue-access':'external-queue-denial',status:'PASS'});
