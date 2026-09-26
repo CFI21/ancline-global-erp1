@@ -44,6 +44,10 @@ describe('Role-by-role UI and managed-session contracts',()=>{
     expect(login).toContain("const [password,setPassword]=useState('')");
     expect(login).toContain("const payload:any={email,password,role}");
     expect(login).toContain('type="password"');
+    const auth=read('../src/modules/auth/auth.service.ts');
+    expect(auth).toContain('DEV_AUTH_PASSWORD_HASH');
+    expect(auth).toContain('verifyStagingPassword');
+    expect(auth).toContain("authSource:'STAGING_LOCAL'");
     expect(login).toContain("if(role==='CUSTOMER'&&scopeId)payload.customerId=scopeId");
     expect(login).toContain("if((role==='SHIPPER'||role==='CONSIGNEE')&&scopeId)payload.partyId=scopeId");
     expect(login).toContain("if(role==='BRANCH_OPS'&&scopeId)payload.branchId=scopeId");
