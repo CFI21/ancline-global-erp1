@@ -1,8 +1,6 @@
 name: CR-016 Free GHCR Staging Deploy
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
