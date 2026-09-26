@@ -765,6 +765,14 @@ body{
   line-height:1.25;
   resize:vertical;
 }
+
+/* CR-016 compact ERP field sizing: short codes should not consume full form columns. */
+.main:not(:has(.cw-screen)) input[maxlength="2"]{width:58px !important;max-width:58px;justify-self:start}
+.main:not(:has(.cw-screen)) input[maxlength="3"]{width:70px !important;max-width:70px;justify-self:start;text-transform:uppercase}
+.main:not(:has(.cw-screen)) input[maxlength="4"]{width:82px !important;max-width:82px;justify-self:start;text-transform:uppercase}
+.main:not(:has(.cw-screen)) input[type="number"]{width:min(100%,132px) !important;justify-self:start;font-variant-numeric:tabular-nums}
+.main:not(:has(.cw-screen)) .erp-field-code{width:78px !important;max-width:78px;justify-self:start}
+.main:not(:has(.cw-screen)) .erp-field-short{width:110px !important;max-width:110px;justify-self:start}
 .main:not(:has(.cw-screen)) input:focus,
 .main:not(:has(.cw-screen)) select:focus,
 .main:not(:has(.cw-screen)) textarea:focus{
@@ -1613,52 +1621,6 @@ body{
   font-weight:900;
   letter-spacing:.35px;
   text-transform:uppercase;
-}
-.job-context-links{
-  display:grid;
-  gap:3px;
-  padding:0 6px 6px;
-}
-.job-context-link{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) 28px;
-  align-items:center;
-  min-height:28px;
-  border:1px solid #bdc8d0;
-  border-radius:3px;
-  background:#fff;
-  overflow:hidden;
-}
-.job-context-link.active{
-  border-color:#467395;
-  background:#e8f0f6;
-}
-.job-context-link>a{
-  padding:5px 7px;
-  color:#173b59;
-  text-decoration:none;
-  font-size:9.5px;
-  font-weight:800;
-}
-.job-context-link>button{
-  height:100%;
-  border:0;
-  border-left:1px solid #ced6dc;
-  background:#f2f5f7;
-  color:#2b5876;
-  font-size:13px;
-  cursor:pointer;
-}
-.job-context-link>button:hover{
-  background:#dce9f2;
-}
-.job-context-help{
-  margin-top:auto;
-  padding:6px 8px;
-  border-top:1px solid #d3dbe0;
-  color:#73818b;
-  font-size:8.5px;
-  line-height:1.25;
 }
 .job-quick-overlay{
   position:fixed;

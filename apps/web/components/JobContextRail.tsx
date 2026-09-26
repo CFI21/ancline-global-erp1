@@ -85,15 +85,6 @@ export default function JobContextRail({
     {key:'DOCUMENTS' as JobWorkspaceKey,label:'Docs',href:`/documents?${q}`},
     {key:'DETAILS' as JobWorkspaceKey,label:'Additional Detail',href:bookingId?`/bookings/${bookingId}?tab=Details`:'/bookings'},
   ],[bookingId,q]);
-  const taskPages=useMemo(()=>[
-    ...pages.filter(p=>p.key!=='DETAILS'),
-    ...(String(context?.businessModel||'NVOCC').toUpperCase()==='FORWARDING'?[{key:'PAYMENT' as JobWorkspaceKey,label:'Carrier Payment / Payer',href:`/carrier-payment?${q}`}]:[]),
-    {key:'TRACKING' as JobWorkspaceKey,label:'Tracking',href:`/tracking?${q}`},
-    {key:'EXCEPTIONS' as JobWorkspaceKey,label:'Exceptions',href:`/exceptions?${q}`},
-    {key:'FINANCE' as JobWorkspaceKey,label:'Job Costing',href:`/finance?${q}`},
-    {key:'TASKS' as JobWorkspaceKey,label:'Tasks',href:`/tasks?${q}`},
-    {key:'APPROVALS' as JobWorkspaceKey,label:'Approvals',href:`/approvals?${q}`},
-  ],[pages,q,context?.businessModel]);
 
   if(embedded||!bookingId)return null;
 
@@ -144,14 +135,6 @@ export default function JobContextRail({
         {counts.map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}
       </div>
 
-      <div className="job-context-section-title">Related Tasks</div>
-      <div className="job-context-links">
-        {taskPages.map(p=><div className={'job-context-link'+(active===p.key?' active':'')} key={p.key}>
-          <a href={p.href}>{p.label}</a>
-          <button type="button" title={`Quick View ${p.label}`} onClick={()=>setModal({title:p.label,href:quickHref(p.href)})}>▣</button>
-        </div>)}
-      </div>
-      <div className="job-context-help">▣ opens Quick View on top of this screen. Press Esc to close.</div>
     </aside>
 
     {modal&&<div className="job-quick-overlay" role="dialog" aria-modal="true" aria-label={modal.title} onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}>
