@@ -1,7 +1,7 @@
 {
   "schema": "ANCLINE_RELEASE_BUNDLE_MANIFEST_V1",
   "bundleId": "RB-017",
-  "status": "OPEN_APPROVED",
+  "status": "FROZEN_ACCEPTED",
   "baseline": {
     "webCommit": "338edc48dd2732d6d23502cbf4b9ecd8760accc5",
     "apiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
@@ -181,7 +181,7 @@
       "impact-regression",
       "full-uat"
     ],
-    "currentStatus": "WP-04_ACCEPTED_RB-017_OPEN"
+    "currentStatus": "RB-017_FINAL_ACCEPTED_FROZEN"
   },
   "workPackages": [
     {
@@ -435,5 +435,32 @@
         ]
       }
     }
-  ]
+  ],
+  "frozenAt": "2026-09-26T20:08:12Z",
+  "finalBaseline": {
+    "webCommit": "8de92cbbd0d9d005c77b7263c0956b88aed4734d",
+    "webImage": "ghcr.io/cfi21/ancline-web:rb017-wp04-8de92cbbd0d9",
+    "webDigest": "sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844",
+    "webDeployId": "dep-das0hrnpn0mc73ebcf10",
+    "apiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "apiImage": "ghcr.io/cfi21/ancline-api:sha-04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "apiLiveDigest": "sha256:c2eb0c275e2301e10fe66b43bcd49723f6ee586938dba32f77d70d8f1c718d37"
+  },
+  "finalAcceptance": {
+    "workflow": "RB-017 Final Bundle Acceptance",
+    "runId": 36268058150,
+    "conclusion": "PASS",
+    "evidenceArtifactId": 10914696924,
+    "evidenceArtifactDigest": "sha256:9583972214ab7bbcebfc45cf4dab3667be43bbcac4b75e5d201f0089e1c88f87",
+    "gates": [
+      "FROZEN_CANDIDATE_SOURCE_AND_BUNDLE_STATE",
+      "EXACT_LIVE_RELEASE_IDENTITY_AND_API_HEALTH",
+      "RESPONSIVE_ACCESSIBILITY_FAILURE_STATE_UAT",
+      "LOGIN_SESSION_DASHBOARD_JOBS_ROLES_LOGOUT",
+      "ROLE_DATA_SCOPE_PRIVACY_EXCEPTION_UAT",
+      "JOBS_50001_50005_TRANSACTIONAL_MUTATION",
+      "MAKER_CHECKER_AUDIT",
+      "INTEGRATED_SURFACE_NAVIGATION_FILTER_DRILLDOWN_UAT"
+    ]
+  }
 }
