@@ -19,7 +19,13 @@
   "lanes": [
     {
       "id": "UI_UX",
-      "items": []
+      "items": [
+        {
+          "id": "WP-01",
+          "title": "Executive Home + Operations Control Cleanup",
+          "status": "IMPLEMENTING"
+        }
+      ]
     },
     {
       "id": "WORKFLOW",
@@ -27,23 +33,53 @@
     },
     {
       "id": "NAVIGATION",
-      "items": []
+      "items": [
+        {
+          "id": "WP-01",
+          "title": "Executive Home + Operations Control Cleanup",
+          "status": "IMPLEMENTING"
+        }
+      ]
     },
     {
       "id": "OPERATIONS",
-      "items": []
+      "items": [
+        {
+          "id": "WP-01",
+          "title": "Executive Home + Operations Control Cleanup",
+          "status": "IMPLEMENTING"
+        }
+      ]
     },
     {
       "id": "FINANCE",
-      "items": []
+      "items": [
+        {
+          "id": "WP-01",
+          "title": "Executive Home + Operations Control Cleanup",
+          "status": "IMPLEMENTING"
+        }
+      ]
     },
     {
       "id": "CONTROL",
-      "items": []
+      "items": [
+        {
+          "id": "WP-01",
+          "title": "Executive Home + Operations Control Cleanup",
+          "status": "IMPLEMENTING"
+        }
+      ]
     },
     {
       "id": "REPORTING",
-      "items": []
+      "items": [
+        {
+          "id": "WP-01",
+          "title": "Executive Home + Operations Control Cleanup",
+          "status": "IMPLEMENTING"
+        }
+      ]
     }
   ],
   "execution": {
@@ -64,6 +100,45 @@
       "impact-regression",
       "full-uat"
     ],
-    "currentStatus": "NOT_STARTED"
-  }
+    "currentStatus": "WP-01_IN_PROGRESS"
+  },
+  "workPackages": [
+    {
+      "id": "WP-01",
+      "title": "Executive Home + Operations Control Cleanup",
+      "status": "IMPLEMENTING",
+      "approvedAt": "2026-09-26T16:11:00+02:00",
+      "domains": [
+        "UI_UX",
+        "NAVIGATION",
+        "OPERATIONS",
+        "CONTROL",
+        "FINANCE",
+        "REPORTING"
+      ],
+      "scope": [
+        "Consolidated executive home using existing approved bookings, tasks and operations-control data",
+        "My Work, critical exceptions, overdue, open jobs and finance-attention dashboard cards",
+        "Recent and favorite screens using client-local navigation metadata",
+        "Cleaner dashboard/header action density",
+        "Job Context Rail consistency without Related Tasks grid"
+      ],
+      "constraints": [
+        "No new business logic",
+        "No API or data-model changes",
+        "Preserve role/data scope and audit controls",
+        "Staging only",
+        "Do not freeze RB-017 after this work package",
+        "No production promotion",
+        "No M3 changes"
+      ],
+      "regression": [
+        "WEB_BUILD",
+        "ROLE_BROWSER_UAT",
+        "RESPONSIVE_FAILURE_ACCESSIBILITY",
+        "JOBS_50001_50005",
+        "LOGIN_SESSION"
+      ]
+    }
+  ]
 }

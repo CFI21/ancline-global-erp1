@@ -129,11 +129,23 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   const [mobileNavOpen,setMobileNavOpen]=useState(false);
   const [embedded,setEmbedded]=useState(false);
   const [session,setSession]=useState<any>({role:'',permissions:[]});
+  const [favorite,setFavorite]=useState(false);
   useEffect(()=>{
     setSession(currentUser());
     const isEmbedded=new URLSearchParams(location.search).get('embed')==='1';
     setEmbedded(isEmbedded);
     document.body.classList.toggle('ancline-embed-mode',isEmbedded);
+    if(!isEmbedded){
+      const href=location.pathname;
+      const label=title;
+      try{
+        const recent=JSON.parse(localStorage.getItem('ancline_recent_screens')||'[]');
+        const next=[{href,label,at:new Date().toISOString()},...(Array.isArray(recent)?recent:[]).filter((x:any)=>x?.href!==href)].slice(0,10);
+        localStorage.setItem('ancline_recent_screens',JSON.stringify(next));
+        const favorites=JSON.parse(localStorage.getItem('ancline_favorite_screens')||'[]');
+        setFavorite(Array.isArray(favorites)&&favorites.some((x:any)=>x?.href===href));
+      }catch{}
+    }
     return ()=>document.body.classList.remove('ancline-embed-mode');
   },[]);
   const query=menuQuery.trim().toLowerCase();
@@ -167,6 +179,18 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
   }).filter(group=>group.items.length>0);
 
   const noResults=searching&&visiblePortals.length===0&&visibleGroups.length===0;
+
+  function toggleFavorite(){
+    const href=location.pathname;
+    try{
+      const saved=JSON.parse(localStorage.getItem('ancline_favorite_screens')||'[]');
+      const rows=Array.isArray(saved)?saved:[];
+      const exists=rows.some((x:any)=>x?.href===href);
+      const next=exists?rows.filter((x:any)=>x?.href!==href):[{href,label:title},...rows].slice(0,12);
+      localStorage.setItem('ancline_favorite_screens',JSON.stringify(next));
+      setFavorite(!exists);
+    }catch{}
+  }
 
   if(embedded)return <main className="main embedded-main">{children}</main>;
 
@@ -246,13 +270,19 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
       {!hideHeader&&<>
         <div className="top">
           <div className="top-title-wrap"><h1>{title}</h1><div className="sub">{subtitle}</div></div>
-          <div className="top-actions">{actions}<button className="btn" onClick={signOut}>Sign out</button></div>
+          <div className="top-actions">
+            <span className="status">{role||'USER'}</span>
+            <a className="btn" href="/exceptions" style={{textDecoration:'none'}}>Exceptions</a>
+            {actions}
+            <button className="btn" onClick={signOut}>Sign out</button>
+          </div>
         </div>
         <div className="erp-commandbar" role="toolbar" aria-label="Workspace commands">
           <div className="erp-commandbar-left">
             <button type="button" onClick={()=>history.back()}>← Back</button>
             <button type="button" onClick={()=>location.reload()}>↻ Reload</button>
             <button type="button" onClick={()=>window.print()}>Print</button>
+            <button type="button" aria-pressed={favorite} onClick={toggleFavorite}>{favorite?'★ Favorite':'☆ Favorite'}</button>
           </div>
           <div className="erp-commandbar-status">READY</div>
         </div>
