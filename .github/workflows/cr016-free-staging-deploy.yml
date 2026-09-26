@@ -76,33 +76,45 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "$IMAGE:$IMAGE_TAG"
 
-      - name: Switch staging web to free image-backed source and deploy
+      - name: Switch staging web directly to immutable GHCR image and deploy
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
           set -euo pipefail
           IMAGE_URL="$IMAGE:$IMAGE_TAG"
 
-          create_code="$(curl -sS -o /tmp/build-source.json -w '%{http_code}'             -X POST https://api.render.com/v1/build-sources             -H "Accept: application/json"             -H "Content-Type: application/json"             -H "Authorization: Bearer $RENDER_API_KEY"             --data "$(jq -nc               --arg owner "$RENDER_WORKSPACE_ID"               --arg name "ancline-web-staging-cr016-image"               --arg image "$IMAGE_URL"               '{ownerId:$owner,name:$name,image:{ownerId:$owner,imageUrl:$image}}')")"
+          update_code="$(curl -sS -o /tmp/service-update.json -w '%{http_code}' \
+            -X PATCH "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            --data "$(jq -nc \
+              --arg owner "$RENDER_WORKSPACE_ID" \
+              --arg image "$IMAGE_URL" \
+              '{image:{ownerId:$owner,imagePath:$image},autoDeploy:"no"}')")"
+          [[ "$update_code" == "200" ]] || { cat /tmp/service-update.json; exit 1; }
 
-          if [[ "$create_code" != "201" ]]; then
-            cat /tmp/build-source.json
-            echo "Unable to create image-backed build source"
+          jq -e --arg image "$IMAGE_URL" '.imagePath == $image' /tmp/service-update.json >/dev/null || {
+            cat /tmp/service-update.json
+            echo "Render did not persist the expected immutable image source"
             exit 1
-          fi
+          }
 
-          BUILD_SOURCE_ID="$(jq -r '.id' /tmp/build-source.json)"
-          [[ -n "$BUILD_SOURCE_ID" && "$BUILD_SOURCE_ID" != "null" ]]
-
-          attach_code="$(curl -sS -o /tmp/service-update.json -w '%{http_code}'             -X PATCH "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID"             -H "Accept: application/json"             -H "Content-Type: application/json"             -H "Authorization: Bearer $RENDER_API_KEY"             --data "$(jq -nc --arg id "$BUILD_SOURCE_ID" '{buildSourceId:$id,autoDeploy:"no"}')")"
-          [[ "$attach_code" == "200" ]] || { cat /tmp/service-update.json; exit 1; }
-
-          deploy_code="$(curl -sS -o /tmp/deploy.json -w '%{http_code}'             -X POST "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys"             -H "Accept: application/json"             -H "Content-Type: application/json"             -H "Authorization: Bearer $RENDER_API_KEY"             --data "$(jq -nc --arg image "$IMAGE_URL" '{imageUrl:$image}')")"
+          deploy_code="$(curl -sS -o /tmp/deploy.json -w '%{http_code}' \
+            -X POST "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            --data "$(jq -nc --arg image "$IMAGE_URL" '{imageUrl:$image}')")"
           [[ "$deploy_code" == "201" || "$deploy_code" == "202" ]] || { cat /tmp/deploy.json; exit 1; }
 
           DEPLOY_ID="$(jq -r '.id' /tmp/deploy.json)"
           for i in $(seq 1 90); do
-            curl -sS               -H "Accept: application/json"               -H "Authorization: Bearer $RENDER_API_KEY"               "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys/$DEPLOY_ID"               -o /tmp/deploy-status.json
+            curl -sS \
+              -H "Accept: application/json" \
+              -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$RENDER_WEB_SERVICE_ID/deploys/$DEPLOY_ID" \
+              -o /tmp/deploy-status.json
             status="$(jq -r '.status' /tmp/deploy-status.json)"
             echo "deploy status: $status"
             if [[ "$status" == "live" ]]; then
