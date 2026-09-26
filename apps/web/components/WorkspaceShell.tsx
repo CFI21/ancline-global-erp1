@@ -84,7 +84,6 @@ const menuGroups=[
       ['/finance','Job Costing'],
       ['/accounting','AR / AP & Invoicing'],
       ['/credit-control','Credit & Collections'],
-      ['/general-ledger','General Ledger / Tax'],
       ['/finance-reporting','Financial Reporting'],
       ['/group-finance','Group Finance'],
       ['/statutory-finance','Statutory Finance'],
@@ -111,8 +110,9 @@ const menuGroups=[
   {
     id:'admin',
     step:'08',
-    label:'Admin & Testing',
+    label:'General / Administration',
     items:[
+      ['/general-ledger','Finance & Accounting Setup · General Ledger / Tax'],
       ['/workforce','Workforce'],
       ['/governance','Master Data / Rules'],
       ['/administration','Administration'],
@@ -152,12 +152,17 @@ export default function WorkspaceShell({title,subtitle,active,children,actions,h
     portalAllowed(href)&&(!searching||label.toLowerCase().includes(query)||href.toLowerCase().includes(query))
   );
 
+  const itemAllowed=(href:string)=>{
+    if(href==='/general-ledger')return role==='GLOBAL_ADMIN'||permissions.includes('GL_VIEW')||permissions.includes('FINANCE_CONFIG_ADMIN');
+    return true;
+  };
   const visibleGroups=(internalRole?menuGroups:[]).map(group=>{
-    if(!searching)return group;
+    const allowedItems=group.items.filter(([href])=>itemAllowed(href));
+    if(!searching)return {...group,items:allowedItems};
     const groupMatch=group.label.toLowerCase().includes(query);
     const items=groupMatch
-      ? group.items
-      : group.items.filter(([href,label])=>label.toLowerCase().includes(query)||href.toLowerCase().includes(query));
+      ? allowedItems
+      : allowedItems.filter(([href,label])=>label.toLowerCase().includes(query)||href.toLowerCase().includes(query));
     return {...group,items};
   }).filter(group=>group.items.length>0);
 
