@@ -118,6 +118,8 @@ jobs:
 
           fetch_json "$PROD_API_URL/api/auth/oidc/configuration" /tmp/oidc-config.json
           fetch_json "$PROD_API_URL/api/auth/oidc/validate" /tmp/oidc-validate.json
+          jq '{configured,devLoginAllowed,issuerPresent:((.issuer//"")|length>0),clientIdPresent:((.clientId//"")|length>0),redirectUri,authorizationEndpointPresent:((.authorizationEndpoint//"")|length>0)}' /tmp/oidc-config.json | tee rb017-oidc-final/live-config-sanitized.json
+          jq '{ok,missing}' /tmp/oidc-validate.json | tee rb017-oidc-final/live-validate-sanitized.json
           jq -e '.configured==true and .devLoginAllowed==false' /tmp/oidc-config.json >/dev/null
           jq -e '(.ok==true) or (.valid==true) or (.configured==true)' /tmp/oidc-validate.json >/dev/null
 
