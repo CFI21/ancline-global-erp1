@@ -1,0 +1,62 @@
+{
+  "schema": "ANCLINE_CR016_FINAL_FREEZE_V1",
+  "changeRequest": "CR-016",
+  "status": "FROZEN_ACCEPTED",
+  "frozenAt": "2026-09-26T14:03:00Z",
+  "repository": "CFI21/ancline-global-erp1",
+  "environment": "staging",
+  "web": {
+    "service": "ancline-web-staging",
+    "serviceId": "srv-dairuloae00c73fnfo1g",
+    "url": "https://ancline-web-staging.onrender.com",
+    "appCommit": "338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+    "image": "ghcr.io/cfi21/ancline-web:sha-338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+    "liveDigest": "sha256:5293505097ad73b793178c77ee024edc7cd5da5f5fb9a66365fc8ff33e3fefd5",
+    "renderDeployId": "dep-darsvkppc0ec73dfugi0",
+    "sourceMode": "image"
+  },
+  "api": {
+    "service": "ancline-api-staging",
+    "serviceId": "srv-daisqstg1s2s738kklb0",
+    "commit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "image": "ghcr.io/cfi21/ancline-api:sha-04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+    "liveDigest": "sha256:c2eb0c275e2301e10fe66b43bcd49723f6ee586938dba32f77d70d8f1c718d37",
+    "changedByCR016": false
+  },
+  "acceptance": {
+    "workflow": "CR-016 Direct Image Deploy + Live Acceptance",
+    "runId": 36246731411,
+    "runAttempt": 2,
+    "conclusion": "success",
+    "evidenceArtifactId": 10907608624,
+    "evidenceArtifactDigest": "sha256:bacb5479e0f5a96f6f791738e4649bd8155fcb36d80aeb3c7e37eb4a91668040",
+    "gates": {
+      "imageSourceSwitch": "PASS",
+      "stagingDeploy": "PASS",
+      "exactReleaseIdentity": "PASS",
+      "apiHealth": "PASS",
+      "responsiveDesktopTabletMobile": "PASS",
+      "uiHardening": "PASS",
+      "loginSessionRoleScope": "PASS",
+      "jobs50001to50005": "PASS",
+      "operationsControl": "PASS",
+      "accessibility": "PASS"
+    }
+  },
+  "acceptedScope": [
+    "Compact short-code fields",
+    "Three-character currency/code field presentation",
+    "Compact numeric field widths",
+    "Related Tasks grid removed from Job Context Rail"
+  ],
+  "boundaries": {
+    "productionPromotion": false,
+    "apiDataModelChange": false,
+    "m3Changes": false
+  },
+  "notes": [
+    "CR-016 Web application content is commit 338edc48dd2732d6d23502cbf4b9ecd8760accc5.",
+    "Acceptance-harness corrections after deployment did not modify the deployed CR-016 application or CR-015 API.",
+    "The accepted Web baseline is pinned by the recorded live image digest because the historical sha-* tag was rebuilt during parallel workflow retries."
+  ]
+}
