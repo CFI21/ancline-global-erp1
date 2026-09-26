@@ -61,6 +61,32 @@ jobs:
           printf '%s\n' "${missing[@]}" | sed '/^$/d' > rb017-production-readiness/missing-required-env.txt
           test ! -s rb017-production-readiness/missing-required-env.txt
 
+      - name: Verify production auth and routing configuration
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -fsS -H "Accept: application/json" -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$PROD_API_SERVICE_ID/env-vars" > /tmp/api-env-full.json
+          curl -fsS -H "Accept: application/json" -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$PROD_WEB_SERVICE_ID/env-vars" > /tmp/web-env-full.json
+          value(){ jq -r --arg k "$2" '[.[]|select(.envVar.key==$k)|.envVar.value][0] // ""' "$1"; }
+
+          node_env="$(value /tmp/api-env-full.json NODE_ENV)"
+          dev_login="$(value /tmp/api-env-full.json ALLOW_DEV_LOGIN)"
+          cors="$(value /tmp/api-env-full.json CORS_ORIGINS)"
+          web_api="$(value /tmp/web-env-full.json ANCLINE_API_URL)"
+          oidc_issuer="$(value /tmp/api-env-full.json OIDC_ISSUER)"
+          oidc_client="$(value /tmp/api-env-full.json OIDC_CLIENT_ID)"
+          oidc_secret="$(value /tmp/api-env-full.json OIDC_CLIENT_SECRET)"
+
+          [[ "$node_env" == "production" ]]
+          [[ "${dev_login,,}" == "false" ]]
+          [[ "$web_api" == "$PROD_API_URL" ]]
+          [[ "$cors" == *"$PROD_WEB_URL"* ]]
+          oidc=false
+          [[ -n "$oidc_issuer" && -n "$oidc_client" && -n "$oidc_secret" ]] && oidc=true
+
+          jq -n             --arg nodeEnv "$node_env"             --argjson devLoginDisabled true             --argjson webTargetsProdApi true             --argjson corsIncludesProdWeb true             --argjson oidcConfigured "$oidc"             '{nodeEnv:$nodeEnv,devLoginDisabled:$devLoginDisabled,webTargetsProdApi:$webTargetsProdApi,corsIncludesProdWeb:$corsIncludesProdWeb,oidcConfigured:$oidcConfigured}'             > rb017-production-readiness/auth-routing-checks.json
+
       - name: Probe production API health read-only
         run: |
           set -euo pipefail
