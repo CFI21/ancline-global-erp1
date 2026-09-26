@@ -23,7 +23,7 @@
         {
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
-          "status": "IMPLEMENTING"
+          "status": "ACCEPTED"
         }
       ]
     },
@@ -37,7 +37,7 @@
         {
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
-          "status": "IMPLEMENTING"
+          "status": "ACCEPTED"
         }
       ]
     },
@@ -47,7 +47,7 @@
         {
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
-          "status": "IMPLEMENTING"
+          "status": "ACCEPTED"
         }
       ]
     },
@@ -57,7 +57,7 @@
         {
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
-          "status": "IMPLEMENTING"
+          "status": "ACCEPTED"
         }
       ]
     },
@@ -67,7 +67,7 @@
         {
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
-          "status": "IMPLEMENTING"
+          "status": "ACCEPTED"
         }
       ]
     },
@@ -77,7 +77,7 @@
         {
           "id": "WP-01",
           "title": "Executive Home + Operations Control Cleanup",
-          "status": "IMPLEMENTING"
+          "status": "ACCEPTED"
         }
       ]
     }
@@ -100,13 +100,13 @@
       "impact-regression",
       "full-uat"
     ],
-    "currentStatus": "WP-01_IN_PROGRESS"
+    "currentStatus": "WP-01_ACCEPTED_RB-017_OPEN"
   },
   "workPackages": [
     {
       "id": "WP-01",
       "title": "Executive Home + Operations Control Cleanup",
-      "status": "IMPLEMENTING",
+      "status": "ACCEPTED",
       "approvedAt": "2026-09-26T16:11:00+02:00",
       "domains": [
         "UI_UX",
@@ -138,7 +138,31 @@
         "RESPONSIVE_FAILURE_ACCESSIBILITY",
         "JOBS_50001_50005",
         "LOGIN_SESSION"
-      ]
+      ],
+      "acceptedAt": "2026-09-26T14:47:16Z",
+      "candidateCommit": "619f420534cca2be2acb82db211400eb329e4704",
+      "staging": {
+        "service": "ancline-web-staging",
+        "deployId": "dep-dartkg8jo6nc739cu4hg",
+        "image": "ghcr.io/cfi21/ancline-web:rb017-wp01-619f420534cc",
+        "digest": "sha256:4e4c06d7f0b2866dcf307cc4d58e08dbb26dede088c665379115f7686020c419"
+      },
+      "acceptance": {
+        "runId": 36249289736,
+        "conclusion": "PASS",
+        "artifactId": 10907959179,
+        "artifactDigest": "sha256:25e469a0af562daa2886293ba2d9f00fb1bdd573499a873b5e49daee65414c27",
+        "gates": [
+          "WEB_BUILD",
+          "LOCAL_UI_HARDENING",
+          "LOCAL_LOGIN_JOBS_ROLE_REGRESSION",
+          "STAGING_DEPLOY",
+          "EXACT_RELEASE_IDENTITY",
+          "API_HEALTH",
+          "STAGING_UI_HARDENING",
+          "STAGING_LOGIN_JOBS_ROLE_REGRESSION"
+        ]
+      }
     }
   ]
 }
