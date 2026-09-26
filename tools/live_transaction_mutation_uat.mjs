@@ -31,6 +31,17 @@ async function waitForApi(){
 function expectDenied(r,label){assert([400,401,403,404,409].includes(r.status),label+': expected denial, got HTTP '+r.status);}
 async function reseed(token){return ok(await call('/test-data/seed',{token,method:'POST',body:{}}),'synthetic reseed');}
 async function summary(token){return ok(await call('/test-data/summary',{token}),'test-data summary');}
+async function drainOpenTasks(bookingId,token,label){
+  for(let round=1;round<=8;round++){
+    const rows=ok(await call('/tasks',{token}),label+' tasks list').filter(x=>String(x.bookingId)===String(bookingId)&&String(x.status).toUpperCase()!=='COMPLETED');
+    if(!rows.length)return 0;
+    for(const t of rows)ok(await call('/tasks/'+t.id+'/complete',{token,method:'POST',body:{}}),label+' complete task');
+    await sleep(350);
+  }
+  const remaining=ok(await call('/tasks',{token}),label+' final tasks list').filter(x=>String(x.bookingId)===String(bookingId)&&String(x.status).toUpperCase()!=='COMPLETED');
+  assert(remaining.length===0,label+': '+remaining.length+' governed task(s) still open after bounded reconciliation');
+  return remaining.length;
+}
 
 const report={schema:'ANCLINE_ECOM_TRANSACTION_MUTATION_UAT_V1',startedAt:new Date().toISOString(),expectedApiCommit:EXPECTED_API_COMMIT,roles:[],privacy:[],jobs:[],transactionalRunner:null,restore:null,status:'RUNNING'};
 let admin=null;
@@ -140,8 +151,7 @@ try{
     expectDenied(await call('/finance/'+fl.id,{token:finance.token,method:'PATCH',body:{amount:Number(fl.amount||0)+1}}),n+' edit finalized finance');
     row.mutations.push('finance-final-and-invoice-ready');row.negatives.push('final-finance-edit-blocked');
 
-    const taskRows=ok(await call('/tasks',{token:admin.token}),'tasks list').filter(x=>String(x.bookingId)===String(base.id));
-    for(const t of taskRows)if(String(t.status).toUpperCase()!=='COMPLETED')ok(await call('/tasks/'+t.id+'/complete',{token:admin.token,method:'POST',body:{}}),n+' complete task');
+    await drainOpenTasks(base.id,admin.token,n+' initial task reconciliation');
     const approvalRows=ok(await call('/approvals',{token:admin.token}),'approvals list').filter(x=>String(x.bookingId)===String(base.id));
     for(const a of approvalRows)if(String(a.status).toUpperCase()==='PENDING')ok(await call('/approvals/'+a.id+'/approve',{token:admin.token,method:'POST',body:{}}),n+' approve checker item');
     row.mutations.push('tasks-complete','approvals-decided');
@@ -158,9 +168,7 @@ try{
 
     // Workflow advancement can legitimately create new governed tasks. Reconcile those
     // before financial close so the UAT respects (rather than bypasses) OPEN_TASKS.
-    const postAdvanceTasks=ok(await call('/tasks',{token:admin.token}),'post-advance tasks list').filter(x=>String(x.bookingId)===String(base.id));
-    for(const t of postAdvanceTasks)if(String(t.status).toUpperCase()!=='COMPLETED')
-      ok(await call('/tasks/'+t.id+'/complete',{token:admin.token,method:'POST',body:{}}),n+' complete post-advance task');
+    await drainOpenTasks(base.id,admin.token,n+' post-advance task reconciliation');
     row.mutations.push('post-advance-tasks-complete');
 
     let checklist=ok(await call('/operations/closeout/'+base.id,{token:admin.token}),n+' closeout checklist');
@@ -168,6 +176,7 @@ try{
     row.negatives.push('premature-closeout-blocked');
 
     ok(await call('/finance/booking/'+base.id+'/finalize',{token:finance.token,method:'POST',body:{}}),n+' finance finalize');
+    await drainOpenTasks(base.id,admin.token,n+' pre-closeout task reconciliation');
     checklist=ok(await call('/operations/closeout/'+base.id,{token:admin.token}),n+' closeout checklist refresh');
     for(const item of checklist)if(item.mandatory&&!item.completed)ok(await call('/operations/closeout/'+base.id+'/items/'+item.id+'/toggle',{token:admin.token,method:'POST',body:{}}),n+' closeout item '+item.itemCode);
     const closed=ok(await call('/operations/closeout/'+base.id+'/finalize',{token:admin.token,method:'POST',body:{}}),n+' closeout finalize');
