@@ -77,7 +77,7 @@ jobs:
             printf '%s\t%s\n' "$t" "$c" >> /tmp/rb017-dr/source_counts.tsv
           done < /tmp/rb017-dr/source_tables.txt
 
-          docker run --rm -e DATABASE_URL="$DB_URL" -v /tmp/rb017-dr:/work postgres:17-alpine             sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl --file=/work/ancline-prod.dump'
+          docker run --rm -e DATABASE_URL="$DB_URL" -v /tmp/rb017-dr:/work postgres:17-alpine             sh -c 'pg_dump "$DATABASE_URL" --format=custom --schema=public --no-owner --no-acl --file=/work/ancline-prod.dump'
           sha256sum /tmp/rb017-dr/ancline-prod.dump | awk '{print $1}' > /tmp/rb017-dr/backup.sha256
 
           docker run -d --rm --name rb017-restore-postgres             -e POSTGRES_PASSWORD=restorepass -e POSTGRES_DB=ancline_restore             -p 55432:5432 postgres:17-alpine >/dev/null
