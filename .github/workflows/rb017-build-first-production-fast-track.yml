@@ -65,40 +65,40 @@ jobs:
           value(){ jq -r --arg k "$2" '[.[]|select(.envVar.key==$k)|.envVar.value][0] // ""' "$1"; }
           DB_URL="$(value /tmp/prod-api-env.json DATABASE_URL)"
           [[ -n "$DB_URL" ]]
-          export PGPASSWORD=""
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client >/dev/null
 
-          # Capture source table counts without echoing DB URL.
-          psql "$DB_URL" -Atqc "select tablename from pg_tables where schemaname='public' order by tablename" > /tmp/source_tables.txt
-          : > /tmp/source_counts.tsv
+          mkdir -p /tmp/rb017-dr
+          docker pull postgres:17-alpine >/dev/null
+
+          docker run --rm -e DATABASE_URL="$DB_URL" -v /tmp/rb017-dr:/work postgres:17-alpine             sh -c 'psql "$DATABASE_URL" -Atqc "select tablename from pg_tables where schemaname=\x27public\x27 order by tablename" > /work/source_tables.txt'
+
+          : > /tmp/rb017-dr/source_counts.tsv
           while IFS= read -r t; do
-            c="$(psql "$DB_URL" -Atqc "select count(*) from public.\"$t\"")"
-            printf '%s\t%s\n' "$t" "$c" >> /tmp/source_counts.tsv
-          done < /tmp/source_tables.txt
+            c="$(docker run --rm -e DATABASE_URL="$DB_URL" -e TBL="$t" postgres:17-alpine               sh -c 'psql "$DATABASE_URL" -Atqc "select count(*) from public.\"$TBL\""')"
+            printf '%s\t%s\n' "$t" "$c" >> /tmp/rb017-dr/source_counts.tsv
+          done < /tmp/rb017-dr/source_tables.txt
 
-          pg_dump "$DB_URL" --format=custom --no-owner --no-acl --file=/tmp/ancline-prod.dump
-          sha256sum /tmp/ancline-prod.dump | awk '{print $1}' > /tmp/backup.sha256
+          docker run --rm -e DATABASE_URL="$DB_URL" -v /tmp/rb017-dr:/work postgres:17-alpine             sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl --file=/work/ancline-prod.dump'
+          sha256sum /tmp/rb017-dr/ancline-prod.dump | awk '{print $1}' > /tmp/rb017-dr/backup.sha256
 
-          docker run -d --rm --name rb017-restore-postgres             -e POSTGRES_PASSWORD=restorepass -e POSTGRES_DB=ancline_restore             -p 55432:5432 postgres:16-alpine >/dev/null
+          docker run -d --rm --name rb017-restore-postgres             -e POSTGRES_PASSWORD=restorepass -e POSTGRES_DB=ancline_restore             -p 55432:5432 postgres:17-alpine >/dev/null
           for i in $(seq 1 40); do
-            pg_isready -h 127.0.0.1 -p 55432 -U postgres >/dev/null 2>&1 && break
+            docker exec rb017-restore-postgres pg_isready -U postgres >/dev/null 2>&1 && break
             sleep 2
           done
-          PGPASSWORD=restorepass pg_restore -h 127.0.0.1 -p 55432 -U postgres -d ancline_restore             --no-owner --no-acl /tmp/ancline-prod.dump
+          docker exec -i rb017-restore-postgres pg_restore -U postgres -d ancline_restore --no-owner --no-acl < /tmp/rb017-dr/ancline-prod.dump
 
-          : > /tmp/restored_counts.tsv
+          : > /tmp/rb017-dr/restored_counts.tsv
           while IFS= read -r t; do
-            c="$(PGPASSWORD=restorepass psql -h 127.0.0.1 -p 55432 -U postgres -d ancline_restore -Atqc "select count(*) from public.\"$t\"")"
-            printf '%s\t%s\n' "$t" "$c" >> /tmp/restored_counts.tsv
-          done < /tmp/source_tables.txt
+            c="$(docker exec -e TBL="$t" rb017-restore-postgres sh -c 'psql -U postgres -d ancline_restore -Atqc "select count(*) from public.\"$TBL\""')"
+            printf '%s\t%s\n' "$t" "$c" >> /tmp/rb017-dr/restored_counts.tsv
+          done < /tmp/rb017-dr/source_tables.txt
 
-          diff -u /tmp/source_counts.tsv /tmp/restored_counts.tsv
-          table_count="$(wc -l < /tmp/source_tables.txt | tr -d ' ')"
-          backup_sha="$(cat /tmp/backup.sha256)"
-          jq -n --argjson tableCount "$table_count" --arg backupSha "$backup_sha"             '{status:"PASS",method:"pg_dump custom-format to disposable local PostgreSQL 16 restore",tableCount:$tableCount,rowCountsMatched:true,backupSha256:$backupSha,productionMutated:false,restoreTargetDestroyed:true}'             > rb017-fast-track/backup-restore-drill.json
+          diff -u /tmp/rb017-dr/source_counts.tsv /tmp/rb017-dr/restored_counts.tsv
+          table_count="$(wc -l < /tmp/rb017-dr/source_tables.txt | tr -d ' ')"
+          backup_sha="$(cat /tmp/rb017-dr/backup.sha256)"
+          jq -n --argjson tableCount "$table_count" --arg backupSha "$backup_sha"             '{status:"PASS",method:"PostgreSQL 17 pg_dump custom-format to disposable PostgreSQL 17 restore",tableCount:$tableCount,rowCountsMatched:true,backupSha256:$backupSha,productionMutated:false,restoreTargetDestroyed:true}'             > rb017-fast-track/backup-restore-drill.json
           docker rm -f rb017-restore-postgres >/dev/null 2>&1 || true
-          rm -f /tmp/ancline-prod.dump /tmp/source_counts.tsv /tmp/restored_counts.tsv /tmp/source_tables.txt
+          rm -rf /tmp/rb017-dr
 
       - name: Configure OIDC only if production credentials already exist as GitHub secrets
         env:
