@@ -1,0 +1,113 @@
+name: RB-017 Production Readiness Review
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rb017-production-readiness.yml'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ancline-rb017-production-readiness
+  cancel-in-progress: false
+
+env:
+  PROD_WEB_SERVICE_ID: srv-dapdotijnfac73840em0
+  PROD_API_SERVICE_ID: srv-dapdoq9srm7s73f4dif0
+  PROD_WEB_URL: https://ancline-web-prod.onrender.com
+  PROD_API_URL: https://ancline-api-prod.onrender.com
+  FROZEN_WEB_COMMIT: 8de92cbbd0d9d005c77b7263c0956b88aed4734d
+  FROZEN_WEB_DIGEST: sha256:e5372e50d2eb4414315e8ca18563cdb439da28035756fb7540333145675be844
+  FROZEN_API_COMMIT: 04b6957860c7bb47576d76f1d6fe1b90dca81f9b
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify RB-017 frozen baseline
+        run: |
+          set -euo pipefail
+          jq -e '.bundleId=="RB-017" and .status=="FROZEN_ACCEPTED" and .acceptance.currentStatus=="RB-017_FINAL_ACCEPTED_FROZEN"' infra/change-control/release-bundles/RB-017.json >/dev/null
+          mkdir -p rb017-production-readiness
+
+      - name: Inspect Render production configuration without exposing secrets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          for pair in "web:$PROD_WEB_SERVICE_ID" "api:$PROD_API_SERVICE_ID"; do
+            name="${pair%%:*}"; id="${pair##*:}"
+            curl -fsS -H "Accept: application/json" -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$id" > "/tmp/$name-service.json"
+            curl -fsS -H "Accept: application/json" -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$id/env-vars" > "/tmp/$name-env.json"
+            jq '{id,name,type,autoDeploy,autoDeployTrigger,imagePath,serviceDetails:{url:.serviceDetails.url,region:.serviceDetails.region,runtime:.serviceDetails.runtime,healthCheckPath:.serviceDetails.healthCheckPath,maintenanceMode:.serviceDetails.maintenanceMode,plan:.serviceDetails.plan}}' "/tmp/$name-service.json" > "rb017-production-readiness/$name-service.json"
+            jq '[.[] | {key:.envVar.key,present:((.envVar.value // "")|length>0)}]' "/tmp/$name-env.json" > "rb017-production-readiness/$name-env-presence.json"
+          done
+
+      - name: Check required production environment keys
+        run: |
+          set -euo pipefail
+          api=rb017-production-readiness/api-env-presence.json
+          has(){ jq -e --arg k "$2" 'any(.[]; .key==$k and .present==true)' "$1" >/dev/null; }
+          missing=()
+          has "$api" DATABASE_URL || missing+=(DATABASE_URL)
+          has "$api" JWT_SECRET || has "$api" AUTH_SECRET || missing+=(JWT_OR_AUTH_SECRET)
+          printf '%s\n' "${missing[@]}" | sed '/^$/d' > rb017-production-readiness/missing-required-env.txt
+          test ! -s rb017-production-readiness/missing-required-env.txt
+
+      - name: Probe production API health read-only
+        run: |
+          set -euo pipefail
+          ok=0
+          for path in /health /api/health /api/v1/health; do
+            code="$(curl -L -sS --connect-timeout 10 --max-time 40 -o /tmp/api-health.json -w '%{http_code}' "$PROD_API_URL$path" || true)"
+            echo "$path $code"
+            if [[ "$code" == "200" ]]; then
+              ok=1; echo "$path" > rb017-production-readiness/api-health-path.txt; cp /tmp/api-health.json rb017-production-readiness/api-health.json; break
+            fi
+          done
+          [[ "$ok" == "1" ]]
+
+      - name: Probe production Web and Web-to-API proxy read-only
+        run: |
+          set -euo pipefail
+          curl -L -fsS --connect-timeout 10 --max-time 40 "$PROD_WEB_URL/release-info" > rb017-production-readiness/current-prod-release-info.json
+          ok=0
+          for path in /api-proxy/health /api-proxy/api/health /api-proxy/api/v1/health; do
+            code="$(curl -L -sS --connect-timeout 10 --max-time 40 -o /tmp/proxy-health.json -w '%{http_code}' "$PROD_WEB_URL$path" || true)"
+            echo "$path $code"
+            if [[ "$code" == "200" ]]; then
+              ok=1; echo "$path" > rb017-production-readiness/web-proxy-health-path.txt; cp /tmp/proxy-health.json rb017-production-readiness/web-proxy-health.json; break
+            fi
+          done
+          [[ "$ok" == "1" ]]
+
+      - name: Verify rollback source and immutable RB-017 candidate
+        run: |
+          set -euo pipefail
+          jq -e --arg d "$FROZEN_WEB_DIGEST" '.finalBaseline.webDigest==$d' infra/change-control/release-bundles/RB-017.json >/dev/null
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull "ghcr.io/cfi21/ancline-web@$FROZEN_WEB_DIGEST" >/dev/null
+          jq -n             --arg previousWeb "$(jq -r '.imagePath' rb017-production-readiness/web-service.json)"             --arg previousApi "$(jq -r '.imagePath' rb017-production-readiness/api-service.json)"             --arg frozenWeb "ghcr.io/cfi21/ancline-web@$FROZEN_WEB_DIGEST"             --arg frozenApiCommit "$FROZEN_API_COMMIT"             '{previousProduction:{web:$previousWeb,api:$previousApi},candidate:{web:$frozenWeb,apiCommit:$frozenApiCommit},rollbackReady:(($previousWeb|length)>0 and ($previousApi|length)>0)}'             > rb017-production-readiness/rollback-readiness.json
+
+      - name: Summarize readiness facts
+        if: always()
+        run: |
+          set +e
+          webAuto="$(jq -r '.autoDeploy' rb017-production-readiness/web-service.json 2>/dev/null)"
+          apiAuto="$(jq -r '.autoDeploy' rb017-production-readiness/api-service.json 2>/dev/null)"
+          dbPresent="$(jq -r 'any(.[]; .key=="DATABASE_URL" and .present==true)' rb017-production-readiness/api-env-presence.json 2>/dev/null)"
+          rollback="$(jq -r '.rollbackReady' rb017-production-readiness/rollback-readiness.json 2>/dev/null)"
+          jq -n             --arg bundle RB-017             --arg webAuto "$webAuto" --arg apiAuto "$apiAuto"             --argjson databaseUrlPresent "${dbPresent:-false}"             --argjson rollbackReady "${rollback:-false}"             --arg frozenWebCommit "$FROZEN_WEB_COMMIT"             --arg frozenWebDigest "$FROZEN_WEB_DIGEST"             --arg frozenApiCommit "$FROZEN_API_COMMIT"             '{bundle:$bundle,reviewMode:"READ_ONLY_NO_PROMOTION",productionTrafficSwitched:false,m3Changes:false,production:{webAutoDeploy:$webAuto,apiAutoDeploy:$apiAuto,databaseUrlPresent:$databaseUrlPresent,rollbackReady:$rollbackReady},candidate:{webCommit:$frozenWebCommit,webDigest:$frozenWebDigest,apiCommit:$frozenApiCommit}}'             > rb017-production-readiness/summary.json
+
+      - name: Upload production readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rb017-production-readiness-${{ github.run_id }}
+          path: rb017-production-readiness/
+          retention-days: 30
