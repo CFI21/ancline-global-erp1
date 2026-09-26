@@ -1,12 +1,12 @@
 {
-  "schema": "ANCLINE_CHANGE_REQUEST_V1",
-  "id": "CR-20260926-015",
+  "schema": "ANCLINE_RELEASE_BUNDLE_V1",
+  "id": "RB-017",
   "status": "APPROVED",
-  "title": "Accounting Navigation + Explicit GL User Entitlements",
-  "createdAt": "2026-09-26T09:36:00+02:00",
+  "title": "ANCLINE Global Forwarding Bundled Release 017",
+  "createdAt": "2026-09-26T16:11:00+02:00",
   "approvalStatus": "APPROVED_FOR_STAGING",
-  "approvedBy": "User explicit ANCLINE/M3 accounting navigation correction",
-  "approvedAt": "2026-09-26T09:36:00+02:00",
+  "approvedBy": "User explicit ANCLINE bundled release mode instruction",
+  "approvedAt": "2026-09-26T16:11:00+02:00",
   "buildAllowed": true,
   "mergeAllowed": true,
   "deploymentAllowed": true,
@@ -14,41 +14,55 @@
   "promotionAllowed": false,
   "productionPromotionAuthorized": false,
   "frozen": false,
-  "activationBlocked": true,
-  "baselineWebCommit": "971dafa4cb0c124ca27835ed518abdf76b1976cb",
-  "baselineApiCommit": "971dafa4cb0c124ca27835ed518abdf76b1976cb",
-  "parentBaseline": "CR-20260926-014",
+  "bundleMode": true,
+  "baselineWebCommit": "338edc48dd2732d6d23502cbf4b9ecd8760accc5",
+  "baselineApiCommit": "04b6957860c7bb47576d76f1d6fe1b90dca81f9b",
+  "parentBaseline": "CR-016-FROZEN-ACCEPTED",
   "components": [
     "web",
-    "api"
+    "api",
+    "shared"
   ],
-  "requirements": [
-    "Move General Ledger and finance configuration navigation out of operational/agent-task context and place it under General / Administration -> Finance & Accounting Setup.",
-    "Keep operational agent tasks free of GL master/configuration functions.",
-    "Add explicit admin-assignable GL and finance configuration rights for selected users.",
-    "Do not grant GL setup access automatically to FINANCE, OPERATIONS or AGENT users.",
-    "Enforce direct API access using explicit entitlements, not navigation hiding only.",
-    "Preserve maker-checker/four-eyes and record actor, before value, after value and timestamp for GL state changes."
+  "workItemPolicy": {
+    "separateCRRequired": false,
+    "workItemsLiveUnderBundle": true,
+    "workItemApprovalMayBeRecordedInsideBundle": true,
+    "intermediateFreezeRequired": false,
+    "finalFreezeOncePerBundle": true,
+    "autoFixVerifiedInScopeDefects": true,
+    "impactRegressionDuringDevelopment": true,
+    "finalFullUatRequired": true
+  },
+  "workItems": [],
+  "allowedDomains": [
+    "UI_UX",
+    "WORKFLOW",
+    "NAVIGATION",
+    "OPERATIONS",
+    "FINANCE",
+    "CONTROL",
+    "REPORTING"
   ],
   "invariants": [
-    "No database migration or new table.",
-    "No accounting data-model or API contract redesign.",
-    "Preserve CR-010 through CR-014 accepted baselines.",
-    "No production runtime/DNS change.",
-    "LIVE_PROVIDERS OFF, REAL_MONEY OFF, PRODUCTION_TRAFFIC OFF."
+    "Preserve frozen CR-016 Web application baseline unless an RB-017 work item explicitly changes it.",
+    "Preserve CR-015 staging API baseline unless an RB-017 work item explicitly includes an API change.",
+    "Preserve approved business logic, role/data scope, audit, maker-checker and four-eyes controls unless explicitly in bundle scope.",
+    "Preserve data model and API contracts unless explicitly included in an approved RB-017 work item.",
+    "Staging first.",
+    "No production promotion without explicit user approval.",
+    "No M3 changes."
   ],
   "regressionScopes": [
     "WEB_BUILD",
     "API_TEST_BUILD",
     "ROLE_BROWSER_UAT",
-    "ACCOUNTING_NAVIGATION",
-    "GL_ENTITLEMENTS",
-    "MAKER_CHECKER_AUDIT",
-    "TRANSACTION_LIFECYCLE",
     "RESPONSIVE_FAILURE_ACCESSIBILITY",
-    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY"
+    "TRANSACTION_LIFECYCLE",
+    "CONCURRENCY_IDEMPOTENCY_PROVIDER_PAYMENT_SECURITY",
+    "BUNDLE_IMPACT_REGRESSION",
+    "FINAL_FULL_UAT"
   ],
   "autoRollbackOnFailure": true,
   "freezeOnPass": true,
-  "note": "CR-015 controlled staging login authentication continues from approved staging runtime 971dafa4cb0c124ca27835ed518abdf76b1976cb. Safe in-scope auth fixes may be applied and retested without intermediate approval."
+  "note": "RB-017 is the single governed release container for multiple approved ANCLINE improvements. Do not create a separate CR for each small change. Add approved work items to this bundle, implement/test/fix/retest continuously, then run one final full UAT and freeze one new bundled baseline."
 }
