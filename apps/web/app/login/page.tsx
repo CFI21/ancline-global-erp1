@@ -15,7 +15,8 @@ function b64url(buf:ArrayBuffer){
 }
 
 export default function Login(){
-  const [email,setEmail]=useState('admin@ancline.net');
+  const [email,setEmail]=useState('test.admin@ancline.invalid');
+  const [password,setPassword]=useState('');
   const [role,setRole]=useState('GLOBAL_ADMIN');
   const [orgs,setOrgs]=useState<Org[]>([]);
   const [scopeId,setScopeId]=useState('');
@@ -39,7 +40,7 @@ export default function Login(){
       // optional here so a pre-provisioned BRANCH_OPS / SHIPPER / CONSIGNEE
       // account is not blocked before the API can load its stored scope.
       // Unmanaged transitional logins still fail closed server-side if scope is missing.
-      const payload:any={email,role};
+      const payload:any={email,password,role};
       if(role==='CUSTOMER'&&scopeId)payload.customerId=scopeId;
       if((role==='SHIPPER'||role==='CONSIGNEE')&&scopeId)payload.partyId=scopeId;
       if(role==='AGENT'&&scopeId)payload.agentId=scopeId;
@@ -75,7 +76,8 @@ export default function Login(){
     <div className="card">
       {oidc.configured&&<><button className="btn" onClick={sso} disabled={busy} style={{width:'100%',marginBottom:14}}>{busy?'Starting sign-in…':'Sign in with Company SSO'}</button>{oidc.devLoginAllowed&&<div className="sub" style={{textAlign:'center',margin:'0 0 14px'}}>or use transitional ANCLINE access</div>}</>}
       {oidc.devLoginAllowed&&<>
-        <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
+        <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
+        <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
         <label>Role<select value={role} onChange={e=>setRole(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}>
           {['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'].map(x=><option key={x}>{x}</option>)}
         </select></label>
