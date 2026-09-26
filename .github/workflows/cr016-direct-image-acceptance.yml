@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TARGET_SHA }}
+          ref: main
 
       - name: Directly switch staging Web source to immutable GHCR image
         env:
