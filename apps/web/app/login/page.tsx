@@ -76,8 +76,8 @@ export default function Login(){
     <div className="card">
       {oidc.configured&&<><button className="btn" onClick={sso} disabled={busy} style={{width:'100%',marginBottom:14}}>{busy?'Starting sign-in…':'Sign in with Company SSO'}</button>{oidc.devLoginAllowed&&<div className="sub" style={{textAlign:'center',margin:'0 0 14px'}}>or use transitional ANCLINE access</div>}</>}
       {oidc.devLoginAllowed&&<>
-        <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
-        <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
+        <label>Email<input required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
+        <label>Password<input required type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" style={{width:'100%',padding:9,margin:'6px 0 12px'}}/></label>
         <label>Role<select value={role} onChange={e=>setRole(e.target.value)} style={{width:'100%',padding:9,margin:'6px 0 12px'}}>
           {['GLOBAL_ADMIN','CONTROL_TOWER','BRANCH_OPS','FINANCE','AGENT','CUSTOMER','SHIPPER','CONSIGNEE'].map(x=><option key={x}>{x}</option>)}
         </select></label>
