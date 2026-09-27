@@ -35,8 +35,8 @@ export class OidcService {
       authorizationEndpoint:null as string|null
     };
     if(!base.configured)return base;
-    try{const d=await this.discovery();return {...base,authorizationEndpoint:d.authorization_endpoint||null};}
-    catch{return base;}
+    try{const d=await this.discovery();return {...base,authorizationEndpoint:d.authorization_endpoint||null,discoveryOk:true,discoveryError:null};}
+    catch(e:any){return {...base,discoveryOk:false,discoveryError:e?.message||'OIDC discovery failed'};}
   }
 
   validateConfiguration(){
