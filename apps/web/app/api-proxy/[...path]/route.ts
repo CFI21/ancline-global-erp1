@@ -8,7 +8,9 @@ type RouteContext = {
 
 function apiBaseUrl() {
   const raw = process.env.ANCLINE_API_URL || process.env.API_URL || '';
-  return raw.replace(/\/+$/, '');
+  const trimmed = raw.replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /\/api$/i.test(trimmed) ? trimmed : `${trimmed}/api`;
 }
 
 async function forward(request: NextRequest, context: RouteContext) {
@@ -21,7 +23,8 @@ async function forward(request: NextRequest, context: RouteContext) {
   }
 
   const { path } = await context.params;
-  const target = new URL(`${base}/${(path || []).map(encodeURIComponent).join('/')}`);
+  const safePath = (path || []).map(encodeURIComponent).join('/');
+  const target = new URL(`${base}/${safePath}`);
   request.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
   const headers = new Headers(request.headers);
@@ -45,12 +48,38 @@ async function forward(request: NextRequest, context: RouteContext) {
       responseHeaders.delete(name);
     }
     const body = await response.arrayBuffer();
+
+    if (safePath === 'auth/oidc/configuration') {
+      let oidc:any = null;
+      try {
+        oidc = JSON.parse(new TextDecoder().decode(body));
+      } catch {}
+      console.log(JSON.stringify({
+        event: 'prod_sso_proxy_diagnostic',
+        apiBase: base,
+        target: target.toString(),
+        status: response.status,
+        configured: oidc?.configured ?? null,
+        devLoginAllowed: oidc?.devLoginAllowed ?? null,
+        authorizationEndpointPresent: Boolean(oidc?.authorizationEndpoint)
+      }));
+    }
+
     return new NextResponse(body, {
       status: response.status,
       statusText: response.statusText,
       headers: responseHeaders,
     });
-  } catch {
+  } catch (e:any) {
+    if (safePath === 'auth/oidc/configuration') {
+      console.log(JSON.stringify({
+        event: 'prod_sso_proxy_diagnostic',
+        apiBase: base,
+        target: target.toString(),
+        status: 'FETCH_ERROR',
+        error: e?.message || 'fetch failed'
+      }));
+    }
     return NextResponse.json(
       { message: 'ANCLINE API is temporarily unavailable through the web proxy.' },
       { status: 502 }
