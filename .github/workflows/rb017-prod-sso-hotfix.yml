@@ -49,6 +49,12 @@ jobs:
             "https://api.render.com/v1/services/$PROD_WEB_SERVICE_ID/deploys")"
           cat /tmp/deploy.json
           [[ "$code" == "201" || "$code" == "202" ]]
+      - name: Inspect live OIDC configuration safely
+        run: |
+          set -euo pipefail
+          curl -L -fsS --connect-timeout 10 --max-time 30 "https://ancline-api-prod.onrender.com/api/auth/oidc/configuration" \
+            | jq '{configured,devLoginAllowed,issuer,redirectUri,discoveryUrl,authorizationEndpoint,clientIdPresent:(.clientId|type=="string" and length>0)}'
+
       - name: Verify production SSO routing
         run: |
           set -euo pipefail
