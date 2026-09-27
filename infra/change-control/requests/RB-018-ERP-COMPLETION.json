@@ -1,0 +1,41 @@
+{
+  "schema": "ANCLINE_RELEASE_BUNDLE_V1",
+  "id": "RB-018",
+  "status": "IN_PROGRESS",
+  "title": "ANCLINE ERP Completion Build",
+  "baseBranch": "main",
+  "workBranch": "rb018-erp-completion",
+  "parentBaseline": "RB-017-FROZEN-ACCEPTED",
+  "objective": "Complete the approved ANCLINE Global Forwarding ERP business application before returning to production authentication work.",
+  "scope": [
+    "complete missing or incomplete ERP screens and forms",
+    "complete same-page business workflows and action paths",
+    "repair broken or missing navigation, links and buttons",
+    "bind approved screens to authoritative existing APIs",
+    "complete operations, forwarding, NVOCC, finance, control, reporting and administration gaps already represented in the approved product",
+    "run realistic cross-module transaction validation using existing test jobs",
+    "fix verified in-scope functional, UI, data-integrity and workflow defects"
+  ],
+  "excluded": [
+    "Auth0 or OIDC changes",
+    "new authentication providers",
+    "production promotion",
+    "live provider activation",
+    "real-money activation",
+    "new unapproved business modules",
+    "M3 changes"
+  ],
+  "invariants": [
+    "preserve approved business logic",
+    "preserve existing data model unless an additive fix is strictly required for an already-approved function",
+    "preserve API contracts unless an additive compatibility fix is strictly required",
+    "preserve role and data scope",
+    "preserve maker-checker, four-eyes, segregation-of-duties and audit controls",
+    "staging first",
+    "impact-based tests during development and one final full UAT at the end"
+  ],
+  "executionMode": "BUILD_FIRST_CONTINUOUS",
+  "autoFixVerifiedInScopeDefects": true,
+  "intermediateApprovalRequired": false,
+  "finalAcceptanceRequired": true
+}
