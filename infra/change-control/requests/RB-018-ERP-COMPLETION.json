@@ -1,0 +1,50 @@
+{
+  "schema": "ANCLINE_RELEASE_BUNDLE_V1",
+  "id": "RB-018",
+  "status": "IN_PROGRESS",
+  "title": "ANCLINE ERP Completion Build",
+  "baseBranch": "main",
+  "workBranch": "rb018-erp-completion",
+  "parentBaseline": "RB-017-FROZEN-ACCEPTED",
+  "objective": "Finalize the already-built ANCLINE Global Forwarding ERP by making existing pages and approved flows fully functional, consistent and end-to-end complete. Do not create new pages, modules, routes or business flows.",
+  "scope": [
+    "harden and complete existing ERP pages only",
+    "make existing screens follow the approved end-to-end business flow",
+    "repair broken or missing actions inside existing pages",
+    "repair existing navigation, links, buttons and same-page workflows",
+    "complete existing form validation and field behavior",
+    "bind existing screens to authoritative existing APIs",
+    "remove duplicated or conflicting behavior where verified",
+    "run realistic cross-module transaction validation using existing approved jobs",
+    "fix verified in-scope functional, UI, data-integrity and workflow defects",
+    "prepare final acceptance and freeze when all existing flows pass"
+  ],
+  "excluded": [
+    "Auth0 or OIDC changes",
+    "new authentication providers",
+    "production promotion",
+    "live provider activation",
+    "real-money activation",
+    "new unapproved business modules",
+    "M3 changes",
+    "new ERP pages",
+    "new ERP modules",
+    "new routes",
+    "new business flows",
+    "redesign of approved navigation structure"
+  ],
+  "invariants": [
+    "preserve approved business logic",
+    "preserve existing data model unless an additive fix is strictly required for an already-approved function",
+    "preserve API contracts unless an additive compatibility fix is strictly required",
+    "preserve role and data scope",
+    "preserve maker-checker, four-eyes, segregation-of-duties and audit controls",
+    "staging first",
+    "impact-based tests during development and one final full UAT at the end"
+  ],
+  "executionMode": "EXISTING_ERP_HARDEN_AND_FINALIZE",
+  "autoFixVerifiedInScopeDefects": true,
+  "intermediateApprovalRequired": false,
+  "finalAcceptanceRequired": true,
+  "finalizationRule": "No new pages or flows. Existing approved ERP only: harden, connect, validate, full UAT, final freeze."
+}

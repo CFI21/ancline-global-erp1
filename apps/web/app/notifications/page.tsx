@@ -42,6 +42,11 @@ export default function NotificationsPage(){
       await load();
     }catch(e:any){setMessage(e.message||'Operational risk scan failed');setBusy(false);}
   }
+  async function markAllRead(){
+    setBusy(true);setMessage('');
+    try{const r=await api('/operations/notifications/read-all',token,{method:'POST'});setMessage(`Marked ${r?.updated||r?.count||0} notification(s) as read.`);await load();}
+    catch(e:any){setMessage(e.message||'Could not mark notifications as read');setBusy(false);}
+  }
   async function acknowledge(item:Item){
     try{await api('/operations/communication-center/'+encodeURIComponent(item.id)+'/acknowledge',token,{method:'POST'});await load();}
     catch(e:any){setMessage(e.message||'Could not acknowledge communication item');}
@@ -73,7 +78,7 @@ export default function NotificationsPage(){
 
   const s=data.summary||{};
   const prefs=data.preferences||{};
-  return <WorkspaceShell title="Operations Notification + Communication Center" subtitle="Unified operational alerts · action queue · SLA escalations · integrations · audit-backed acknowledgements" active="/notifications" actions={<><button className="btn" disabled={busy} onClick={rescan}>{busy?'Refreshing…':'Scan + Refresh'}</button><button className="btn" onClick={()=>void load()}>Refresh</button></>}>
+  return <WorkspaceShell title="Operations Notification + Communication Center" subtitle="Unified operational alerts · action queue · SLA escalations · integrations · audit-backed acknowledgements" active="/notifications" actions={<><button className="btn" disabled={busy} onClick={markAllRead}>Mark all read</button><button className="btn" disabled={busy} onClick={rescan}>{busy?'Refreshing…':'Scan + Refresh'}</button><button className="btn" onClick={()=>void load()}>Refresh</button></>}>
 
     {message&&<div className="card" style={{marginBottom:12}}>{message}</div>}
 
