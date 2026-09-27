@@ -1,0 +1,65 @@
+name: RB-017 Production API SSO Fallback
+
+on:
+  push:
+    branches: [rb017-prod-sso-hotfix]
+    paths:
+      - 'apps/api/src/modules/auth/oidc/oidc.service.ts'
+      - '.github/workflows/rb017-prod-api-sso-fallback.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-deploy-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      IMAGE: ghcr.io/cfi21/ancline-api
+      PROD_API_SERVICE_ID: srv-dapdoq9srm7s73f4dif0
+      PROD_API_URL: https://ancline-api-prod.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push API SSO fallback
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:rb017-auth0-fallback-${{ github.sha }}
+          build-args: ANCLINE_BUILD_COMMIT=${{ github.sha }}
+      - name: Deploy exact API image to production API only
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          set -euo pipefail
+          image="$IMAGE:rb017-auth0-fallback-$GITHUB_SHA"
+          payload="$(jq -nc --arg image "$image" '{imageUrl:$image}')"
+          code="$(curl -sS -o /tmp/deploy.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "https://api.render.com/v1/services/$PROD_API_SERVICE_ID/deploys")"
+          cat /tmp/deploy.json
+          [[ "$code" == "201" || "$code" == "202" ]]
+      - name: Verify production OIDC fallback
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 50); do
+            code="$(curl -L -sS -o /tmp/oidc.json -w '%{http_code}' --connect-timeout 10 --max-time 30 "$PROD_API_URL/api/auth/oidc/configuration" || true)"
+            if [[ "$code" == "200" ]] && jq -e '.configured==true and .devLoginAllowed==false and (.authorizationEndpoint|type=="string" and length>0)' /tmp/oidc.json >/dev/null; then
+              jq '{configured,devLoginAllowed,redirectUri,authorizationEndpoint,discoveryOk}' /tmp/oidc.json
+              exit 0
+            fi
+            sleep 8
+          done
+          cat /tmp/oidc.json 2>/dev/null || true
+          exit 1
