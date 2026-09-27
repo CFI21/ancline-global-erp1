@@ -32,7 +32,9 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE }}:rb017-prod-sso-${{ github.sha }}
-          build-args: ANCLINE_BUILD_COMMIT=${{ github.sha }}
+          build-args: |
+            ANCLINE_BUILD_COMMIT=${{ github.sha }}
+            NEXT_PUBLIC_API_URL=https://ancline-api-prod.onrender.com/api
       - name: Deploy exact hotfix image to production web only
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -51,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 40); do
-            code="$(curl -L -sS -o /tmp/oidc.json -w '%{http_code}' --connect-timeout 10 --max-time 30 "$PROD_WEB_URL/api-proxy/auth/oidc/configuration" || true)"
+            code="$(curl -L -sS -o /tmp/oidc.json -w '%{http_code}' --connect-timeout 10 --max-time 30 "https://ancline-api-prod.onrender.com/api/auth/oidc/configuration" || true)"
             if [[ "$code" == "200" ]] && jq -e '.configured==true and .devLoginAllowed==false and (.authorizationEndpoint|type=="string")' /tmp/oidc.json >/dev/null; then
               cat /tmp/oidc.json
               exit 0
