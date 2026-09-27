@@ -22,7 +22,8 @@ export default function Login(){
   const [scopeId,setScopeId]=useState('');
   const bakedIssuer=process.env.NEXT_PUBLIC_OIDC_ISSUER||'';
   const bakedClientId=process.env.NEXT_PUBLIC_OIDC_CLIENT_ID||'';
-  const bakedRedirectUri=process.env.NEXT_PUBLIC_OIDC_REDIRECT_URI||'';
+  const productionRedirectUri='https://ancline-web-prod.onrender.com/auth/callback';
+  const bakedRedirectUri=productionRedirectUri;
   const bakedAuthorizationEndpoint=process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_ENDPOINT||(bakedIssuer?bakedIssuer.replace(/\/$/,'')+'/authorize':'');
   const bakedOidc:OidcConfig={
     configured:Boolean(bakedClientId&&bakedRedirectUri&&bakedAuthorizationEndpoint),
@@ -42,7 +43,7 @@ export default function Login(){
     ]).then(([o,c])=>{
       setOrgs(Array.isArray(o)?o:[]);
       const resolved=(c&&c.configured&&c.clientId&&c.redirectUri&&c.authorizationEndpoint)?c:bakedOidc;
-      setOidc({...resolved,devLoginAllowed:false});
+      setOidc({...resolved,redirectUri:productionRedirectUri,devLoginAllowed:false});
     });
   },[]);
   const scopedOrgs=useMemo(()=>role==='CUSTOMER'?orgs.filter(o=>o.roles?.includes('CUSTOMER')):role==='SHIPPER'?orgs.filter(o=>o.roles?.includes('SHIPPER')):role==='CONSIGNEE'?orgs.filter(o=>o.roles?.includes('CONSIGNEE')):role==='AGENT'?orgs.filter(o=>o.roles?.includes('AGENT')):role==='BRANCH_OPS'?orgs.filter(o=>o.roles?.includes('ANCLINE_BRANCH')):[],[role,orgs]);
@@ -82,7 +83,7 @@ export default function Login(){
       const normalizedEndpoint=/^https?:\/\//i.test(rawEndpoint)?rawEndpoint:'https://'+rawEndpoint;
       const u=new URL(normalizedEndpoint);
       u.searchParams.set('response_type','code');u.searchParams.set('client_id',oidc.clientId);
-      u.searchParams.set('redirect_uri',oidc.redirectUri);u.searchParams.set('scope','openid email profile');
+      u.searchParams.set('redirect_uri',productionRedirectUri);u.searchParams.set('scope','openid email profile');
       u.searchParams.set('state',state);u.searchParams.set('code_challenge',challenge);u.searchParams.set('code_challenge_method','S256');
       location.href=u.toString();
     }catch(e:any){setBusy(false);setMsg(e?.message||'Unable to start company sign-in');}
