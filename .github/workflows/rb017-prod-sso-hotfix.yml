@@ -31,8 +31,16 @@ jobs:
         id: oidc
         run: |
           set -euo pipefail
-          curl -L -fsS --connect-timeout 10 --max-time 30 "https://ancline-api-prod.onrender.com/api/auth/oidc/configuration" -o /tmp/oidc.json
-          jq -e '.configured==true and (.clientId|type=="string" and length>0) and (.redirectUri|type=="string" and length>0) and (.authorizationEndpoint|type=="string" and length>0)' /tmp/oidc.json >/dev/null
+          ok=0
+          for i in $(seq 1 45); do
+            code="$(curl -L -sS -o /tmp/oidc.json -w '%{http_code}' --connect-timeout 10 --max-time 30 "https://ancline-api-prod.onrender.com/api/auth/oidc/configuration" || true)"
+            if [[ "$code" == "200" ]] && jq -e '.configured==true and (.clientId|type=="string" and length>0) and (.redirectUri|type=="string" and length>0) and (.authorizationEndpoint|type=="string" and length>0)' /tmp/oidc.json >/dev/null 2>&1; then
+              ok=1
+              break
+            fi
+            sleep 8
+          done
+          [[ "$ok" == "1" ]]
           echo "issuer=$(jq -r '.issuer' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
           echo "client_id=$(jq -r '.clientId' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
           echo "redirect_uri=$(jq -r '.redirectUri' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
