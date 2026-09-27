@@ -10,7 +10,7 @@ export class OidcService {
   private cache:{at:number;data:Discovery}|null=null;
 
   private configured(){return Boolean(this.issuer&&this.clientId&&process.env.OIDC_CLIENT_SECRET&&this.redirectUri);}
-  private issuerBase(){return this.issuer.replace(/\/$/,'');}
+  private issuerBase(){const v=this.issuer.trim().replace(/\/$/,'');return /^https?:\/\//i.test(v)?v:'https://'+v;}
   private discoveryUrl(){return this.issuer?this.issuerBase()+'/.well-known/openid-configuration':'';}
 
   private auth0Fallback():Discovery{
