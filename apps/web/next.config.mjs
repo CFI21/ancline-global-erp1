@@ -1,4 +1,4 @@
 const nextConfig = {};
 
-// RB-017 production SSO hotfix: use runtime /api-proxy route, never hard-code staging.
+// RB-017 production SSO hotfix: runtime proxy only; diagnostic rebuild.
 export default nextConfig;
