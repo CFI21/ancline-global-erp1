@@ -78,7 +78,9 @@ export default function Login(){
       const challenge=b64url(digest);
       sessionStorage.setItem('ancline_oidc_state',state);
       sessionStorage.setItem('ancline_oidc_verifier',verifier);
-      const u=new URL(oidc.authorizationEndpoint);
+      const rawEndpoint=String(oidc.authorizationEndpoint).trim();
+      const normalizedEndpoint=/^https?:\/\//i.test(rawEndpoint)?rawEndpoint:'https://'+rawEndpoint;
+      const u=new URL(normalizedEndpoint);
       u.searchParams.set('response_type','code');u.searchParams.set('client_id',oidc.clientId);
       u.searchParams.set('redirect_uri',oidc.redirectUri);u.searchParams.set('scope','openid email profile');
       u.searchParams.set('state',state);u.searchParams.set('code_challenge',challenge);u.searchParams.set('code_challenge_method','S256');
