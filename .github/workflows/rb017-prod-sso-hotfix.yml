@@ -3,6 +3,9 @@ name: RB-017 Production SSO Hotfix
 on:
   push:
     branches: [rb017-prod-sso-hotfix]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/rb017-prod-sso-hotfix.yml'
 
 permissions:
   contents: read
@@ -24,6 +27,17 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read public production OIDC settings
+        id: oidc
+        run: |
+          set -euo pipefail
+          curl -L -fsS --connect-timeout 10 --max-time 30 "https://ancline-api-prod.onrender.com/api/auth/oidc/configuration" -o /tmp/oidc.json
+          jq -e '.configured==true and (.clientId|type=="string" and length>0) and (.redirectUri|type=="string" and length>0) and (.authorizationEndpoint|type=="string" and length>0)' /tmp/oidc.json >/dev/null
+          echo "issuer=$(jq -r '.issuer' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
+          echo "client_id=$(jq -r '.clientId' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
+          echo "redirect_uri=$(jq -r '.redirectUri' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
+          echo "authorization_endpoint=$(jq -r '.authorizationEndpoint' /tmp/oidc.json)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push web hotfix
         uses: docker/build-push-action@v6
         with:
@@ -35,6 +49,10 @@ jobs:
           build-args: |
             ANCLINE_BUILD_COMMIT=${{ github.sha }}
             NEXT_PUBLIC_API_URL=https://ancline-api-prod.onrender.com/api
+            NEXT_PUBLIC_OIDC_ISSUER=${{ steps.oidc.outputs.issuer }}
+            NEXT_PUBLIC_OIDC_CLIENT_ID=${{ steps.oidc.outputs.client_id }}
+            NEXT_PUBLIC_OIDC_REDIRECT_URI=${{ steps.oidc.outputs.redirect_uri }}
+            NEXT_PUBLIC_OIDC_AUTHORIZATION_ENDPOINT=${{ steps.oidc.outputs.authorization_endpoint }}
       - name: Deploy exact hotfix image to production web only
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
