@@ -20,15 +20,30 @@ export default function Login(){
   const [role,setRole]=useState('GLOBAL_ADMIN');
   const [orgs,setOrgs]=useState<Org[]>([]);
   const [scopeId,setScopeId]=useState('');
-  const [oidc,setOidc]=useState<OidcConfig>({configured:false,devLoginAllowed:true});
+  const bakedIssuer=process.env.NEXT_PUBLIC_OIDC_ISSUER||'';
+  const bakedClientId=process.env.NEXT_PUBLIC_OIDC_CLIENT_ID||'';
+  const bakedRedirectUri=process.env.NEXT_PUBLIC_OIDC_REDIRECT_URI||'';
+  const bakedAuthorizationEndpoint=process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_ENDPOINT||(bakedIssuer?bakedIssuer.replace(/\/$/,'')+'/authorize':'');
+  const bakedOidc:OidcConfig={
+    configured:Boolean(bakedClientId&&bakedRedirectUri&&bakedAuthorizationEndpoint),
+    devLoginAllowed:false,
+    clientId:bakedClientId||undefined,
+    redirectUri:bakedRedirectUri||undefined,
+    authorizationEndpoint:bakedAuthorizationEndpoint||null
+  };
+  const [oidc,setOidc]=useState<OidcConfig>(bakedOidc);
   const [msg,setMsg]=useState('');
   const [busy,setBusy]=useState(false);
 
   useEffect(()=>{
     void Promise.all([
       api('/organizations').catch(()=>[]),
-      api('/auth/oidc/configuration').catch(()=>({configured:false,devLoginAllowed:true}))
-    ]).then(([o,c])=>{setOrgs(Array.isArray(o)?o:[]);setOidc(c||{configured:false,devLoginAllowed:true});});
+      api('/auth/oidc/configuration').catch(()=>bakedOidc)
+    ]).then(([o,c])=>{
+      setOrgs(Array.isArray(o)?o:[]);
+      const resolved=(c&&c.configured&&c.clientId&&c.redirectUri&&c.authorizationEndpoint)?c:bakedOidc;
+      setOidc({...resolved,devLoginAllowed:false});
+    });
   },[]);
   const scopedOrgs=useMemo(()=>role==='CUSTOMER'?orgs.filter(o=>o.roles?.includes('CUSTOMER')):role==='SHIPPER'?orgs.filter(o=>o.roles?.includes('SHIPPER')):role==='CONSIGNEE'?orgs.filter(o=>o.roles?.includes('CONSIGNEE')):role==='AGENT'?orgs.filter(o=>o.roles?.includes('AGENT')):role==='BRANCH_OPS'?orgs.filter(o=>o.roles?.includes('ANCLINE_BRANCH')):[],[role,orgs]);
   useEffect(()=>{setScopeId(scopedOrgs[0]?.id||'');},[role,scopedOrgs.length]);
