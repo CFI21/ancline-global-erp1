@@ -10,18 +10,35 @@ export class OidcService {
   private cache:{at:number;data:Discovery}|null=null;
 
   private configured(){return Boolean(this.issuer&&this.clientId&&process.env.OIDC_CLIENT_SECRET&&this.redirectUri);}
-  private discoveryUrl(){return this.issuer?`${this.issuer.replace(/\/$/,'')}/.well-known/openid-configuration`:'';}
+  private issuerBase(){return this.issuer.replace(/\/$/,'');}
+  private discoveryUrl(){return this.issuer?this.issuerBase()+'/.well-known/openid-configuration':'';}
+
+  private auth0Fallback():Discovery{
+    const base=this.issuerBase();
+    if(!base) throw new UnauthorizedException('OIDC issuer is missing');
+    return {
+      authorization_endpoint:base+'/authorize',
+      token_endpoint:base+'/oauth/token',
+      userinfo_endpoint:base+'/userinfo'
+    };
+  }
 
   private async discovery():Promise<Discovery>{
     if(!this.configured()) throw new UnauthorizedException('OIDC is not configured');
     if(this.cache&&Date.now()-this.cache.at<300000)return this.cache.data;
-    const r=await fetch(this.discoveryUrl(),{headers:{accept:'application/json'}});
-    if(!r.ok) throw new UnauthorizedException('OIDC provider discovery failed');
-    const data:any=await r.json();
-    if(!data?.authorization_endpoint||!data?.token_endpoint||!data?.userinfo_endpoint)
-      throw new UnauthorizedException('OIDC provider discovery is incomplete');
-    this.cache={at:Date.now(),data};
-    return data;
+    try{
+      const r=await fetch(this.discoveryUrl(),{headers:{accept:'application/json'}});
+      if(!r.ok) throw new Error('OIDC provider discovery HTTP '+r.status);
+      const data:any=await r.json();
+      if(!data?.authorization_endpoint||!data?.token_endpoint||!data?.userinfo_endpoint)
+        throw new Error('OIDC provider discovery is incomplete');
+      this.cache={at:Date.now(),data};
+      return data;
+    }catch{
+      const fallback=this.auth0Fallback();
+      this.cache={at:Date.now(),data:fallback};
+      return fallback;
+    }
   }
 
   async configuration(){
@@ -35,8 +52,12 @@ export class OidcService {
       authorizationEndpoint:null as string|null
     };
     if(!base.configured)return base;
-    try{const d=await this.discovery();return {...base,authorizationEndpoint:d.authorization_endpoint||null,discoveryOk:true,discoveryError:null};}
-    catch(e:any){return {...base,discoveryOk:false,discoveryError:e?.message||'OIDC discovery failed'};}
+    try{
+      const d=await this.discovery();
+      return {...base,authorizationEndpoint:d.authorization_endpoint||null,discoveryOk:true,discoveryError:null};
+    }catch(e:any){
+      return {...base,discoveryOk:false,discoveryError:e?.message||'OIDC discovery failed'};
+    }
   }
 
   validateConfiguration(){
@@ -68,7 +89,7 @@ export class OidcService {
     const token:any=await tokenRes.json();
     if(!token?.access_token) throw new UnauthorizedException('OIDC provider did not return an access token');
 
-    const userRes=await fetch(String(d.userinfo_endpoint),{headers:{authorization:`Bearer ${token.access_token}`,accept:'application/json'}});
+    const userRes=await fetch(String(d.userinfo_endpoint),{headers:{authorization:'Bearer '+token.access_token,accept:'application/json'}});
     if(!userRes.ok) throw new UnauthorizedException('OIDC user profile could not be retrieved');
     const profile:any=await userRes.json();
     if(!profile?.sub||!profile?.email) throw new UnauthorizedException('OIDC identity is missing subject or email');
