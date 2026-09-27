@@ -3,11 +3,6 @@ name: RB-017 Production SSO Hotfix
 on:
   push:
     branches: [rb017-prod-sso-hotfix]
-    paths:
-      - 'apps/web/next.config.mjs'
-      - 'apps/web/app/api-proxy/[...path]/route.ts'
-      - 'apps/web/app/api/diagnostics/prod-sso/route.ts'
-      - '.github/workflows/rb017-prod-sso-hotfix.yml'
 
 permissions:
   contents: read
