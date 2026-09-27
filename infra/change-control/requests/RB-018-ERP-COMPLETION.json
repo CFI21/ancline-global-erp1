@@ -6,15 +6,18 @@
   "baseBranch": "main",
   "workBranch": "rb018-erp-completion",
   "parentBaseline": "RB-017-FROZEN-ACCEPTED",
-  "objective": "Complete the approved ANCLINE Global Forwarding ERP business application before returning to production authentication work.",
+  "objective": "Finalize the already-built ANCLINE Global Forwarding ERP by making existing pages and approved flows fully functional, consistent and end-to-end complete. Do not create new pages, modules, routes or business flows.",
   "scope": [
-    "complete missing or incomplete ERP screens and forms",
-    "complete same-page business workflows and action paths",
-    "repair broken or missing navigation, links and buttons",
-    "bind approved screens to authoritative existing APIs",
-    "complete operations, forwarding, NVOCC, finance, control, reporting and administration gaps already represented in the approved product",
-    "run realistic cross-module transaction validation using existing test jobs",
-    "fix verified in-scope functional, UI, data-integrity and workflow defects"
+    "harden and complete existing ERP pages only",
+    "make existing screens follow the approved end-to-end business flow",
+    "repair broken or missing actions inside existing pages",
+    "repair existing navigation, links, buttons and same-page workflows",
+    "complete existing form validation and field behavior",
+    "bind existing screens to authoritative existing APIs",
+    "remove duplicated or conflicting behavior where verified",
+    "run realistic cross-module transaction validation using existing approved jobs",
+    "fix verified in-scope functional, UI, data-integrity and workflow defects",
+    "prepare final acceptance and freeze when all existing flows pass"
   ],
   "excluded": [
     "Auth0 or OIDC changes",
@@ -23,7 +26,12 @@
     "live provider activation",
     "real-money activation",
     "new unapproved business modules",
-    "M3 changes"
+    "M3 changes",
+    "new ERP pages",
+    "new ERP modules",
+    "new routes",
+    "new business flows",
+    "redesign of approved navigation structure"
   ],
   "invariants": [
     "preserve approved business logic",
@@ -34,8 +42,9 @@
     "staging first",
     "impact-based tests during development and one final full UAT at the end"
   ],
-  "executionMode": "BUILD_FIRST_CONTINUOUS",
+  "executionMode": "EXISTING_ERP_HARDEN_AND_FINALIZE",
   "autoFixVerifiedInScopeDefects": true,
   "intermediateApprovalRequired": false,
-  "finalAcceptanceRequired": true
+  "finalAcceptanceRequired": true,
+  "finalizationRule": "No new pages or flows. Existing approved ERP only: harden, connect, validate, full UAT, final freeze."
 }
